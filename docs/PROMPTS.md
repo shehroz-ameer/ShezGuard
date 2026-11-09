@@ -10,7 +10,7 @@ recommendation for each. Do not write code yet.
 
 ## 1. Project and build setup
 Check the current structure of the project. Make sure `:shezguard-core` is an Android library
-module and `:sample` depends on it with `implementation(project(":shezguard-core"))`.
+module and `:app` depends on it with `implementation(project(":shezguard-core"))`.
 Enable `explicitApi()`, set minSdk 24, add androidx.core, JUnit and Robolectric as test
 dependencies. Add one trivial passing test and run `./gradlew :shezguard-core:test`.
 Tell me every version you chose and why.
@@ -38,7 +38,7 @@ with `@DslMarker` to prevent scope leaks and validation of the policy itself (fo
 reject a policy with no allowed hosts for an https entry point). Tests for the DSL.
 
 ## 4b. Evaluator
-Implement `IntentGuard.evaluate(...)` running the pipeline in SPEC section 5 for URI and
+Implement `ShezGuard.evaluate(...)` running the pipeline in SPEC section 5 for URI and
 parameter checks. Deny by default for unknown entry points. Robolectric tests using real
 `Intent` and `Uri` objects.
 
@@ -68,19 +68,19 @@ incoming intent for an annotated or registered entry point and finishes safely o
 Cover `onCreate` and `onNewIntent`. Keep it optional so the core stays usable without it.
 
 ## 11. Sample app, vulnerable version
-In `:sample`, build a deliberately vulnerable app: exported Activity with an https deep link
+In `:app`, build a deliberately vulnerable app: exported Activity with an https deep link
 that loads a parameter into a WebView, one that forwards a nested intent, one that concatenates
 a parameter into a SQLite query, and one that reads an unbounded extra. Add comments marking
 each vulnerability. Create `scripts/attacks/*.sh` adb commands, one per threat in SPEC section 2.
 
 ## 12. Sample app, protected version
-Add a product flavour or build variant that applies IntentGuard to the same entry points.
+Add a product flavour or build variant that applies ShezGuard to the same entry points.
 Re-run each attack script and record outcomes in docs/ATTACK_MATRIX.md (attack, vulnerable
 result, protected result, test name, notes). Do not mark an attack as blocked unless a test
 or script proves it, and list any that remain uncovered.
 
 ## 13. Build-time coverage check
-Implement the check from SPEC section 9 (lint rule or Gradle task) that fails when an exported
+Implement the check from SPEC section 9 (annotation + Lint rule in `:shezguard-lint`; registry-file Gradle task only as the agreed fallback) that fails when an exported
 or BROWSABLE component has no registered policy. Test it against a sample manifest that
 passes and one that fails. Explain the trade-offs of the approach you chose.
 

@@ -1,6 +1,7 @@
 # ShezGuard
 
-Kotlin Android library (`:shezguard-core`) plus a demo app (`:sample`). It is the
+Kotlin Android library (`:shezguard-core`) plus a demo app (`:app`), and a Lint
+coverage check (`:shezguard-lint`). It is the
 proof-of-concept for an MSc cybersecurity research article, so correctness,
 explainability and honest limitations matter more than feature count.
 
@@ -9,9 +10,26 @@ instinct disagree, ask me instead of choosing silently.
 
 ## What it does
 A declarative, developer-side layer that validates incoming Intents and deep
-links at an app's entry points (Activities, and where relevant Services and
-Receivers) against a per-entry-point policy, and returns an explainable
-Allow / Sanitize / Block decision.
+links at an app's entry points against a per-entry-point policy, and returns an
+explainable Allow / Sanitize / Block decision. Public entry: `ShezGuard.evaluate`,
+package `com.shezguard.core`. In v1, `evaluate()` accepts any Intent, but the
+Activity helper and the demo cover Activities only (Services and Receivers are out of v1).
+
+## Decisions already taken (details in `docs/SPEC.md`, rationale in `docs/ORIENTATION.md`)
+- Two-tier decision: structural and content violations always Block, whatever their
+  weight. The risk score decides the outcome only for soft / advisory signals.
+- Sanitize only removes (unknown params under `Unknown.Drop`, disallowed extras, nested
+  intents via `IntentSanitizer`). It never rewrites any value. If removal cannot fix a
+  violation, Block.
+- Unknown params: `Block` (default), `Drop`, `Ignore`.
+- Caller info is a signal, not proof. `AllowedPackages` is soft unless the identity source
+  is reliable or a signature permission protects the component. `VerifiedAppLinkOnly` is
+  renamed `requireVerifiedDomain`.
+- Defaults: URI max 2048 chars, param max 256 chars; repeated params blocked; fragments
+  and non-default ports rejected unless allowed; hosts match exactly, subdomains only via
+  `subdomainsOf(...)`; per-entry-point `data(Required | Forbidden | Optional)`.
+- Build-time check: `@GuardedEntryPoint("name")` + custom Lint rule in `:shezguard-lint`.
+  If Lint costs more than about a day, switch to a registry-file Gradle task and tell me.
 
 ## Hard rules
 - Kotlin only. `explicitApi()` is on: every declaration is deliberately `public` or `internal`.
