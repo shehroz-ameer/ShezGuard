@@ -4,7 +4,7 @@ plugins {
 }
 
 android {
-    namespace = "com.shezguard.shezguard_core"
+    namespace = "com.shezguard.core"
     compileSdk = 35
 
     defaultConfig {
@@ -30,14 +30,23 @@ android {
     kotlinOptions {
         jvmTarget = "11"
     }
+    testOptions {
+        // Robolectric needs merged Android resources/manifest on the unit-test classpath.
+        unitTests.isIncludeAndroidResources = true
+    }
+}
+
+kotlin {
+    // Every declaration must be deliberately `public` or `internal` (CLAUDE.md hard rule).
+    explicitApi()
 }
 
 dependencies {
+    // The only allowed runtime dependency: androidx.core (for IntentSanitizer).
+    implementation(libs.androidx.core)
 
-    implementation(libs.androidx.core.ktx)
-    implementation(libs.androidx.appcompat)
-    implementation(libs.material)
     testImplementation(libs.junit)
+    testImplementation(libs.robolectric)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
 }
