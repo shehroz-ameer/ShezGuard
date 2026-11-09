@@ -16,8 +16,9 @@ package `com.shezguard.core`. In v1, `evaluate()` accepts any Intent, but the
 Activity helper and the demo cover Activities only (Services and Receivers are out of v1).
 
 ## Decisions already taken (details in `docs/SPEC.md`, rationale in `docs/ORIENTATION.md`)
-- Two-tier decision: structural and content violations always Block, whatever their
-  weight. The risk score decides the outcome only for soft / advisory signals.
+- Outcome rule: any HARD violation -> Block; soft score >= block threshold -> Block;
+  any REMOVABLE violation -> Sanitize; otherwise Allow with soft signals listed.
+  There is no sanitize threshold.
 - Sanitize only removes (unknown params under `Unknown.Drop`, disallowed extras, nested
   intents via `IntentSanitizer`). It never rewrites any value. If removal cannot fix a
   violation, Block.
@@ -27,7 +28,11 @@ Activity helper and the demo cover Activities only (Services and Receivers are o
   renamed `requireVerifiedDomain`.
 - Defaults: URI max 2048 chars, param max 256 chars; repeated params blocked; fragments
   and non-default ports rejected unless allowed; hosts match exactly, subdomains only via
-  `subdomainsOf(...)`; per-entry-point `data(Required | Forbidden | Optional)`.
+  `subdomainsOf(...)`; per-entry-point `data(Required | Forbidden | Optional)`, defaulting
+  to Forbidden, switched to Required by `allowSchemes`; data-accepting entry points must
+  declare a path pattern or `anyPath()`.
+- Canonicalisation: `+` is a space in query strings and literal in paths; `.` and `..`
+  segments rejected; Unicode Cf characters rejected everywhere after decoding.
 - Build-time check: `@GuardedEntryPoint("name")` + custom Lint rule in `:shezguard-lint`.
   If Lint costs more than about a day, switch to a registry-file Gradle task and tell me.
 

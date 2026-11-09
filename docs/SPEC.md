@@ -50,6 +50,11 @@ A `IntentPolicy` is a set of named `EntryPointPolicy` objects. Each entry point 
     explicit opt-in such as `subdomainsOf("example.com")`. No IDN conversion.
   - **[DECIDED]** non-default ports are rejected unless the policy allows them.
   - **[DECIDED]** fragments are rejected unless the policy allows them.
+  - **[DECIDED]** path patterns are mandatory for an entry point that accepts URI data
+    (`Data.Required` or `Data.Optional`): it must declare at least one exact or prefix
+    pattern, or an explicit `anyPath()`. The DSL rejects the policy otherwise. In the model,
+    an empty pattern list matches no path; `PathPattern.AnyPath` matches any canonical path.
+    Prefix patterns must end with `/` so matching stops at a segment boundary.
 - parameter rules: name, type (digits, enum, UUID, bounded string, URL-allowlisted), max length, required or optional
   - **[DECIDED]** repeated parameters (`?id=1&id=2`) are blocked by default (parameter pollution).
   - **[DECIDED]** `URL-allowlisted` canonicalises the nested URL with the same canonicaliser,
@@ -69,7 +74,8 @@ A `IntentPolicy` is a set of named `EntryPointPolicy` objects. Each entry point 
   and arrays. It is an approximation, not a measured Parcel size.
 - caller rule **[DECIDED]**: `Any`, `RequireVerifiedDomain` (DSL: `requireVerifiedDomain()`,
   replaces `VerifiedAppLinkOnly`), `AllowedPackages(set + signature digests)`. See section 8.
-- risk threshold mapping score to Allow / Sanitize / Block (soft signals only, see section 5).
+- block threshold: the soft-signal score at or above which the intent is blocked
+  (section 5.2). **[DECIDED]** there is no sanitize threshold.
 
 Semantics: policies are evaluated deterministically. Same input gives same decision.
 **[DECIDED]** "Input" means (intent, policy, entry point name, caller info, SDK level).
@@ -105,17 +111,23 @@ decision is Block.
   canonicalisation failures, scheme / host / port / path / fragment / data-rule failures,
   parameter rule failures, repeated parameters, unknown parameters under `Unknown.Block`,
   nested intents under `Nested.Deny`, and anything Sanitize cannot remove (section 4.1).
-- **Soft tier.** The score decides the outcome only for soft / advisory signals, such as
-  caller hints and unknown parameters under `Unknown.Ignore`. This prevents weights from
+- **Removable tier.** Violations Sanitize can fix by removal (section 4.1).
+- **Soft tier.** Advisory signals, such as caller hints, domain verification and unknown
+  parameters under `Unknown.Ignore`. Only these feed the score. This prevents weights from
   bypassing deny by default.
-- Removable violations (section 4.1) produce Sanitize unless a hard violation or the soft
-  score produces Block.
 
-### 5.2 Score and thresholds [DECIDED]
+**Outcome rule**, applied in this order:
+1. Any HARD violation: **Block**.
+2. Soft-signal score `>= block` threshold: **Block**.
+3. Any REMOVABLE violation: **Sanitize** (remove those parts).
+4. Otherwise: **Allow**, with any soft signals listed in the decision.
+
+### 5.2 Score and threshold [DECIDED]
 - Severity levels: `LOW`, `MEDIUM`, `HIGH`, `CRITICAL`, each with a documented default weight.
 - Score is the sum of soft-signal weights, capped at 100 (range 0..100).
-- `score >= block` gives Block; else `score >= sanitize` gives Sanitize; else Allow.
-- The policy is validated when built: `0 <= sanitize < block <= 100`.
+- There is one threshold, `block`, in `1..100` (default 70). There is **no sanitize
+  threshold**: Sanitize can only remove parts, and soft signals (caller hints, domain
+  verification) have nothing to remove, so a score-driven Sanitize would be meaningless.
 - The decision lists which signals contributed and their weights.
 
 ## 6. Canonicalisation (internal, heavily tested)
@@ -126,6 +138,10 @@ decision is Block.
 - Percent-decode once; if the result still contains `%XX`, flag double encoding and Block.
   (Known false positives, see `docs/LIMITATIONS.md`.)
 - Reject control characters, null bytes, backslashes in paths, `..` segments (raw and encoded).
+  **[DECIDED]** single `.` segments (raw and encoded) are rejected the same way as `..`.
+- **[DECIDED]** Reject Unicode format characters (general category Cf: bidi controls,
+  zero-width characters, and the rest) in every component, after decoding. This includes
+  query values (see `docs/LIMITATIONS.md`).
 - Normalise path separators and duplicate slashes. **[DECIDED]** If the raw URI differs from
   the canonical one in more than scheme / host case, record a low-severity violation; the
   app must read data from the `Decision`, never from `getIntent()`.
@@ -133,7 +149,10 @@ decision is Block.
 - Reject userinfo (`user:pass@host`) tricks.
 - **[DECIDED]** Use a small pure-Kotlin parser (JVM-testable). A Robolectric differential
   test compares it with `android.net.Uri` on accepted inputs; if the two disagree, Block.
-- **[DECIDED]** Choose and document one rule for `+` versus `%20` in query values.
+- **[DECIDED]** `+` decodes to a space in query parameter names and values, and stays a
+  literal `+` in the path. `%2B` always decodes to a literal `+`. This matches what apps
+  read through `Uri.getQueryParameter`; the differential test must cover it and fail
+  loudly if `android.net.Uri` disagrees.
 - **[DECIDED]** Lookalike hosts (including `xn--` punycode) are handled by exact host
   matching. Lookalikes in parameter values are handled by each rule's character set.
 
@@ -141,15 +160,14 @@ decision is Block.
 ```kotlin
 val policy = intentPolicy {
     entryPoint("product") {
-        data(Data.Required)
-        allowSchemes("https")
+        allowSchemes("https")          // also switches data to Data.Required
         allowHosts("example.com")
-        path { prefix("/product/") }
+        path { prefix("/product/") }   // or anyPath(); one of them is mandatory
         param("id") { digitsOnly(maxLength = 10); required() }
         unknownParams(Unknown.Block)
         nestedIntents(Nested.Deny)
         caller(Caller.Any)
-        threshold(block = 70, sanitize = 30)
+        threshold(block = 70)
     }
 }
 
@@ -160,6 +178,11 @@ when (val d = ShezGuard.evaluate(intent, policy, "product", callerInfo)) {
 }
 ```
 Package: `com.shezguard.core`.
+
+**[DECIDED]** DSL rules (step 5):
+- An entry point's data rule defaults to `Data.Forbidden`. Calling `allowSchemes(...)`
+  switches it to `Data.Required` unless `data(...)` was set explicitly.
+- An entry point that accepts URI data must declare a path pattern or `anyPath()`.
 Also provide an Activity helper (`guardedOnCreate` or lifecycle callback) and an
 `AuditSink` interface (default: no-op; optional redacted logcat sink).
 

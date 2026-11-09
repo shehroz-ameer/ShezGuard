@@ -89,6 +89,11 @@ Add a micro-benchmark (Jetpack Microbenchmark or a simple timed loop if Microben
 impractical) measuring evaluation time for typical and worst-case intents. Report median and
 p95 and describe the setup precisely so I can reproduce it.
 
+Also run the canonicaliser differential tests (section B of `docs/CANONICALISER_TESTS.md`)
+as an instrumented test on a real device or emulator, not only under Robolectric. Report the
+device, Android version and API level, and any case where the real `android.net.Uri`
+disagrees with the Robolectric result.
+
 ## 15. Hardening review
 Act as a security reviewer of `:shezguard-core`. List bypasses, edge cases and unsafe defaults
 you can find, ordered by severity, with a failing test for each one you can demonstrate.
