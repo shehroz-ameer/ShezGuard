@@ -128,3 +128,71 @@ reliable or a signature-level permission protects the component.
   intent and caller checks with `data(Data.Forbidden)` if the URI is not needed, or handle
   the URI without ShezGuard.
 - **Source:** step 3 test list (test 85); SPEC section 6.
+
+## L11. Android's own query accessors disagree about `+`; read parameters from the Decision
+- **Rule for apps:** read query parameters from the ShezGuard `Decision`, which holds the
+  canonical values ShezGuard validated. If an app must read the `Uri` directly, it must use
+  `Uri.getQueryParameter(name)`, the accessor whose `+` handling ShezGuard matches.
+  `getQueryParameters(name)` and `getQueryParameterNames()` behave differently and must not
+  be used to read validated data.
+- **What Android does** (Robolectric, SDK 34, test 111; not yet verified on a device):
+  - `?q=a+b`: `getQueryParameter("q")` returns `a b`; `getQueryParameters("q")` returns
+    `[a+b]`. The plural accessor does not decode `+` in values.
+  - `?a+b=1`: `getQueryParameterNames()` returns `[a+b]` (no `+` decoding in names).
+    `getQueryParameter` finds the parameter under neither `a+b` nor `a b`.
+    `getQueryParameters("a b")` returns `[1]`, `getQueryParameters("a+b")` returns `[]`.
+- **What ShezGuard does:** decodes `+` to a space in names and values (SPEC section 6), so
+  it agrees with `getQueryParameter`. The differential test 99 compares values through
+  `getQueryParameter` only, and its corpus has no `+` in parameter names (author decision,
+  step 3). How the step 4b parser-mismatch check handles this is still to be decided.
+- **Source:** step 3, differential tests 99 and 111.
+
+## L12. `getQueryParameter` does not find percent-encoded parameter names
+- **Rule for apps:** as in L11, read parameters from the `Decision` (or, failing that, via
+  `getQueryParameter`). Do not combine `getQueryParameterNames()` with `getQueryParameter`.
+- **What Android does** (Robolectric, SDK 34, test 111): for `?%69d=5`,
+  `getQueryParameterNames()` returns `[id]`, but `getQueryParameter("id")` returns `null`
+  and `getQueryParameters("id")` returns `[]`. The lookup compares the requested name with
+  the raw, still-encoded query text. ShezGuard decodes the name and sees `id = 5`.
+- **Consequence:** a policy rule for `id` sees a parameter the app's own
+  `getQueryParameter("id")` does not. ShezGuard sees at least as much as the app, so the
+  check fails safe. But an app reading the `Uri` directly may act on different data than
+  was validated.
+- **Source:** step 3, differential tests 99 and 111.
+
+## L13. Deep links with empty query pieces, including a trailing `&`, are blocked
+- **What:** the query is split on `&`, and every piece, including an empty one, becomes a
+  parameter. `?a=1&&b=2` and `?a=1&` therefore contain a parameter with an empty name and
+  are blocked with `PARAM_NAME_INVALID`. Some link generators and hand-written links add a
+  trailing `&`, and `android.net.Uri` silently skips it, so such links work without
+  ShezGuard and are blocked with it.
+- **Why:** fails closed and keeps the parser simple: there is no "silently ignored" part
+  of the query that the policy did not see.
+- **Workaround:** none in v1. Senders must not emit empty query pieces.
+- **Source:** step 3 decision (author accepted, 2026-11-10); test 93.
+
+## L14. Unicode lookalikes of `/` and `.` outside a small set are accepted
+- **What:** the canonicaliser rejects only four path lookalikes (`URI_PATH_UNICODE_SEPARATOR`:
+  U+2215, U+2044, U+FF0F, U+FF0E). Others, such as U+2024 ONE DOT LEADER, U+FE52 SMALL
+  FULL STOP, U+29F8 BIG SOLIDUS, and backslash lookalikes U+FF3C and U+2216, pass. They
+  then reach the policy stage, where `anyPath()` accepts any canonical path, and a loosely
+  defined string parameter (`CharClass.TEXT`) accepts Unicode punctuation and symbols.
+- **Why:** any fixed list of lookalikes is incomplete. The reliable defence is to restrict
+  the allowed characters, not to list the bad ones.
+- **What ShezGuard does:** exact or prefix path patterns, `ALPHANUMERIC`, `SLUG` and
+  `PRINTABLE_ASCII` are ASCII-only, so they reject these characters. The default character
+  class for string parameters must be ASCII-restricted (step 4 note in `docs/PROMPTS.md`).
+  Entry points that use `anyPath()` or `CharClass.TEXT` accept the lookalikes and must not
+  pass such values to a file system or another path-sensitive sink.
+- **Source:** step 3 decision (author, 2026-11-10).
+
+## L15. Non-ASCII whitespace is rejected everywhere, including legitimate text
+- **What:** Unicode whitespace other than U+0020 (categories Zs, Zl, Zp, e.g. U+00A0
+  NO-BREAK SPACE, U+3000 IDEOGRAPHIC SPACE, U+2028, U+2029) blocks the intent
+  (`URI_WHITESPACE`), raw or encoded, in every component. Legitimate text sometimes contains
+  these, e.g. a no-break space in French typography or text pasted from a word processor.
+- **Why:** these characters look like a normal space or a line break but compare
+  differently, which enables spoofing and inconsistent handling downstream. As with L8,
+  rejecting the whole categories is simpler and more predictable than an allow-list.
+- **Workaround:** none in v1. An encoded U+0020 (`%20`, or `+` in a query) is still accepted.
+- **Source:** step 3 decision (author, 2026-11-10); test 112.

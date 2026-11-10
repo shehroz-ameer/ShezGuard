@@ -31,6 +31,9 @@ unicode lookalike hosts. Show me the test list before implementing.
 Implement scheme, host and path checks and the parameter rule types (digits, enum, UUID,
 bounded string, URL allow-list). Unknown-parameter handling per spec. Collect all violations.
 Unit tests per rule and per failure mode, plus tests for several violations at once.
+Note (from step 3): the default `CharClass` for string parameters must be ASCII-restricted,
+so Unicode lookalikes of `/`, `.` and `\` are rejected unless a rule opts in to
+`CharClass.TEXT` (`docs/LIMITATIONS.md` L14).
 
 ## 5. Policy DSL
 Implement the Kotlin DSL from SPEC section 7 (`intentPolicy { entryPoint(...) { ... } }`),
@@ -41,6 +44,11 @@ reject a policy with no allowed hosts for an https entry point). Tests for the D
 Implement `ShezGuard.evaluate(...)` running the pipeline in SPEC section 5 for URI and
 parameter checks. Deny by default for unknown entry points. Robolectric tests using real
 `Intent` and `Uri` objects.
+Before implementing, decide how `URI_PARSER_MISMATCH` is detected: propose which
+`android.net.Uri` accessors are compared with the canonical result, and ask the author.
+Android's own query accessors disagree about `+` and encoded names (`docs/LIMITATIONS.md`
+L11, L12; test 111), so the comparison must name its accessors explicitly. Include the
+crafted-parcel test from `docs/CANONICALISER_TESTS.md` ("Input contract").
 
 ## 6. Extras, Bundles and nested intents
 Add extras rules and nested intent handling. Wrap `androidx.core.content.IntentSanitizer`

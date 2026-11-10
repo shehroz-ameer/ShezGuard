@@ -70,7 +70,11 @@ public enum class ViolationCode(
     /** After decoding once, the value still contains `%XX` (double or deeper encoding). */
     URI_DOUBLE_ENCODING("URI_DOUBLE_ENCODING", Tier.HARD, Severity.HIGH),
 
-    /** Decoded bytes are not valid UTF-8, including overlong encodings such as `%C0%AE`. */
+    /**
+     * Decoded bytes are not valid UTF-8, including overlong encodings such as `%C0%AE` and
+     * encoded surrogates such as `%ED%A0%80`. Also covers invalid UTF-16 in the input
+     * string itself: a raw unpaired surrogate has no UTF-8 form, so it gets the same code.
+     */
     URI_INVALID_UTF8("URI_INVALID_UTF8", Tier.HARD, Severity.HIGH),
 
     /** A null byte, raw or encoded as `%00`. */
@@ -85,7 +89,11 @@ public enum class ViolationCode(
      */
     URI_FORMAT_CHAR("URI_FORMAT_CHAR", Tier.HARD, Severity.HIGH),
 
-    /** Unencoded whitespace in the URI. */
+    /**
+     * Whitespace in the URI: an unencoded U+0020 anywhere, or any other Unicode whitespace
+     * (categories Zs, Zl, Zp, e.g. U+00A0, U+3000, U+2028), raw or encoded. An encoded
+     * U+0020 (`%20`, or `+` in a query) is allowed.
+     */
     URI_WHITESPACE("URI_WHITESPACE", Tier.HARD, Severity.MEDIUM),
 
     /** A backslash in the scheme separator, authority or path, raw or encoded. */

@@ -1,7 +1,8 @@
 # Canonicaliser test list (step 3)
 
-**Status: Approved, not yet implemented.** Approved by the author on 2026-11-09, with
-additions merged in.
+**Status: Implemented in step 3; all tests pass.** Approved by the author on 2026-11-09, with
+additions merged in. Tests 111 and 112 and the change to test 99 were decided by the author
+on 2026-11-10.
 
 Test numbers are stable identifiers. Tests 1–103 keep the numbers they had in the first
 list. Approved additions are numbered 104 and up and placed in the section they belong to,
@@ -134,6 +135,9 @@ All give `URI_FORMAT_CHAR`.
 ### 8. Whitespace
 50. `blocksLeadingOrTrailingWhitespace`
 51. `blocksRawSpaceInsideUri`
+112. *(added 2026-11-10)* `blocksNonAsciiWhitespace`: U+00A0, U+3000, U+2028 and U+2029, raw
+     and encoded, in the path, query and fragment, give `URI_WHITESPACE` (Unicode categories
+     Zs, Zl, Zp other than U+0020; see `docs/LIMITATIONS.md` L15). `%20` stays allowed.
 
 ### 9. Backslashes
 52. `blocksRawBackslashInPath`: `/a\b`
@@ -215,8 +219,11 @@ The default limits are 2048 characters for the URI and 256 per parameter.
 99. `agreesWithAndroidUriOnAcceptedInputs`
     - Runs over a corpus of accepted URIs, including the inputs of tests 107 and 108
       (`%3F` and `%23` in a path).
-    - Compares scheme, host, port, decoded path segments, every query name and value
-      (`getQueryParameterNames` and `getQueryParameters`), and the fragment.
+    - Compares scheme, host, port, decoded path segments, query names
+      (`getQueryParameterNames`), the first value of each name through `getQueryParameter`
+      (singular), and the fragment.
+    - *(changed 2026-11-10)* `getQueryParameters` (plural) is not used, because it does not
+      decode `+`, and the corpus has no `+` in parameter names (`docs/LIMITATIONS.md` L11).
 110. *(added)* `encodedQuestionMarkAndHashInPathMatchAndroid`: for `/a%3Fb` and `/a%23b`,
      `getPathSegments()` returns one segment, `getQuery()` and `getFragment()` are `null`,
      and the canonicaliser agrees.
@@ -246,6 +253,11 @@ results. The `+` rule then goes back to the author rather than being silently ad
      - Records how `android.net.Uri` itself parses the backslash, userinfo, `#@`,
        `https:evil.com` and `http:example.com` inputs, to show why we reject them.
      - Prints Android's result so it can be cited.
+111. *(added 2026-11-10)* `characterisesAndroidQueryAccessorInconsistency`
+     - Records `getQueryParameter` vs `getQueryParameters` for `?q=a+b`,
+       `getQueryParameterNames` for `?a+b=1`, and `getQueryParameter("id")` returning `null`
+       for `?%69d=5`, next to ShezGuard's result.
+     - Prints the result; the recorded output is in `docs/PAPER_NOTES.md`.
 
 ---
 
@@ -258,5 +270,5 @@ results. The `+` rule then goes back to the author rather than being silently ad
   step 14 of `docs/PROMPTS.md`.
 
 ## Summary
-- 110 tests: 101 in section A (JVM), 9 in section B (Robolectric).
-- Additions approved on 2026-11-09: 104–110.
+- 112 tests: 102 in section A (JVM), 10 in section B (Robolectric).
+- Additions approved on 2026-11-09: 104–110. Added on 2026-11-10: 111, 112.
