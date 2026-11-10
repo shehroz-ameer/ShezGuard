@@ -30,7 +30,16 @@ internal data class CanonicalUri(
     val hasTrailingSlash: Boolean,
     val query: List<Pair<String, String>>,
     val fragment: String?,
-)
+) {
+    /**
+     * The decoded path for matching against path patterns: `/` for an empty path,
+     * otherwise `/` + segments joined by `/`, plus `/` if [hasTrailingSlash].
+     * A segment may contain `?` or `#` (decoded from `%3F`, `%23`), never `/`.
+     */
+    val path: String
+        get() = if (pathSegments.isEmpty()) "/" else
+            pathSegments.joinToString("/", prefix = "/", postfix = if (hasTrailingSlash) "/" else "")
+}
 
 /** The outcome of [UriCanonicalizer.canonicalize]. */
 internal sealed class CanonResult {

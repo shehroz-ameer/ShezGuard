@@ -220,3 +220,30 @@ reliable or a signature-level permission protects the component.
   per policy, and `ParamRule.name` uses the same set, so a policy cannot declare a name
   outside it.
 - **Source:** step 4 decision (author, 2026-11-10); tests 17, 68, 113–117.
+
+## L17. URL-typed parameters cannot carry percent-escapes or explicit non-default ports
+- **What:** a `ParamType.Url` value is decoded once by the outer canonicaliser, then
+  canonicalised again as a URL. Any `%XX` left after that first decoding is reported as
+  double encoding (`URI_DOUBLE_ENCODING`, L2) before the Url rule runs. A redirect target
+  that needs its own escapes is therefore blocked. Examples: a path with a space
+  (`?next=https://example.com/a%2520b`) or a nested query value containing `&`
+  (`%2526`). A nested URL may still contain a query whose separators are encoded once
+  (`?next=https://example.com/p%3Fa%3D1%26b%3D2`). Separately, a URL with an explicit
+  non-default port (`https://example.com:8443/`) is rejected, because `Url` has no port
+  allow-list.
+- **Why:** both follow from failing closed: double-encoding detection cannot tell a
+  nested URL's escapes from an evasion attempt, and an unlisted port is an unlisted origin.
+- **Workaround:** none in v1. Redirect targets should be plain paths on the allowed host,
+  or an app-side identifier (e.g. `OneOf` of known destinations) rather than a URL.
+- **Source:** step 4; tests `nestedUrlCannotCarryPercentEscapesKnownLimitation`,
+  `blocksRedirectWithExplicitNonDefaultPort`.
+
+## L18. Declared parameters cannot be empty, so value-less flags cannot be declared
+- **What:** every `ParamType` rejects an empty value, so `?debug` or `?id=` is
+  `PARAM_INVALID_FORMAT` for a declared parameter. There is no flag or boolean type, so a
+  link that uses a parameter's presence alone as a switch cannot declare it.
+- **Why:** a typed parameter that is present but empty has no valid value, and an empty
+  string reaching a sink that expects an identifier is a common source of bugs.
+- **Workaround:** declare the parameter as `OneOf(setOf("1"))` (or similar) and send
+  `?debug=1`.
+- **Source:** step 4 decision; test `blocksEmptyValueForEveryType`.
