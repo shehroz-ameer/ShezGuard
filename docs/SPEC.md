@@ -187,6 +187,37 @@ Package: `com.shezguard.core`.
 - An entry point's data rule defaults to `Data.Forbidden`. Calling `allowSchemes(...)`
   switches it to `Data.Required` unless `data(...)` was set explicitly.
 - An entry point that accepts URI data must declare a path pattern or `anyPath()`.
+- **[DECIDED]** (step 5) The DSL lives in `com.shezguard.core.policy` (`intentPolicy { }`).
+  Build-time checks collect every problem and throw one `PolicyDefinitionException`
+  (an `IllegalArgumentException`) when the policy is built, usually at app start; apps
+  should build their policy in a unit test. Each message says where, what and how to fix.
+  The checks:
+  1. at least one entry point; unique, valid names;
+  2. a data-accepting entry point (`Required`/`Optional`) needs schemes,
+  3. hosts,
+  4. and a path pattern or `anyPath()`;
+  5. `anyPath()` cannot be combined with path patterns;
+  6. URI rules (schemes, hosts, ports, paths, fragment, params, `unknownParams`,
+     `allowRepeatedParams`) are an error when the effective data rule is `Forbidden`,
+     whether set explicitly or by default; the fix is `allowSchemes(...)` or `data(...)`;
+  7. a single-valued option (`data`, `threshold`, `unknownParams`, `nestedIntents`,
+     `limits`, `extras`, the caller rule) set twice is an error, not an override;
+  8. `allowedPackages` needs packages, each with at least one SHA-256 digest; digests may
+     be written in either case or as keytool-style colon pairs and are normalised to
+     64 lowercase hex characters;
+  9. each parameter has exactly one type, a unique name in `[A-Za-z0-9_.-]{1,64}`, and a
+     usable `oneOf` list;
+  10. an unset `maxLength` defaults to the entry point's `maxParamLength`; an explicit one
+      may not exceed it;
+  11. `url { }` needs a scheme and a host;
+  12. a nested-intent key may not also be an allowed extra;
+  13. numbers in range (threshold `1..100`, positive limits and sizes, ports `1..65535`).
+- **[DECIDED]** (step 5) `@ShezGuardDsl` (a `@DslMarker`) is on every builder. The compiler
+  rejects implicit calls to an outer builder; checked once by hand on 2026-11-10, Kotlin
+  2.0.21: `param("id") { allowHosts("x") }`, `entryPoint("a") { entryPoint("b") { } }` and
+  `path { anyPath() }` each fail with "cannot be called in this context with an implicit
+  receiver".
+
 Also provide an Activity helper (`guardedOnCreate` or lifecycle callback) and an
 `AuditSink` interface (default: no-op; optional redacted logcat sink).
 

@@ -146,7 +146,7 @@ reliable or a signature-level permission protects the component.
   `getQueryParameter` only (author decision, step 3). **Names:** since step 4 a raw name
   must match `[A-Za-z0-9_.-]{1,64}`, so a `+` in a name is `PARAM_NAME_INVALID` (test 17)
   and the name half of this limitation no longer applies. For names in that set all three
-  accessors agree (test 116). The value half remains: how the step 4b parser-mismatch
+  accessors agree (test 116). The value half remains: how the step 5b parser-mismatch
   check handles it is still to be decided.
 - **Source:** step 3, differential tests 99 and 111.
 

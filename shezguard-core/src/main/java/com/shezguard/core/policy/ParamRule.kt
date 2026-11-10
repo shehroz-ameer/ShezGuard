@@ -20,10 +20,6 @@ public data class ParamRule(
         require(PARAM_NAME.matches(name)) { "invalid parameter name" }
         require(maxLength > 0) { "maxLength must be positive" }
     }
-
-    private companion object {
-        val PARAM_NAME = Regex("^[A-Za-z0-9_.-]{1,64}$")
-    }
 }
 
 /**

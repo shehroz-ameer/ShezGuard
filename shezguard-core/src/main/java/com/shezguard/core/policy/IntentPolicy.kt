@@ -83,11 +83,6 @@ public class EntryPointPolicy(
     public fun param(name: String): ParamRule? = params.firstOrNull { it.name == name }
 
     override fun toString(): String = "EntryPointPolicy($name)"
-
-    private companion object {
-        val ENTRY_POINT_NAME = Regex("^[A-Za-z0-9_.-]{1,64}$")
-        val SCHEME = Regex("^[a-z][a-z0-9+.-]*$")
-    }
 }
 
 /**

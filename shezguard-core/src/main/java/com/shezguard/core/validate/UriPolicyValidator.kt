@@ -46,7 +46,7 @@ internal data class UriValidation(
  * allow-lists, then query parameters. Pure Kotlin, no Android types.
  *
  * Runs only on a URI that canonicalised without hard findings. Whether the intent carries a
- * URI at all (the `Data` rule) is the evaluator's job (step 4b).
+ * URI at all (the `Data` rule) is the evaluator's job (step 5b).
  */
 internal object UriPolicyValidator {
 

@@ -26,7 +26,7 @@ internal object UriCanonicalizer {
 
 ## Input contract: which `Uri` accessor feeds `canonicalize()`
 
-`canonicalize()` takes a `String`. The evaluator (step 4b) will pass
+`canonicalize()` takes a `String`. The evaluator (step 5b) will pass
 **`intent.getDataString()`**, which is `intent.getData().toString()`. It is `null` when the
 intent has no data, and the evaluator handles that through the `Data` rule without calling
 the canonicaliser.
@@ -42,12 +42,12 @@ Whether that string is Android's original encoded form depends on how the `Uri` 
   canonicaliser then sees Android's encoded form, which is what the receiving app's
   accessors decode. Test 106 confirms this.
 
-**Open risk, deferred to step 4b:** a `HierarchicalUri` sent over IPC carries its
+**Open risk, deferred to step 5b:** a `HierarchicalUri` sent over IPC carries its
 components in a parcelled form that can hold both an encoded and a decoded representation.
 If a crafted parcel can make them disagree, `toString()`, which uses the encoded form, and
 accessors such as `getPathSegments()`, which use the decoded form, would show different
 values. The canonicaliser alone cannot detect this. The runtime parser-mismatch check in
-step 4b, which compares the canonical result with the received `Uri`'s own accessors and
+step 5b, which compares the canonical result with the received `Uri`'s own accessors and
 emits `URI_PARSER_MISMATCH`, is the intended defence. It must include a test that crafts
 such a parcel if Robolectric allows it. Whether this is exploitable on current Android
 versions is **not verified**.
@@ -281,7 +281,7 @@ results. The `+` rule then goes back to the author rather than being silently ad
 ## Notes on scope
 - **`URI_PARSER_MISMATCH` comes later.** The canonicaliser is pure Kotlin, so it can't call
   `android.net.Uri` itself. Emitting that code at runtime belongs to the evaluator
-  (step 4b), together with the parcel-mismatch risk described under "Input contract".
+  (step 5b), together with the parcel-mismatch risk described under "Input contract".
 - **Robolectric isn't a real device.** It runs the AOSP code for SDK 34 on the JVM. Section B
   must also run as an instrumented test on a device or emulator. That run is listed in
   step 14 of `docs/PROMPTS.md`.

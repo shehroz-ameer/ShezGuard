@@ -40,7 +40,7 @@ Implement the Kotlin DSL from SPEC section 7 (`intentPolicy { entryPoint(...) { 
 with `@DslMarker` to prevent scope leaks and validation of the policy itself (for example,
 reject a policy with no allowed hosts for an https entry point). Tests for the DSL.
 
-## 4b. Evaluator
+## 5b. Evaluator
 Implement `ShezGuard.evaluate(...)` running the pipeline in SPEC section 5 for URI and
 parameter checks. Deny by default for unknown entry points. Robolectric tests using real
 `Intent` and `Uri` objects.

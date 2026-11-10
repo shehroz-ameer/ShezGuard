@@ -41,10 +41,6 @@ public sealed class Caller {
                 require(digests.isNotEmpty()) { "package $pkg needs at least one certificate digest" }
             }
         }
-
-        private companion object {
-            val PACKAGE_NAME = Regex("^[A-Za-z][A-Za-z0-9_]*(\\.[A-Za-z][A-Za-z0-9_]*)+$")
-        }
     }
 }
 
