@@ -86,7 +86,8 @@ versions is **not verified**.
 
 ### 3. `+` versus `%20`
 16. `decodesPlusAsSpaceInQueryValue`: `?q=a+b` gives `a b`
-17. `decodesPlusAsSpaceInQueryName`: `?a+b=1` gives the name `a b`
+17. *(changed 2026-11-10, was `decodesPlusAsSpaceInQueryName`)* `blocksPlusInQueryName`:
+    `?a+b=1` gives `PARAM_NAME_INVALID`. Names must match `[A-Za-z0-9_.-]{1,64}` raw.
 18. `keepsPlusLiteralInPath`: `/a+b` gives the segment `a+b`
 19. `decodesEncodedPlusAsLiteralPlusInQuery`: `?q=a%2Bb` gives `a+b`
 20. `treatsPlusAndPercent20AsEquivalentInQuery`: `?q=a+b` and `?q=a%20b` give the same value
@@ -154,7 +155,9 @@ All give `URI_USERINFO`, except where noted.
 59. `blocksEmptyUserInfo`: `https://@example.com`
 60. `blocksPercentEncodedAtInHost`: `https://example.com%40evil.com` gives `URI_HOST_PERCENT_ENCODED`
 61. `parsesAtAfterHashAsFragmentNotUserInfo`: `https://evil.com#@example.com` gives host `evil.com`
-62. `parsesAtAfterQuestionMarkAsQueryNotUserInfo`: `https://evil.com?@example.com` gives host `evil.com`
+62. `parsesAtAfterQuestionMarkAsQueryNotUserInfo`: *(changed 2026-11-10)*
+    `https://evil.com?x=@example.com` gives host `evil.com` and value `@example.com`. The `@`
+    moved from the name into a value, because names may no longer contain it.
 
 ### 11. Overlong input
 The default limits are 2048 characters for the URI and 256 per parameter.
@@ -164,7 +167,9 @@ The default limits are 2048 characters for the URI and 256 per parameter.
 65. `measuresUriLimitOnRawNotDecodedForm`
 66. `acceptsParamValueAtExactly256DecodedChars`
 67. `blocksParamValueAt257DecodedChars`
-68. `blocksParamNameOverLimit`
+68. `blocksParamNameOverLimit`: *(changed 2026-11-10)* a 64-character name is accepted and a
+    65-character name gives `PARAM_TOO_LONG`. The name limit is fixed at 64 and does not
+    follow `maxParamLength`, which applies to values only.
 69. `honoursCustomLimits`
 70. `blocksEmptyInput`: gives `URI_EMPTY`
 
@@ -201,6 +206,10 @@ The default limits are 2048 characters for the URI and 256 per parameter.
 91. `treatsSemicolonAsLiteralNotSeparator`: `?a=1;b=2` gives one parameter
 92. `parsesParamWithoutEqualsAsEmptyValue`: `?flag`
 93. `blocksEmptyParamName`: `?=x` gives `PARAM_NAME_INVALID`
+113. *(added 2026-11-10)* `blocksPercentEncodedQueryName`: `%69d`, `a%20b`, `a%2Bb`
+114. *(added 2026-11-10)* `blocksQueryNameOutsideConservativeSet`: `@ ! ' ( ) * ~`, `[]`,
+     `[0]`, `:`, `/` and a non-ASCII letter in a name
+115. *(added 2026-11-10)* `acceptsQueryNamesInConservativeSet`
 94. `keepsFragmentForPolicyStage`
 
 ### 15. Pipeline properties
@@ -227,6 +236,11 @@ The default limits are 2048 characters for the URI and 256 per parameter.
 110. *(added)* `encodedQuestionMarkAndHashInPathMatchAndroid`: for `/a%3Fb` and `/a%23b`,
      `getPathSegments()` returns one segment, `getQuery()` and `getFragment()` are `null`,
      and the canonicaliser agrees.
+
+116. *(added 2026-11-10)* `androidAccessorsAgreeOnNamesInConservativeSet`: for fixed names
+     and 300 random names from `[A-Za-z0-9_.-]{1,64}` (fixed seed), `getQueryParameterNames`,
+     `getQueryParameter` and `getQueryParameters` all agree with each other and with
+     ShezGuard.
 
 ### The `+` rule
 100. `plusInQueryDecodesToSpaceLikeAndroid`: `?q=a+b`
@@ -258,6 +272,9 @@ results. The `+` rule then goes back to the author rather than being silently ad
        `getQueryParameterNames` for `?a+b=1`, and `getQueryParameter("id")` returning `null`
        for `?%69d=5`, next to ShezGuard's result.
      - Prints the result; the recorded output is in `docs/PAPER_NOTES.md`.
+117. *(added 2026-11-10)* `characterisesAndroidAccessorsForNamesOutsideConservativeSet`:
+     records `getQueryParameterNames`, `getQueryParameter`, `getQueryParameters` and
+     `Uri.encode` for names containing `@ ! ' ( ) * ~ [ ]`. Output in `docs/PAPER_NOTES.md` N3.
 
 ---
 
@@ -270,5 +287,5 @@ results. The `+` rule then goes back to the author rather than being silently ad
   step 14 of `docs/PROMPTS.md`.
 
 ## Summary
-- 112 tests: 102 in section A (JVM), 10 in section B (Robolectric).
-- Additions approved on 2026-11-09: 104–110. Added on 2026-11-10: 111, 112.
+- 117 tests: 105 in section A (JVM), 12 in section B (Robolectric).
+- Additions approved on 2026-11-09: 104–110. Added on 2026-11-10: 111–117; changed: 17, 62, 68.

@@ -30,12 +30,22 @@ values from the `Decision` rather than from `getIntent()` (SPEC section 6).
   `getQueryParameter` only (author decision).
 - `docs/LIMITATIONS.md` L11, L12.
 
-**Recorded output (test 111):**
+**Recorded output (test 111), re-recorded 2026-11-10 after the step 4 name rule.** The
+Android columns are unchanged from step 3. In step 3 ShezGuard returned `[(a b, 1)]` and
+`[(id, 5)]` for the last two inputs; both are now rejected.
 ```
 [111] <https://example.com/?q=a+b> android: getQueryParameterNames()=[q] getQueryParameter("q")=<a b> getQueryParameters("q")=[a+b] | shezguard: [(q, a b)]
-[111] <https://example.com/?a+b=1> android: getQueryParameterNames()=[a+b] getQueryParameter("a+b")=<null> getQueryParameters("a+b")=[] getQueryParameter("a b")=<null> getQueryParameters("a b")=[1] | shezguard: [(a b, 1)]
-[111] <https://example.com/?%69d=5> android: getQueryParameterNames()=[id] getQueryParameter("id")=<null> getQueryParameters("id")=[] | shezguard: [(id, 5)]
+[111] <https://example.com/?a+b=1> android: getQueryParameterNames()=[a+b] getQueryParameter("a+b")=<null> getQueryParameters("a+b")=[] getQueryParameter("a b")=<null> getQueryParameters("a b")=[1] | shezguard: Rejected
+[111] <https://example.com/?%69d=5> android: getQueryParameterNames()=[id] getQueryParameter("id")=<null> getQueryParameters("id")=[] | shezguard: Rejected
 ```
+
+**How this finding shaped the design (step 4).** In step 3 the differential test 99
+failed on the `+` disagreement. That showed ShezGuard could not "match Android" for names,
+because Android does not agree with itself. Instead of choosing one accessor, the name rule
+removes the dependency. A raw name must match `[A-Za-z0-9_.-]{1,64}`, so it is identical
+before and after decoding, and every accessor sees the same name (test 116, N3). Names
+containing `+` or `%` are now `PARAM_NAME_INVALID` (tests 17, 113). Values keep the
+`getQueryParameter` rule (`+` is a space). Cost: `docs/LIMITATIONS.md` L16.
 
 Note the second line: the `+` name is listed as `a+b`. `getQueryParameters` finds it only
 as `a b`, and `getQueryParameter` finds it under neither spelling.
@@ -71,4 +81,46 @@ Other results from the same test:
 [103] <https://evil.com#@example.com> android: opaque=false scheme=https authority=evil.com userInfo=null host=evil.com port=-1 path= fragment=@example.com | shezguard: Ok(host=evil.com) []
 [103] <https:evil.com> android: opaque=true scheme=https authority=null userInfo=null host=null port=-1 path=null fragment=null | shezguard: Rejected [URI_OPAQUE]
 [103] <http:example.com> android: opaque=true scheme=http authority=null userInfo=null host=null port=-1 path=null fragment=null | shezguard: Rejected [URI_OPAQUE]
+```
+
+## N3. Which parameter-name characters all three query accessors agree on
+
+**Observation.** Two tests:
+- Inside `[A-Za-z0-9_.-]`, `getQueryParameterNames`, `getQueryParameter` and
+  `getQueryParameters` agree with each other and with ShezGuard. Test 116 checks this for
+  9 fixed names and 300 random names, from 1 to 64 characters, with a fixed seed.
+- Test 117 adds one character at a time. Results by character:
+  - `*`: all three accessors agree.
+  - `@`, `[`, `]`: the name is listed, but neither lookup finds it.
+  - `!`, `'`, `(`, `)`, `~`: the name is listed and `getQueryParameter` finds it, but
+    `getQueryParameters` returns `[]`.
+
+**Interpretation (not verified against the AOSP source).** The singular lookup behaves as
+if it compared `Uri.encode(name)` with the raw query: `Uri.encode` leaves `! ' ( ) * ~`
+unencoded and encodes `@ [ ]`. The plural lookup's results fit a form-style encoding of the
+name: it finds `a b` for raw `a+b` (N1), and fails for `! ' ( ) ~` but not for `*`.
+`java.net.URLEncoder` behaves this way. This explanation is consistent with every observed
+row, but it has not been checked against the AOSP source.
+
+**Design consequence.** The conservative set is justified by observation for every listed
+character except `*`, where the accessors agree. `*` is still excluded, to keep one small,
+explainable set shared by `ParamRule.name`, entry point names and the canonicaliser. That is
+a design choice, not an Android inconsistency.
+
+**Evidence.**
+- Tests 116 and 117 in
+  `shezguard-core/src/test/java/com/shezguard/core/canon/UriCanonicalizerDifferentialTest.kt`.
+- `docs/LIMITATIONS.md` L16.
+
+**Recorded output (test 117, 2026-11-10):**
+```
+[117] <https://example.com/?a@b=1> android: getQueryParameterNames()=[a@b] getQueryParameter("a@b")=<null> getQueryParameters("a@b")=[] Uri.encode("a@b")=a%40b | shezguard: Rejected [PARAM_NAME_INVALID]
+[117] <https://example.com/?a!b=1> android: getQueryParameterNames()=[a!b] getQueryParameter("a!b")=<1> getQueryParameters("a!b")=[] Uri.encode("a!b")=a!b | shezguard: Rejected [PARAM_NAME_INVALID]
+[117] <https://example.com/?a'b=1> android: getQueryParameterNames()=[a'b] getQueryParameter("a'b")=<1> getQueryParameters("a'b")=[] Uri.encode("a'b")=a'b | shezguard: Rejected [PARAM_NAME_INVALID]
+[117] <https://example.com/?a(b=1> android: getQueryParameterNames()=[a(b] getQueryParameter("a(b")=<1> getQueryParameters("a(b")=[] Uri.encode("a(b")=a(b | shezguard: Rejected [PARAM_NAME_INVALID]
+[117] <https://example.com/?a)b=1> android: getQueryParameterNames()=[a)b] getQueryParameter("a)b")=<1> getQueryParameters("a)b")=[] Uri.encode("a)b")=a)b | shezguard: Rejected [PARAM_NAME_INVALID]
+[117] <https://example.com/?a*b=1> android: getQueryParameterNames()=[a*b] getQueryParameter("a*b")=<1> getQueryParameters("a*b")=[1] Uri.encode("a*b")=a*b | shezguard: Rejected [PARAM_NAME_INVALID]
+[117] <https://example.com/?a~b=1> android: getQueryParameterNames()=[a~b] getQueryParameter("a~b")=<1> getQueryParameters("a~b")=[] Uri.encode("a~b")=a~b | shezguard: Rejected [PARAM_NAME_INVALID]
+[117] <https://example.com/?a[b=1> android: getQueryParameterNames()=[a[b] getQueryParameter("a[b")=<null> getQueryParameters("a[b")=[] Uri.encode("a[b")=a%5Bb | shezguard: Rejected [PARAM_NAME_INVALID]
+[117] <https://example.com/?a]b=1> android: getQueryParameterNames()=[a]b] getQueryParameter("a]b")=<null> getQueryParameters("a]b")=[] Uri.encode("a]b")=a%5Db | shezguard: Rejected [PARAM_NAME_INVALID]
 ```

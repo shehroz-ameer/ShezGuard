@@ -146,8 +146,9 @@ public data class Threshold(public val block: Int) {
  * Length limits applied during canonicalisation (SPEC section 4.2).
  *
  * @property maxUriLength the maximum raw URI length, in characters.
- * @property maxParamLength the maximum decoded length of any parameter name or value.
- * A [ParamRule] may set a lower limit for its own value.
+ * @property maxParamLength the maximum decoded length of any parameter value. A [ParamRule]
+ * may set a lower limit for its own value. Parameter names have a fixed limit of 64
+ * characters, the same as [ParamRule.name], which this setting does not change.
  */
 public data class Limits(
     public val maxUriLength: Int = DEFAULT_MAX_URI_LENGTH,

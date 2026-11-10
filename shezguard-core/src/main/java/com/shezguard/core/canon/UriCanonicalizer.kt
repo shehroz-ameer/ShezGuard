@@ -56,6 +56,9 @@ internal object UriCanonicalizer {
 
     private val DEFAULT_PORTS = mapOf("http" to 80, "https" to 443)
 
+    /** Fixed maximum query parameter name length; the same limit as `ParamRule.name`. */
+    const val MAX_PARAM_NAME_LENGTH: Int = 64
+
     /** Lookalikes of `/` and `.`: U+2215, U+2044, U+FF0F, U+FF0E. */
     private val UNICODE_SEPARATORS = charArrayOf('∕', '⁄', '／', '．')
 
@@ -218,19 +221,28 @@ internal object UriCanonicalizer {
         return d
     }
 
-    /** Splits on `&` only (`;` is literal), then on the first `=`, then decodes. */
+    /**
+     * Splits on `&` only (`;` is literal), then on the first `=`, then decodes.
+     *
+     * Names are checked on the raw text: they must be 1 to [MAX_PARAM_NAME_LENGTH]
+     * characters from `A-Z a-z 0-9 _ . -`. Such a name is identical before and after
+     * decoding, and `Uri.encode` leaves it unchanged, so every `android.net.Uri` query
+     * accessor sees the same name (test 116). A `+`, `%` or any other character is
+     * `PARAM_NAME_INVALID`, so names never depend on how an accessor decodes them
+     * (`docs/LIMITATIONS.md` L11, L12, L16). [Limits.maxParamLength] applies to values only.
+     */
     private fun parseQuery(rawQuery: String, limits: Limits, f: Findings): List<Pair<String, String>> {
         if (rawQuery.isEmpty()) return emptyList()
         return rawQuery.split('&').map { piece ->
             val eq = piece.indexOf('=')
             val rawName = if (eq < 0) piece else piece.substring(0, eq)
             val rawValue = if (eq < 0) "" else piece.substring(eq + 1)
-            val name = decodeAndCheck(rawName, QUERY, f, plusAsSpace = true)
+            if (rawName.isEmpty() || !rawName.all { it.isParamNameChar() }) f.add(PARAM_NAME_INVALID, QUERY)
+            if (rawName.length > MAX_PARAM_NAME_LENGTH) f.add(PARAM_TOO_LONG, QUERY)
+            // Still decoded and checked, so that e.g. `%00` in a name is reported as well.
+            val name = decodeAndCheck(rawName, QUERY, f)
             val value = decodeAndCheck(rawValue, QUERY, f, plusAsSpace = true)
-            if (name.isEmpty()) f.add(PARAM_NAME_INVALID, QUERY)
-            if (name.length > limits.maxParamLength || value.length > limits.maxParamLength) {
-                f.add(PARAM_TOO_LONG, QUERY)
-            }
+            if (value.length > limits.maxParamLength) f.add(PARAM_TOO_LONG, QUERY)
             name to value
         }
     }
@@ -372,6 +384,9 @@ internal object UriCanonicalizer {
     private fun Char.isAsciiLetter(): Boolean = this in 'a'..'z' || this in 'A'..'Z'
 
     private fun Char.isHostChar(): Boolean = this in 'a'..'z' || this in '0'..'9' || this == '-'
+
+    private fun Char.isParamNameChar(): Boolean =
+        isAsciiLetter() || this in '0'..'9' || this == '_' || this == '.' || this == '-'
 
     /** Insertion-ordered, duplicate-free collection of findings. */
     private class Findings {

@@ -141,10 +141,13 @@ reliable or a signature-level permission protects the component.
   - `?a+b=1`: `getQueryParameterNames()` returns `[a+b]` (no `+` decoding in names).
     `getQueryParameter` finds the parameter under neither `a+b` nor `a b`.
     `getQueryParameters("a b")` returns `[1]`, `getQueryParameters("a+b")` returns `[]`.
-- **What ShezGuard does:** decodes `+` to a space in names and values (SPEC section 6), so
-  it agrees with `getQueryParameter`. The differential test 99 compares values through
-  `getQueryParameter` only, and its corpus has no `+` in parameter names (author decision,
-  step 3). How the step 4b parser-mismatch check handles this is still to be decided.
+- **What ShezGuard does:** decodes `+` to a space in values (SPEC section 6), so it agrees
+  with `getQueryParameter`. The differential test 99 compares values through
+  `getQueryParameter` only (author decision, step 3). **Names:** since step 4 a raw name
+  must match `[A-Za-z0-9_.-]{1,64}`, so a `+` in a name is `PARAM_NAME_INVALID` (test 17)
+  and the name half of this limitation no longer applies. For names in that set all three
+  accessors agree (test 116). The value half remains: how the step 4b parser-mismatch
+  check handles it is still to be decided.
 - **Source:** step 3, differential tests 99 and 111.
 
 ## L12. `getQueryParameter` does not find percent-encoded parameter names
@@ -153,12 +156,13 @@ reliable or a signature-level permission protects the component.
 - **What Android does** (Robolectric, SDK 34, test 111): for `?%69d=5`,
   `getQueryParameterNames()` returns `[id]`, but `getQueryParameter("id")` returns `null`
   and `getQueryParameters("id")` returns `[]`. The lookup compares the requested name with
-  the raw, still-encoded query text. ShezGuard decodes the name and sees `id = 5`.
-- **Consequence:** a policy rule for `id` sees a parameter the app's own
-  `getQueryParameter("id")` does not. ShezGuard sees at least as much as the app, so the
-  check fails safe. But an app reading the `Uri` directly may act on different data than
-  was validated.
-- **Source:** step 3, differential tests 99 and 111.
+  the raw, still-encoded query text.
+- **Consequence (before step 4):** ShezGuard decoded the name and saw `id = 5`, which the
+  app's own `getQueryParameter("id")` does not see.
+- **What ShezGuard does now:** since step 4 this case is blocked. A raw name containing `%`
+  is `PARAM_NAME_INVALID` (test 113), so ShezGuard and the accessors can no longer disagree
+  about which name a parameter has. The cost is L16.
+- **Source:** step 3, differential tests 99 and 111; resolved by the step 4 name rule.
 
 ## L13. Deep links with empty query pieces, including a trailing `&`, are blocked
 - **What:** the query is split on `&`, and every piece, including an empty one, becomes a
@@ -196,3 +200,23 @@ reliable or a signature-level permission protects the component.
   rejecting the whole categories is simpler and more predictable than an allow-list.
 - **Workaround:** none in v1. An encoded U+0020 (`%20`, or `+` in a query) is still accepted.
 - **Source:** step 3 decision (author, 2026-11-10); test 112.
+
+## L16. Query parameter names are restricted to `[A-Za-z0-9_.-]{1,64}` (not configurable)
+- **What:** every query parameter name, declared or not, must be 1 to 64 characters from
+  `A-Z a-z 0-9 _ . -` in the raw URI, before decoding. Anything else is
+  `PARAM_NAME_INVALID` (hard), under every `Unknown` mode, including `Drop`. Legitimate
+  links that are blocked as a result:
+  - PHP- and Rails-style array names: `ids[]=1`, `filter[type]=x`.
+  - Names containing `~`, `*`, `!`, `'`, `(`, `)`, `@`, `:` or non-ASCII letters (`café=1`).
+  - Names that a sender percent-encodes although it does not need to (`%69d=5` for `id`),
+    and names containing `+` (`a+b=1`).
+  - Names longer than 64 characters. This is a fixed limit; `Limits.maxParamLength`
+    (default 256) applies to values only.
+- **Why:** Android's query accessors disagree about names outside this set
+  (`docs/PAPER_NOTES.md` N1, N3; tests 111 and 117). Inside it, the raw and decoded name are
+  identical and all three accessors agree (test 116). ShezGuard therefore never depends on
+  how an accessor decodes a name.
+- **Configurability:** none in v1. The set and the 64-character limit cannot be changed
+  per policy, and `ParamRule.name` uses the same set, so a policy cannot declare a name
+  outside it.
+- **Source:** step 4 decision (author, 2026-11-10); tests 17, 68, 113–117.

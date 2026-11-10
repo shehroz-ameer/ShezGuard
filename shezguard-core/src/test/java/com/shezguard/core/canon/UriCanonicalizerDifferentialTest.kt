@@ -180,7 +180,41 @@ class UriCanonicalizerDifferentialTest {
         assertEquals(built.getQueryParameter("q"), o.query.single().second)
     }
 
+    @Test // 116 (added 2026-11-10)
+    fun androidAccessorsAgreeOnNamesInConservativeSet() {
+        val set = ('A'..'Z') + ('a'..'z') + ('0'..'9') + listOf('_', '.', '-')
+        val rnd = kotlin.random.Random(20261110)
+        val fixed = listOf("id", "utm_source", "a.b", "a-b", "_", ".", "..", "-", "x".repeat(64))
+        val random = List(300) { List(rnd.nextInt(1, 65)) { set[rnd.nextInt(set.size)] }.joinToString("") }
+        for (name in (fixed + random).distinct()) {
+            val s = "$base/?$name=v1"
+            val a = Uri.parse(s)
+            assertEquals("getQueryParameterNames for <$name>", listOf(name), a.queryParameterNames.toList())
+            assertEquals("getQueryParameter for <$name>", "v1", a.getQueryParameter(name))
+            assertEquals("getQueryParameters for <$name>", listOf("v1"), a.getQueryParameters(name))
+            assertEquals("ShezGuard for <$name>", listOf(name to "v1"), ours(s).query)
+        }
+    }
+
     // ---- Characterisation: records Android's behaviour, asserts nothing about agreement.
+
+    @Test // 117 (added 2026-11-10)
+    fun characterisesAndroidAccessorsForNamesOutsideConservativeSet() {
+        for (c in listOf("@", "!", "'", "(", ")", "*", "~", "[", "]")) {
+            val name = "a${c}b"
+            val s = "$base/?$name=1"
+            val a = Uri.parse(s)
+            val shez = UriCanonicalizer.canonicalize(s, Limits.DEFAULT)
+            println(
+                "[117] <$s> android: getQueryParameterNames()=${a.queryParameterNames} " +
+                    "getQueryParameter(\"$name\")=<${a.getQueryParameter(name)}> " +
+                    "getQueryParameters(\"$name\")=${a.getQueryParameters(name)} " +
+                    "Uri.encode(\"$name\")=${Uri.encode(name)} " +
+                    "| shezguard: ${if (shez is CanonResult.Ok) "Ok" else "Rejected"} " +
+                    shez.findings.map { it.code.id }.distinct(),
+            )
+        }
+    }
 
     @Test // 111
     fun characterisesAndroidQueryAccessorInconsistency() {

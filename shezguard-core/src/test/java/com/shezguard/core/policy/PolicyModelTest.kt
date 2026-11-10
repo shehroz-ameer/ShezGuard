@@ -174,6 +174,17 @@ class PolicyModelTest {
     }
 
     @Test
+    fun paramRuleNameUsesTheSameConservativeSetAsTheCanonicaliser() {
+        // Only [A-Za-z0-9_.-]{1,64}: a declared name the canonicaliser would block could never match.
+        for (bad in listOf("a+b", "a@b", "a!b", "a'b", "a(b", "a)b", "a*b", "a~b", "ids[]", "café", "x".repeat(65))) {
+            rejects { ParamRule(bad, ParamType.Digits) }
+        }
+        for (good in listOf("id", "utm_source", "a.b", "a-b", "Z9", "x".repeat(64))) {
+            ParamRule(good, ParamType.Digits)
+        }
+    }
+
+    @Test
     fun paramRuleRejectsNonPositiveMaxLength() = rejects { ParamRule("id", ParamType.Digits, maxLength = 0) }
 
     @Test

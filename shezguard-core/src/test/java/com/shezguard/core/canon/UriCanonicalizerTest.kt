@@ -207,9 +207,11 @@ class UriCanonicalizerTest {
         assertEquals(listOf("q" to "a b"), ok("$base/?q=a+b").uri.query)
     }
 
-    @Test // 17
-    fun decodesPlusAsSpaceInQueryName() {
-        assertEquals(listOf("a b" to "1"), ok("$base/?a+b=1").uri.query)
+    @Test // 17 (changed 2026-11-10: was decodesPlusAsSpaceInQueryName)
+    fun blocksPlusInQueryName() {
+        // Android's accessors disagree about `+` in names (LIMITATIONS L11), so it is blocked.
+        assertFinding("$base/?a+b=1", PARAM_NAME_INVALID, UriComponent.QUERY)
+        assertRejected("$base/?a+b=1")
     }
 
     @Test // 18
@@ -488,11 +490,11 @@ class UriCanonicalizerTest {
         assertEquals("@example.com", u.fragment)
     }
 
-    @Test // 62
+    @Test // 62 (changed 2026-11-10: the `@` moved into a value, names may no longer hold it)
     fun parsesAtAfterQuestionMarkAsQueryNotUserInfo() {
-        val u = ok("https://evil.com?@example.com").uri
+        val u = ok("https://evil.com?x=@example.com").uri
         assertEquals("evil.com", u.host)
-        assertEquals(listOf("@example.com" to ""), u.query)
+        assertEquals(listOf("x" to "@example.com"), u.query)
     }
 
     // ---- 11. Overlong input ----------------------------------------------------------
@@ -531,9 +533,12 @@ class UriCanonicalizerTest {
         assertRejected("$base/?q=" + "a".repeat(257), PARAM_TOO_LONG)
     }
 
-    @Test // 68
+    @Test // 68 (changed 2026-11-10: names have a fixed 64-character limit, as ParamRule.name)
     fun blocksParamNameOverLimit() {
-        assertRejected("$base/?" + "n".repeat(257) + "=1", PARAM_TOO_LONG)
+        ok("$base/?" + "n".repeat(64) + "=1")
+        assertRejected("$base/?" + "n".repeat(65) + "=1", PARAM_TOO_LONG)
+        // The name limit does not follow maxParamLength, which applies to values only.
+        ok("$base/?" + "n".repeat(64) + "=1", Limits(maxParamLength = 3))
     }
 
     @Test // 69
@@ -699,6 +704,31 @@ class UriCanonicalizerTest {
     @Test // 94
     fun keepsFragmentForPolicyStage() {
         assertEquals("Section-2", ok("$base/p#Section-2").uri.fragment)
+    }
+
+    @Test // 113 (added 2026-11-10)
+    fun blocksPercentEncodedQueryName() {
+        // `%69d` decodes to `id`, but getQueryParameter("id") cannot see it (LIMITATIONS L12).
+        for (s in listOf("$base/?%69d=5", "$base/?a%20b=1", "$base/?a%2Bb=1")) {
+            assertFinding(s, PARAM_NAME_INVALID, UriComponent.QUERY)
+            assertRejected(s)
+        }
+    }
+
+    @Test // 114 (added 2026-11-10)
+    fun blocksQueryNameOutsideConservativeSet() {
+        val bad = listOf("a@b", "a!b", "a'b", "a(b", "a)b", "a*b", "a~b", "ids[]", "a[0]", "caf${ch(0xE9)}", "a:b", "a/b")
+        for (name in bad) {
+            assertFinding("$base/?$name=1", PARAM_NAME_INVALID, UriComponent.QUERY)
+            assertRejected("$base/?$name=1")
+        }
+    }
+
+    @Test // 115 (added 2026-11-10)
+    fun acceptsQueryNamesInConservativeSet() {
+        val names = listOf("id", "ID", "utm_source", "a.b", "a-b", "_", "Z9", "fbclid")
+        val u = ok("$base/?" + names.joinToString("&") { "$it=1" }).uri
+        assertEquals(names, u.query.map { it.first })
     }
 
     // ---- 15. Pipeline properties -----------------------------------------------------

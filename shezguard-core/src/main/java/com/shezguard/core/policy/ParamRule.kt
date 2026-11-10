@@ -3,8 +3,9 @@ package com.shezguard.core.policy
 /**
  * A declared query parameter (SPEC section 4).
  *
- * @property name the decoded parameter name. 1 to 64 printable ASCII characters,
- * excluding `=`, `&`, `#`, `%` and whitespace.
+ * @property name the parameter name: 1 to 64 characters from `A-Z a-z 0-9 _ . -`, compared
+ * case-sensitively. This is the only set of names the canonicaliser accepts in a URI, so a
+ * declared name can always match. Not configurable in v1 (`docs/LIMITATIONS.md` L16).
  * @property type what a valid value looks like.
  * @property maxLength the maximum decoded value length. Must be positive.
  * @property required whether the parameter must be present.
@@ -21,7 +22,7 @@ public data class ParamRule(
     }
 
     private companion object {
-        val PARAM_NAME = Regex("^[\\x21-\\x7E&&[^=&#%]]{1,64}$")
+        val PARAM_NAME = Regex("^[A-Za-z0-9_.-]{1,64}$")
     }
 }
 

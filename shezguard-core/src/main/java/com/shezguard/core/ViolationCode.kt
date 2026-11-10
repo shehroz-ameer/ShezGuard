@@ -148,10 +148,13 @@ public enum class ViolationCode(
     /** A parameter marked required is absent. */
     PARAM_MISSING("PARAM_MISSING", Tier.HARD, Severity.MEDIUM),
 
-    /** A parameter name or value is longer than its limit. */
+    /** A parameter name is longer than 64 characters, or a value is longer than its limit. */
     PARAM_TOO_LONG("PARAM_TOO_LONG", Tier.HARD, Severity.HIGH),
 
-    /** A parameter name is empty or otherwise unusable (e.g. `?=x`). */
+    /**
+     * A parameter name is empty or contains a character outside `A-Z a-z 0-9 _ . -` in the
+     * raw URI, including `+` and `%` (e.g. `?=x`, `?a+b=1`, `?%69d=5`, `?ids[]=1`).
+     */
     PARAM_NAME_INVALID("PARAM_NAME_INVALID", Tier.HARD, Severity.MEDIUM),
 
     /** A parameter value does not match its declared type (digits, enum, UUID, character class). */

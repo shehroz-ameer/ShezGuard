@@ -92,7 +92,8 @@ decision is Block.
 
 ### 4.2 Default limits [DECIDED]
 - Maximum URI length: 2048 characters (overridable per entry point).
-- Maximum parameter length: 256 characters (overridable per parameter).
+- Maximum parameter value length: 256 characters (overridable per parameter).
+- Maximum parameter name length: 64 characters, fixed (step 4 decision).
 
 ## 5. Decision pipeline
 1. Canonicalise the URI (see section 6). If canonicalisation fails, Block.
@@ -149,7 +150,10 @@ decision is Block.
 - Reject userinfo (`user:pass@host`) tricks.
 - **[DECIDED]** Use a small pure-Kotlin parser (JVM-testable). A Robolectric differential
   test compares it with `android.net.Uri` on accepted inputs; if the two disagree, Block.
-- **[DECIDED]** `+` decodes to a space in query parameter names and values, and stays a
+- **[DECIDED]** (changed in step 4) Query parameter names must match `[A-Za-z0-9_.-]{1,64}`
+  in the raw URI, before decoding; anything else, including `+` and `%`, is
+  `PARAM_NAME_INVALID` (hard). Not configurable in v1 (`docs/LIMITATIONS.md` L16).
+- **[DECIDED]** `+` decodes to a space in query parameter values, and stays a
   literal `+` in the path. `%2B` always decodes to a literal `+`. This matches what apps
   read through `Uri.getQueryParameter`; the differential test must cover it and fail
   loudly if `android.net.Uri` disagrees.
