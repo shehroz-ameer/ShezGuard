@@ -32,16 +32,20 @@ public sealed class Decision {
     /**
      * The intent may be used as received.
      *
-     * Only [Tier.SOFT] violations can be present. Read data through ShezGuard's
-     * accessors rather than `getIntent()`, so the app uses the values that were checked.
+     * Only [Tier.SOFT] violations can be present. Read data from [data], not from
+     * `getIntent()` or [intent], so the app uses the values that were checked.
      *
-     * @property intent the original intent.
+     * @property intent the original intent, unmodified. Use it to forward or inspect
+     * non-data fields; do not read its data URI. Under `Unknown.Ignore` it still contains
+     * the undeclared parameters, which [data] deliberately does not expose.
+     * @property data the canonical, validated data URI, or `null` if the intent has none.
      */
     public class Allow internal constructor(
         public val intent: Intent,
         override val entryPoint: String,
         override val violations: List<Violation>,
         override val score: RiskScore,
+        public val data: GuardedUri? = null,
     ) : Decision() {
         override val outcome: Outcome = Outcome.ALLOW
 
@@ -62,13 +66,17 @@ public sealed class Decision {
      * extras, parts of nested intents. It never rewrites a value. At least one
      * [Tier.REMOVABLE] violation is present, and no [Tier.HARD] one.
      *
-     * @property sanitizedIntent a copy of the intent with the removable parts removed.
+     * @property sanitizedIntent a copy of the intent with the removable parts removed. The
+     * caller's intent is never modified.
+     * @property data the canonical, validated data URI of [sanitizedIntent], or `null` if
+     * the intent has none. Read data from here.
      */
     public class Sanitize internal constructor(
         public val sanitizedIntent: Intent,
         override val entryPoint: String,
         override val violations: List<Violation>,
         override val score: RiskScore,
+        public val data: GuardedUri? = null,
     ) : Decision() {
         override val outcome: Outcome = Outcome.SANITIZE
 

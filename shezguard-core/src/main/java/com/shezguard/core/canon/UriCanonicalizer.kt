@@ -56,6 +56,9 @@ internal object UriCanonicalizer {
 
     private val DEFAULT_PORTS = mapOf("http" to 80, "https" to 443)
 
+    /** The default port of a lowercase [scheme], or `null` if ShezGuard knows none. */
+    fun defaultPort(scheme: String): Int? = DEFAULT_PORTS[scheme]
+
     /** Fixed maximum query parameter name length; the same limit as `ParamRule.name`. */
     const val MAX_PARAM_NAME_LENGTH: Int = 64
 

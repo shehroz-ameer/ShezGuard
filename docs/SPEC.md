@@ -131,6 +131,42 @@ decision is Block.
   verification) have nothing to remove, so a score-driven Sanitize would be meaningless.
 - The decision lists which signals contributed and their weights.
 
+### 5.3 Evaluator, URI and parameter stages (step 5b) [DECIDED]
+- **Entry.** `ShezGuard.evaluate(intent, policy, entryPointName)`. The pipeline is pure Kotlin
+  (`com.shezguard.core.eval`); only a thin adapter in `com.shezguard.core.android` touches
+  `Intent` and `Uri`. In step 5b only `intent.getData()` / `getDataString()` are read, never extras.
+- **Unknown entry point.** Block with a single `ENTRY_POINT_UNKNOWN` (HARD); the intent is not read.
+- **Data rule.** No data URI: `Required` gives `DATA_MISSING`; `Optional` and `Forbidden`
+  skip the URI stages. A data URI on a `Forbidden` entry point gives `DATA_FORBIDDEN` only:
+  the URI is not canonicalised or examined further. An empty data string is present data
+  (`URI_EMPTY`).
+- **`URI_PARSER_MISMATCH`.** After canonicalisation succeeds, two checks, each mismatching
+  component reported once:
+  1. canonical vs `android.net.Uri`: `isHierarchical` true; `getScheme`, `getHost` equal
+     after ASCII-only lowercasing; `getPort` equal after mapping `-1` and the scheme default
+     to "none"; `getUserInfo` null; `getPathSegments` equal; trailing slash (from `getPath`)
+     equal; `getFragment` equal; `getQueryParameterNames` the same set; each value via
+     `getQueryParameter` (singular only, L11) equal to the first canonical value.
+  2. `android.net.Uri` vs itself: `getAuthority`, `getPath`, `getQuery`, `getFragment` each
+     equal `Uri.decode` of the encoded counterpart (crafted parcels, `docs/PAPER_NOTES.md` N4).
+- **Reading data.** `Decision.Allow.data` and `Decision.Sanitize.data` are a `GuardedUri`:
+  canonical scheme, host, port, path segments, fragment, and values of **declared**
+  parameters only. Parameters kept under `Unknown.Ignore` are not readable there, although
+  they remain in the original intent. `GuardedUri.toString()` redacts everything except the
+  scheme and declared parameter names.
+- **Sanitize under `Unknown.Drop`.** The intent is copied with `Intent(Intent)` and only the
+  data is replaced, with `setDataAndType(newUri, original.type)`. The new URI string is the
+  raw `dataString` with the raw query pieces of dropped names removed; everything else is
+  kept byte for byte, and the `?` is removed if no piece remains (method in full:
+  `eval/QueryRemoval.kt`). The result is canonicalised and mismatch-checked again; it must
+  equal the original canonical URI minus the dropped parameters, otherwise the decision is
+  `EVALUATION_FAILED`.
+- **Outcome rule** as in 5.1. Until step 7 the score is always 0, so rule 2 never fires.
+- **Fail closed.** Any `RuntimeException` during evaluation gives Block with a single
+  `EVALUATION_FAILED` (HARD, CRITICAL) violation, with no exception message and no other
+  violations. `Error`s are not caught. A fixed-seed fuzz test asserts `EVALUATION_FAILED`
+  never occurs on its corpus, so the safety net cannot hide library bugs.
+
 ## 6. Canonicalisation (internal, heavily tested)
 - Lowercase scheme and host. Reject empty or non-ASCII hosts unless explicitly allowed.
 - **[DECIDED]** Split the URI into components first, then percent-decode each component
@@ -175,9 +211,9 @@ val policy = intentPolicy {
     }
 }
 
-when (val d = ShezGuard.evaluate(intent, policy, "product", callerInfo)) {
-    is Decision.Allow    -> proceed(d.intent)
-    is Decision.Sanitize -> proceed(d.sanitizedIntent)
+when (val d = ShezGuard.evaluate(intent, policy, "product")) {  // callerInfo added in step 8
+    is Decision.Allow    -> proceed(d.data)       // read d.data?.param("id"), never intent.data
+    is Decision.Sanitize -> proceed(d.data)       // d.sanitizedIntent to forward the cleaned intent
     is Decision.Block    -> finishWith(d.violations)
 }
 ```

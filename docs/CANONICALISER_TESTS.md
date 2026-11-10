@@ -52,6 +52,15 @@ emits `URI_PARSER_MISMATCH`, is the intended defence. It must include a test tha
 such a parcel if Robolectric allows it. Whether this is exploitable on current Android
 versions is **not verified**.
 
+**Resolved in step 5b (2026-11-10).** AOSP source shows that only API 24–29 accept a parcel
+holding both forms; API 30–33 hold one form per part and API 34 re-parses one string
+(`docs/PAPER_NOTES.md` N4). Correction to the paragraph above: `getPathSegments()` is computed
+from the **encoded** path; it is `getPath()` (and `getAuthority()`, `getQuery()`,
+`getFragment()`) that return the stored decoded form. The evaluator therefore also checks
+`android.net.Uri` against itself (`getX() == Uri.decode(getEncodedX())`). `CraftedUriParcelTest`
+(Robolectric SDK 29) builds such a parcel and shows it is blocked with `URI_PARSER_MISMATCH`.
+Not yet run on a device.
+
 ---
 
 ## A. `UriCanonicalizerTest` (plain JVM)

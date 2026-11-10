@@ -146,8 +146,8 @@ reliable or a signature-level permission protects the component.
   `getQueryParameter` only (author decision, step 3). **Names:** since step 4 a raw name
   must match `[A-Za-z0-9_.-]{1,64}`, so a `+` in a name is `PARAM_NAME_INVALID` (test 17)
   and the name half of this limitation no longer applies. For names in that set all three
-  accessors agree (test 116). The value half remains: how the step 5b parser-mismatch
-  check handles it is still to be decided.
+  accessors agree (test 116). The value half remains. The step 5b parser-mismatch
+  check reads values with `getQueryParameter` only (author decision, 2026-11-10; L19).
 - **Source:** step 3, differential tests 99 and 111.
 
 ## L12. `getQueryParameter` does not find percent-encoded parameter names
@@ -247,3 +247,51 @@ reliable or a signature-level permission protects the component.
 - **Workaround:** declare the parameter as `OneOf(setOf("1"))` (or similar) and send
   `?debug=1`.
 - **Source:** step 4 decision; test `blocksEmptyValueForEveryType`.
+
+## L19. The parser-mismatch check compares a fixed list of `Uri` accessors
+- **What:** `URI_PARSER_MISMATCH` compares the canonical URI with `isHierarchical`,
+  `getScheme`, `getHost`, `getPort`, `getUserInfo`, `getPathSegments`, `getPath` (trailing
+  slash), `getFragment`, `getQueryParameterNames` and `getQueryParameter`, and checks that
+  `getAuthority`, `getPath`, `getQuery` and `getFragment` equal `Uri.decode` of their encoded
+  forms. Other accessors, such as `getQueryParameters` (plural, L11),
+  `getBooleanQueryParameter`, `getSchemeSpecificPart` and `normalizeScheme()`, are not
+  compared. An app that reads one of them can still see different data from what ShezGuard
+  checked.
+- **Why:** Android's own accessors disagree with each other (N1), so "agree with every
+  accessor" is not achievable. ShezGuard picks one accessor per component.
+- **What ShezGuard does:** exposes the checked values in `Decision.data` (`GuardedUri`), which
+  apps must use instead of the `Uri`.
+- **Verification status:** the crafted-parcel case (API 24–29, `docs/PAPER_NOTES.md` N4) was
+  shown under Robolectric SDK 29 and by reading AOSP source; not yet on a device.
+- **Source:** step 5b.
+
+## L20. Undeclared parameters kept under `Unknown.Ignore` stay in the original intent
+- **What:** under `Unknown.Ignore` the decision is Allow, and `Decision.Allow.intent` is the
+  unmodified original, so the undeclared parameters are still in its data URI. `GuardedUri`
+  does not expose them (author decision 3), but an app that reads `getIntent().getData()`
+  still sees them.
+- **Why:** Sanitize may only be triggered by REMOVABLE violations, and `Ignore` is defined as
+  "leave in place and signal".
+- **Workaround:** use `Unknown.Drop` to have them removed from a sanitized copy, or read data
+  only from the `Decision`.
+- **Source:** step 5b, author decision 3.
+
+## L21. Copying the intent touches a private flag of the caller's extras on API 33+
+- **What:** Sanitize copies the intent with `Intent(Intent)`. From API 33 that constructor sets
+  the private `mOwnsLazyValues` flag of the **source** extras Bundle to `false` when the Bundle
+  is already unparcelled (`docs/PAPER_NOTES.md` N5). No value, key or public property of the
+  caller's intent changes, and ShezGuard's "input is never modified" tests check public state
+  only.
+- **Why:** it is the platform's copy constructor; copying an intent without it would mean
+  reimplementing `Intent` copying.
+- **Source:** step 5b, AOSP source read of `BaseBundle(BaseBundle, boolean)`.
+
+## L22. `EVALUATION_FAILED` discards the other violations
+- **What:** if a `RuntimeException` is thrown during evaluation (e.g. by a `Uri` accessor on
+  a crafted object), the decision is Block with only `EVALUATION_FAILED`, and its `Field` is
+  `entryPoint`. Violations found before the failure are not reported, and no exception message
+  or class name is recorded, so the decision explains less than usual.
+- **Why:** a partial evaluation cannot be trusted to be complete, and exception messages from
+  platform code can contain raw input.
+- **Source:** step 5b, author decision 1. The fuzz test asserts the code never occurs on its
+  corpus, so it does not hide library bugs there.

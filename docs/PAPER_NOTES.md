@@ -124,3 +124,67 @@ a design choice, not an Android inconsistency.
 [117] <https://example.com/?a[b=1> android: getQueryParameterNames()=[a[b] getQueryParameter("a[b")=<null> getQueryParameters("a[b")=[] Uri.encode("a[b")=a%5Bb | shezguard: Rejected [PARAM_NAME_INVALID]
 [117] <https://example.com/?a]b=1> android: getQueryParameterNames()=[a]b] getQueryParameter("a]b")=<null> getQueryParameters("a]b")=[] Uri.encode("a]b")=a%5Db | shezguard: Rejected [PARAM_NAME_INVALID]
 ```
+
+## N4. Up to API 29, a parcelled `Uri` can carry a decoded form that contradicts its string form
+
+**Observation (AOSP source).** `android.net.Uri.HierarchicalUri.readFrom(Parcel)` per API
+level, read from `platform/frameworks/base` at the first release tag and the latest release
+or security tag of each branch (fetched 2026-11-10):
+
+| API | Tags read | Part format in the parcel | Can encoded and decoded disagree? |
+|---|---|---|---|
+| 24, 25 | `android-7.0.0_r1`, `_r36`; `android-7.1.0_r1`, `7.1.2_r39` | `Part.readFrom` / `PathPart.readFrom` accept `Representation.BOTH` (0): encoded then decoded string, no check | Yes |
+| 26, 27 | `android-8.0.0_r1`, `android-security-8.0.0_r54`; `android-8.1.0_r1`, `android-security-8.1.0_r93` | same | Yes |
+| 28 | `android-9.0.0_r1`, `android-security-9.0.0_r76` | same | Yes |
+| 29 | `android-10.0.0_r1`, `android-security-10.0.0_r75` | same | Yes |
+| 30, 31, 32 | `android-11.0.0_r1`, `android-security-11.0.0_r76`; `android-12.0.0_r1`, `android-security-12.0.0_r69`; `android-12.1.0_r1`, `android-security-12.1.0_r7` | one representation per part (`ENCODED` or `DECODED`); the other form is derived | No (by construction) |
+| 33 | `android-13.0.0_r1`, `android-security-13.0.0_r33` | as API 30, plus RFC 3986 path handling | No (by construction) |
+| 34 | `android-14.0.0_r1`, `android-security-14.0.0_r31` | the whole URI is one string, re-parsed with `StringUri` | No |
+
+On API 24–29, `toString()` (and so `Intent.getDataString()`) and `getHost()` /
+`getPathSegments()` / `getQueryParameter()` are computed from the **encoded** form, while
+`getAuthority()`, `getPath()`, `getQuery()` and `getFragment()` return the **decoded** form
+stored in the parcel. A sender can therefore make `getPath()` return a different path from
+the one any string-based validator sees.
+
+**Demonstrated (Robolectric, SDK 29).** A hand-written parcel with encoded path `/product/1`
+and decoded path `/admin/../../secret`:
+```
+[N4] sdk=29 toString=<https://example.com/product/1?id=1> getPath=</admin/../../secret> getEncodedPath=</product/1> getPathSegments=[product, 1]
+```
+Only `getPath()` disagrees; `getPathSegments()` agrees with the string. A check that compared
+only the canonical result with `getPathSegments()` (check (c)1) would have missed it. The
+self-consistency check (c)2 (`getPath() == Uri.decode(getEncodedPath())`) blocks it with
+`URI_PARSER_MISMATCH` on `uri.path`.
+
+**Why it matters.** It is a validator/consumer differential inside one `Uri` object, reachable
+over IPC on API 24–29 (still within minSdk 24). It supports the rule that apps read data from
+the `Decision`, and shows why a runtime parser-agreement check must also compare the platform
+parser with itself.
+
+**Not verified.** No device or emulator run yet (step 14). Robolectric's SDK 29 `Parcel` is a
+JVM emulation. OEM builds and devices without the listed security patches were not examined.
+The AOSP commit that removed `BOTH` was not identified (the history pages need sign-in), so no
+CVE or bug number is claimed. Whether `Intent` delivery through `system_server` preserves a
+crafted `Uri` parcel unchanged on API 24–29 was not tested; the
+`Uri.CREATOR`-level demonstration is what is shown.
+
+**Evidence.** `CraftedUriParcelTest` (SDK 29); `ParserMismatchTest` rows for (c)2;
+`docs/LIMITATIONS.md` L19.
+
+## N5. `Intent(Intent)` copies extras without unparcelling them (API 24–34)
+
+**Observation (AOSP source, same tags as N4).** On every listed tag, `new Intent(Intent o)`
+copies extras with `new Bundle(o.mExtras)`, i.e. `BaseBundle(BaseBundle, deep = false)`. When
+the source Bundle is still parcelled, the copy duplicates the raw bytes (`Parcel.appendFrom`)
+and never unparcels them. `setDataAndType(Uri, String)` only assigns `mData` and `mType` on
+every listed tag.
+
+**Demonstrated (Robolectric, SDK 29 and 34).** An intent received through
+`Intent.CREATOR` has parcelled extras. After a Sanitize decision, both the original and the
+sanitized copy still report `BaseBundle.isParcelled() == true` (`IntentCopyParcelTest`).
+
+**Caveat.** From API 33 the copy constructor sets the internal flag `mOwnsLazyValues = false`
+on the **source** Bundle when its map is already unparcelled. That is a change to private
+state of the caller's intent that no public API reports. It is not a change to any value
+(`docs/LIMITATIONS.md` L21).

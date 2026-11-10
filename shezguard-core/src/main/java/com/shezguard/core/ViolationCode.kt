@@ -26,6 +26,14 @@ public enum class ViolationCode(
     /** No policy is registered under the requested entry point name (deny by default). */
     ENTRY_POINT_UNKNOWN("ENTRY_POINT_UNKNOWN", Tier.HARD, Severity.CRITICAL),
 
+    /**
+     * Evaluation could not be completed because a `RuntimeException` was thrown, for
+     * example by an `android.net.Uri` accessor on a malformed or crafted object. Fails
+     * closed instead of crashing. The violation carries no exception message, and no other
+     * violations, because a partial evaluation cannot be trusted. `Error`s are not caught.
+     */
+    EVALUATION_FAILED("EVALUATION_FAILED", Tier.HARD, Severity.CRITICAL),
+
     // ---- Canonicalisation (SPEC section 6) ---------------------------------------
 
     /** The URI string is empty. */
