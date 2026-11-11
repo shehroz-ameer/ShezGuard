@@ -53,6 +53,7 @@ public class IntentPolicy(entryPoints: Collection<EntryPointPolicy>) {
  * @property caller the caller rule. Advisory unless a reliable identity source exists (SPEC section 8).
  * @property threshold the soft-signal score at which the intent is blocked.
  * @property limits length limits applied during canonicalisation.
+ * @property scoreWeights per-code weight overrides for SOFT signals (SPEC 5.2). Defaults to none.
  */
 public class EntryPointPolicy(
     public val name: String,
@@ -70,6 +71,7 @@ public class EntryPointPolicy(
     public val caller: Caller = Caller.Any,
     public val threshold: Threshold = Threshold.DEFAULT,
     public val limits: Limits = Limits.DEFAULT,
+    public val scoreWeights: ScoreWeights = ScoreWeights.DEFAULT,
 ) {
     init {
         require(ENTRY_POINT_NAME.matches(name)) { "invalid entry point name" }

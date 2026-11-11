@@ -380,3 +380,36 @@ tests run against 1.9.0; an app's actual version depends on its other dependenci
 
 **Design consequence.** ShezGuard's penalty consumer discards every message unread (`docs/LIMITATIONS.md` L24). A replaced component is a rewrite, not a removal (SPEC 4.1),
 so it is `NESTED_INTENT_DENIED`, not `NESTED_INTENT_SANITIZED` (L25).
+
+## N10. The risk score: what to claim and what not to
+
+**Wording approved by the author for the paper (step 7):**
+> ShezGuard's risk score is a transparent, additive tally of a few advisory signals, compared
+> with a fixed threshold. It is not learned, adaptive or statistical, and it does not detect
+> attacks: every attack-specific check is a HARD rule that blocks regardless of the score. In v1
+> there are six soft signals, mostly about caller identity and domain verification, which cannot
+> be established reliably (L3). The score exists so that several individually inconclusive
+> signals can combine into a Block in a way a developer can read and tune. With the default
+> weights, no single signal blocks, and only two strong (HIGH) signals together reach the default
+> threshold. Before caller signals are implemented (step 8), the score cannot change any outcome
+> under default settings.
+
+**Facts behind it.**
+- Score = sum over distinct SOFT codes of their weights, capped at 100; blocked when
+  `score >= threshold` (default 70). Each code counts once; the explanation records how often it
+  occurred (`ScoreContribution.occurrences`).
+- Default weights (design choices, not empirically derived): 5 for the four LOW soft codes,
+  50 for the two HIGH ones (`CALLER_NOT_ALLOWED`, `DOMAIN_NOT_VERIFIED`).
+- Exhaustive check: of the 64 subsets of the six soft codes, 28 contain an exclusive pair and
+  cannot be emitted; over the other 36, no single signal blocks, every set with at most one HIGH
+  signal stays below 70 (the largest such sets score 65), and every set with two HIGH signals
+  blocks (`WeightedScorerTest.defaultWeightsOverAllEmittableSubsetsOfSoftSignals`).
+- The score can only add a Block; a fixed-seed property test over 5000 random weight maps,
+  thresholds and violation lists shows no weights unblock a HARD violation
+  (`noCombinationOfWeightsTurnsHardIntoAllowOrSanitize`).
+- Before step 8 only `URI_NON_CANONICAL` and `PARAM_UNKNOWN_IGNORED` are ever emitted, so the
+  default maximum is 10 and the score cannot change any outcome under default settings
+  (`ScoringEvaluateTest.defaultWeightsCannotChangeAnOutcomeBeforeStep8`).
+
+**Do not claim:** that the score detects attacks, adapts, is calibrated, or reduces false
+positives. None of that has been measured.

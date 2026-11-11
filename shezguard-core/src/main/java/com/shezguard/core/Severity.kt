@@ -7,20 +7,27 @@ package com.shezguard.core
  * feeds the risk score for [Tier.SOFT] violations (SPEC section 5.1). A [Tier.HARD]
  * violation blocks whatever its severity.
  *
- * @property defaultWeight the score a [Tier.SOFT] violation of this severity adds by
- * default. Weights are capped so the total score stays in `0..100`.
+ * **Default weights (SPEC 5.2, step 7).** The default score weight of a [Tier.SOFT] code is the
+ * [defaultWeight] of its default severity; a policy can override it per code
+ * (`policy.ScoreWeights`). The values are design choices, not empirically derived. They are
+ * chosen so that, at the default block threshold of 70 and with each soft code counted once:
+ * no single soft signal blocks; one HIGH signal plus every LOW signal that can occur with it
+ * stays below 70 (50 + 3 x 5 = 65); and two HIGH signals block (100).
+ *
+ * @property defaultWeight the score a [Tier.SOFT] code of this severity adds by default,
+ * once per evaluation. The total score is capped at 100.
  */
 public enum class Severity(public val defaultWeight: Int) {
-    /** Unusual but usually harmless, e.g. a non-canonical but equivalent URI. */
-    LOW(10),
+    /** Unusual but usually harmless, e.g. a non-canonical but equivalent URI. Default weight 5. */
+    LOW(5),
 
-    /** Suspicious on its own, harmless only in some contexts. */
+    /** Suspicious on its own, harmless only in some contexts. Default weight 25 (no SOFT code uses it in v1). */
     MEDIUM(25),
 
-    /** Strongly suggests an attack attempt or a dangerous misuse. */
+    /** Strongly suggests an attack attempt or a dangerous misuse. Default weight 50. */
     HIGH(50),
 
-    /** A known attack pattern or a failure that makes the intent unsafe to inspect. */
+    /** A known attack pattern or a failure that makes the intent unsafe to inspect. Default weight 100 (no SOFT code uses it in v1). */
     CRITICAL(100),
 }
 

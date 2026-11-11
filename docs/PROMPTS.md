@@ -65,6 +65,10 @@ the decision must list which signals contributed and their weights. Tests for th
 Implement best-effort caller information (`getCallingPackage`, `getReferrer` where available,
 signature digest comparison for `AllowedPackages`). Mark every signal as advisory in KDoc.
 Append the limitations to docs/LIMITATIONS.md.
+Required by step 7 (author condition 3): include tests proving the evaluator never emits both
+signals of either exclusive pair, `CALLER_UNIDENTIFIED` with `CALLER_NOT_ALLOWED`, or
+`DOMAIN_NOT_VERIFIED` with `DOMAIN_VERIFICATION_UNAVAILABLE`, in one decision. The default
+score weights rely on it (`docs/SPEC.md` 5.2, `docs/LIMITATIONS.md` L29).
 
 ## 9. Audit sink
 Add the `AuditSink` interface, a no-op default, and an optional redacted logcat sink.

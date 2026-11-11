@@ -43,8 +43,11 @@ class OutcomeRuleTest {
         assertEquals(Outcome.ALLOW, OutcomeRule.decide(listOf(soft), score(69), t))
     }
 
+    /** Step 7 replaced the step 5b placeholder (always zero) with the weighted scorer. */
     @Test
-    fun step5bScorerAlwaysReturnsZero() {
-        assertEquals(RiskScore.ZERO, Scorer.NONE.score(listOf(soft, soft, soft), EvalFixtures.policy["product"]!!))
+    fun defaultScorerIsWeighted() {
+        val s = Scorer.WEIGHTED.score(listOf(soft, soft, soft), EvalFixtures.policy["product"]!!)
+        assertEquals(5, s.total)
+        assertEquals(3, s.contributions.single().occurrences)
     }
 }

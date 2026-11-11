@@ -76,6 +76,8 @@ A `IntentPolicy` is a set of named `EntryPointPolicy` objects. Each entry point 
   replaces `VerifiedAppLinkOnly`), `AllowedPackages(set + signature digests)`. See section 8.
 - block threshold: the soft-signal score at or above which the intent is blocked
   (section 5.2). **[DECIDED]** there is no sanitize threshold.
+- score weights **[DECIDED]** (step 7): per-code overrides of the default weights of SOFT
+  signals (section 5.2).
 
 Semantics: policies are evaluated deterministically. Same input gives same decision.
 **[DECIDED]** "Input" means (intent, policy, entry point name, caller info, SDK level).
@@ -126,12 +128,48 @@ decision is Block.
 4. Otherwise: **Allow**, with any soft signals listed in the decision.
 
 ### 5.2 Score and threshold [DECIDED]
-- Severity levels: `LOW`, `MEDIUM`, `HIGH`, `CRITICAL`, each with a documented default weight.
-- Score is the sum of soft-signal weights, capped at 100 (range 0..100).
-- There is one threshold, `block`, in `1..100` (default 70). There is **no sanitize
+> ShezGuard's risk score is a transparent, additive tally of a few advisory signals, compared
+> with a fixed threshold. It is not learned, adaptive or statistical, and it does not detect
+> attacks: every attack-specific check is a HARD rule that blocks regardless of the score. In v1
+> there are six soft signals, mostly about caller identity and domain verification, which cannot
+> be established reliably (`docs/LIMITATIONS.md` L3). The score exists so that several individually inconclusive
+> signals can combine into a Block in a way a developer can read and tune. With the default
+> weights, no single signal blocks, and only two strong (HIGH) signals together reach the default
+> threshold. Before caller signals are implemented (step 8), the score cannot change any outcome
+> under default settings.
+
+- Severity levels: `LOW`, `MEDIUM`, `HIGH`, `CRITICAL`, each with a documented default weight:
+  5, 25, 50, 100 (step 7 lowered `LOW` from 10 to 5).
+- **[DECIDED]** (step 7) The default weight of a SOFT code is the default weight of its default
+  severity. In v1: `URI_NON_CANONICAL`, `PARAM_UNKNOWN_IGNORED`, `CALLER_UNIDENTIFIED` and
+  `DOMAIN_VERIFICATION_UNAVAILABLE` 5; `CALLER_NOT_ALLOWED` and `DOMAIN_NOT_VERIFIED` 50.
+  **These defaults are design choices, not empirically derived.** They are chosen so that, at
+  the default threshold 70: no single soft signal blocks; one HIGH signal plus every LOW signal
+  that can occur with it stays below 70 (50 + 3 x 5 = 65); any two HIGH signals block (100).
+  This relies on two pairs never being emitted together: `CALLER_UNIDENTIFIED` /
+  `CALLER_NOT_ALLOWED` and `DOMAIN_NOT_VERIFIED` / `DOMAIN_VERIFICATION_UNAVAILABLE`
+  (step 8 must prove it). Checked over every emittable subset by
+  `WeightedScorerTest.defaultWeightsOverAllEmittableSubsetsOfSoftSignals`.
+- **[DECIDED]** (step 7) **Score = the sum over distinct soft codes** of their weights, capped
+  at 100 (range 0..100): each SOFT code counts once per evaluation, however many violations it
+  has, so that, for example, seven ignored tracking parameters cost one signal, not seven.
+  Weights are integers in `0..100`; no rounding.
+- There is one threshold, `block`, in `1..100` (default 70). The intent is blocked by the score
+  when `score >= block`. A score of 0 never blocks; `block - 1` does not block; `block` and 100
+  do. The cap never changes an outcome, because `block <= 100`. There is **no sanitize
   threshold**: Sanitize can only remove parts, and soft signals (caller hints, domain
   verification) have nothing to remove, so a score-driven Sanitize would be meaningless.
-- The decision lists which signals contributed and their weights.
+- The score can only add a Block: it never turns a Block into Sanitize or Allow, nor a Sanitize
+  into Allow, whatever the weights (HARD is checked first; section 5.1).
+- **[DECIDED]** (step 7) Weights are overridable per entry point with
+  `scoreWeight(code, weight)` in the DSL (`EntryPointPolicy.scoreWeights`, a `ScoreWeights`).
+  Only SOFT codes; weight in `0..100`; each code at most once. 0 keeps the signal listed in
+  the violations but makes it count for nothing; 100 makes it block on its own.
+- The decision lists which signals contributed and their weights: `Decision.score` is a
+  `RiskScore` with `total`, `threshold` (the block threshold applied; `null` when no entry point
+  policy applied) and `contributions`, one `ScoreContribution(violation, weight, occurrences)`
+  per distinct code with a non-zero weight, in order of first occurrence. `violation` is the
+  first violation of that code; its `Field` redacts undeclared names, so no raw value appears.
 
 ### 5.3 Evaluator, URI and parameter stages (step 5b) [DECIDED]
 - **Entry.** `ShezGuard.evaluate(intent, policy, entryPointName)`. The pipeline is pure Kotlin
@@ -294,7 +332,9 @@ Package: `com.shezguard.core`.
       may not exceed it;
   11. `url { }` needs a scheme and a host;
   12. a nested-intent key may not also be an allowed extra;
-  13. numbers in range (threshold `1..100`, positive limits and sizes, ports `1..65535`).
+  13. numbers in range (threshold `1..100`, positive limits and sizes, ports `1..65535`);
+  14. (step 7) `scoreWeight(code, weight)` only for SOFT codes, with a weight in `0..100`, and
+      at most once per code.
 - **[DECIDED]** (step 5) `@ShezGuardDsl` (a `@DslMarker`) is on every builder. The compiler
   rejects implicit calls to an outer builder; checked once by hand on 2026-11-10, Kotlin
   2.0.21: `param("id") { allowHosts("x") }`, `entryPoint("a") { entryPoint("b") { } }` and

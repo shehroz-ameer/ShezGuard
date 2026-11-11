@@ -112,7 +112,7 @@ public sealed class Decision {
 
     internal fun describe(): String =
         "Decision.${outcome.name.lowercase().replaceFirstChar { it.uppercase() }}(" +
-            "entryPoint=$entryPoint, score=${score.total}, violations=$violations)"
+            "entryPoint=$entryPoint, score=${score.total}${score.threshold?.let { "/$it" } ?: ""}, violations=$violations)"
 
     private companion object {
         fun checkCommon(entryPoint: String, violations: List<Violation>) {

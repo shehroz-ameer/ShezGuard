@@ -413,3 +413,31 @@ Every "protected" item below is shown by the named test under Robolectric SDK 24
 - **Device behaviour.** Robolectric runs the AOSP Java code of `Bundle`, `Parcel` and `Intent` with
   an emulated native `Parcel`. OEM builds and real IPC through `system_server` were not tested.
 - **Source:** step 6.
+
+## L29. The risk score is a small, hand-tuned part of the design
+- **What it is:** ShezGuard's risk score is a transparent, additive tally of a few advisory signals, compared
+  with a fixed threshold. It is not learned, adaptive or statistical, and it does not detect
+  attacks: every attack-specific check is a HARD rule that blocks regardless of the score. In v1
+  there are six soft signals, mostly about caller identity and domain verification, which cannot
+  be established reliably (L3). The score exists so that several individually inconclusive
+  signals can combine into a Block in a way a developer can read and tune. With the default
+  weights, no single signal blocks, and only two strong (HIGH) signals together reach the default
+  threshold. Before caller signals are implemented (step 8), the score cannot change any outcome
+  under default settings.
+- **Default weights are design choices, not empirically derived.** They were set so that the
+  stated rule holds (no single signal blocks; one HIGH plus every compatible LOW stays below 70;
+  two HIGH block), checked over every emittable subset of the six soft codes
+  (`WeightedScorerTest.defaultWeightsOverAllEmittableSubsetsOfSoftSignals`). They were not
+  measured against real traffic, and no false-positive or false-negative rate is claimed.
+- **The default rule depends on two exclusive pairs** (`CALLER_UNIDENTIFIED` /
+  `CALLER_NOT_ALLOWED`, `DOMAIN_NOT_VERIFIED` / `DOMAIN_VERIFICATION_UNAVAILABLE`) never being
+  emitted together. That is true by their definitions, but the evaluator does not emit them
+  yet; step 8 must prove it by test. If both of a pair were emitted, one HIGH signal plus all
+  LOW ones would reach 70.
+- **Counting each code once** means volume is not evidence: 1 and 50 ignored parameters weigh
+  the same. That is deliberate (benign links carry many tracking parameters), but it also
+  means the score cannot express "unusually many" of anything.
+- **Developer overrides can weaken the soft layer** (weight 0 everywhere) but never the hard
+  one: no weight can unblock a HARD violation or turn a REMOVABLE one into Allow
+  (`noCombinationOfWeightsTurnsHardIntoAllowOrSanitize`, `scoreCanOnlyAddBlock`).
+- **Source:** step 7 (author approval 2026-11-11).

@@ -1,5 +1,8 @@
 package com.shezguard.core.policy
 
+import com.shezguard.core.Tier
+import com.shezguard.core.ViolationCode
+
 /**
  * Marks the ShezGuard policy DSL builders.
  *
@@ -122,6 +125,7 @@ public class EntryPointBuilder internal constructor(internal val name: String) {
     private val callerCalls = mutableListOf<Pair<String, () -> Caller?>>()
     private var threshold: Int? = null
     private var limits: Pair<Int, Int>? = null
+    private val weights = mutableListOf<Pair<ViolationCode, Int>>()
 
     private fun <T : Any> once(label: String, current: T?, value: T): T {
         if (current != null) setTwice += label
@@ -233,6 +237,15 @@ public class EntryPointBuilder internal constructor(internal val name: String) {
     }
 
     /**
+     * Overrides the score weight of one SOFT signal, in `0..100` (defaults in [ScoreWeights]).
+     * 0 keeps the signal listed but makes it count for nothing; 100 makes it block on its own.
+     * Setting a non-SOFT code, a weight out of range, or the same code twice is an error.
+     */
+    public fun scoreWeight(code: ViolationCode, weight: Int) {
+        weights += code to weight
+    }
+
+    /**
      * Overrides the length limits for this entry point. A parameter without its own
      * `maxLength` uses [maxParamLength]; an explicit `maxLength` may not exceed it.
      */
@@ -264,6 +277,21 @@ public class EntryPointBuilder internal constructor(internal val name: String) {
         val effectiveMaxParam = builtLimits?.maxParamLength ?: Limits.DEFAULT_MAX_PARAM_LENGTH
         val builtThreshold = threshold?.let {
             if (it in 1..100) Threshold(it) else null.also { _ -> problem("threshold(block = $it): the block threshold must be in 1..100.") }
+        }
+
+        // Score weights (step 7).
+        weights.groupBy { it.first }.filterValues { it.size > 1 }.keys.forEach {
+            problem("scoreWeight(${it.id}, ...) is set more than once. Set it once; a second call is an error, not an override.")
+        }
+        weights.distinctBy { it.first }.forEach { (code, w) ->
+            if (code.tier != Tier.SOFT) {
+                problem(
+                    "scoreWeight(${code.id}, $w): ${code.id} is ${code.tier}, not SOFT. Only SOFT signals are scored; " +
+                        "HARD always blocks and REMOVABLE always sanitizes, whatever the weight. Remove this call.",
+                )
+            } else if (w !in ScoreWeights.MIN_WEIGHT..ScoreWeights.MAX_WEIGHT) {
+                problem("scoreWeight(${code.id}, $w): weight must be in ${ScoreWeights.MIN_WEIGHT}..${ScoreWeights.MAX_WEIGHT}.")
+            }
         }
 
         // URI rules.
@@ -355,6 +383,7 @@ public class EntryPointBuilder internal constructor(internal val name: String) {
                     caller = builtCaller ?: Caller.Any,
                     threshold = builtThreshold ?: Threshold.DEFAULT,
                     limits = builtLimits ?: Limits.DEFAULT,
+                    scoreWeights = if (weights.isEmpty()) ScoreWeights.DEFAULT else ScoreWeights(weights.toMap()),
                 )
             },
         )

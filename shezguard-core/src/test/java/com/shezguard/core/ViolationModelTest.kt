@@ -189,4 +189,37 @@ class ViolationModelTest {
     fun negativeWeightIsRejected() {
         assertThrows(IllegalArgumentException::class.java) { ScoreContribution(soft(), -1) }
     }
+
+    // ---- Step 7: occurrences and threshold in the explanation -------------------------
+
+    @Test
+    fun contributionDefaultsToOneOccurrenceAndRejectsZero() {
+        assertEquals(1, ScoreContribution(soft(), 5).occurrences)
+        assertEquals(3, ScoreContribution(soft(), 5, occurrences = 3).occurrences)
+        assertThrows(IllegalArgumentException::class.java) { ScoreContribution(soft(), 5, occurrences = 0) }
+    }
+
+    @Test
+    fun scoreRecordsTheAppliedThreshold() {
+        assertNull(RiskScore.ZERO.threshold)
+        val s = RiskScore.of(listOf(ScoreContribution(soft(), 50)), threshold = 70)
+        assertEquals(70, s.threshold)
+        assertEquals(50, s.total)
+        assertFalse(s == RiskScore.of(listOf(ScoreContribution(soft(), 50)), threshold = 60))
+    }
+
+    @Test
+    fun scoreThresholdMustBeInRange() {
+        assertThrows(IllegalArgumentException::class.java) { RiskScore.of(emptyList(), threshold = 0) }
+        assertThrows(IllegalArgumentException::class.java) { RiskScore.of(emptyList(), threshold = 101) }
+    }
+
+    @Test
+    fun scoreToStringNeverContainsUndeclaredName() {
+        val v = Violation(ViolationCode.PARAM_UNKNOWN_IGNORED, "p", Field.Param("secret_token", declared = false))
+        val s = RiskScore.of(listOf(ScoreContribution(v, 5, occurrences = 2)), threshold = 70)
+        assertFalse(s.toString(), s.toString().contains("secret_token"))
+        assertTrue(s.toString(), s.toString().contains("occurrences=2"))
+        assertTrue(s.toString(), s.toString().contains("threshold=70"))
+    }
 }

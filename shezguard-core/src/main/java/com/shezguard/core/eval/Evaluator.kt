@@ -45,8 +45,8 @@ internal class Evaluation(
 
 /**
  * SPEC section 5 for URI, parameter (step 5b) and extras (step 6) checks. Pure Kotlin; the
- * intent is seen only through [UriInput] and [ExtrasSource]. Later steps add caller signals
- * and a real [Scorer]; the outcome rule stays in [OutcomeRule].
+ * intent is seen only through [UriInput] and [ExtrasSource]. The soft violations are scored
+ * by [Scorer.WEIGHTED] (step 7); step 8 adds caller signals; the outcome rule stays in [OutcomeRule].
  *
  * Order: deny unknown entry points (nothing is read); apply the data rule; canonicalise;
  * compare with the platform parser; check the policy; then the extras stage, which always
@@ -65,7 +65,7 @@ internal object Evaluator {
     fun evaluate(
         policy: IntentPolicy,
         entryPoint: String,
-        scorer: Scorer = Scorer.NONE,
+        scorer: Scorer = Scorer.WEIGHTED,
         extras: ExtrasSource = ExtrasSource.NONE,
         input: () -> UriInput?,
     ): Evaluation = try {
