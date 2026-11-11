@@ -337,6 +337,7 @@ Package: `com.shezguard.core`.
       at most once per code.
   15. (step 8) `requireVerifiedDomain()` only on an entry point that accepts an `http`/`https`
       data URI, without other schemes and without `subdomainsOf(...)`.
+  16. (step 9) `auditSink(...)` at most once per policy.
 - **[DECIDED]** (step 5) `@ShezGuardDsl` (a `@DslMarker`) is on every builder. The compiler
   rejects implicit calls to an outer builder; checked once by hand on 2026-11-10, Kotlin
   2.0.21: `param("id") { allowHosts("x") }`, `entryPoint("a") { entryPoint("b") { } }` and
@@ -345,6 +346,31 @@ Package: `com.shezguard.core`.
 
 Also provide an Activity helper (`guardedOnCreate` or lifecycle callback) and an
 `AuditSink` interface (default: no-op; optional redacted logcat sink).
+
+### 7.1 Audit sink (step 9) [DECIDED]
+Author approval of the step 9 proposal, 2026-11-11 (`docs/RESPONSE.md`).
+- **Registration:** on the policy, `intentPolicy { auditSink(sink) ... }`, once (a second call is
+  an error, DSL rule 16). Default `AuditSink.NONE`, which does nothing. No global state; the
+  `evaluate` signatures are unchanged.
+- **Event:** `AuditEvent` is immutable (unmodifiable lists, no Android types): `entryPoint`
+  (replaced by `<invalid>` unless it is a valid entry point name), `outcome`, `violations` as
+  `AuditViolation(code, field, tier, severity)` where `field` is the redacted `Field.toString()`,
+  `scoreTotal`, `threshold` (`null` when no entry point policy applied), `contributions` as
+  `AuditContribution(code, weight, occurrences)`, and `callerIdentitySource`. It never carries the
+  intent, the `Decision`, `Violation`/`Field` objects, any URI component or parameter value, the
+  host, extras, nested intents, package names, certificate digests or exception messages.
+- **When:** exactly once per `evaluate` call, on every path (Allow, Sanitize, Block,
+  `ENTRY_POINT_UNKNOWN`, `EVALUATION_FAILED`), **after** the decision is complete, synchronously on
+  the calling thread. A sink may be called from several threads at once and must be thread-safe.
+- **Isolation:** a `RuntimeException` from building the event or from the sink is swallowed
+  deliberately, without logging, and the decision is returned unchanged. `Error`s propagate. The
+  sink receives only the event, never the decision or the intent.
+- **`LogcatAuditSink`:** explicit construction only, intended for debug builds
+  (`if (BuildConfig.DEBUG) auditSink(LogcatAuditSink())`). Tag `ShezGuard`; `WARN` for Block,
+  `INFO` otherwise; `minOutcome` default `BLOCK`; one line per event:
+  `outcome=BLOCK ep=product score=0/70 caller=- violations=[URI_PATH_TRAVERSAL@uri.path, PARAM_UNKNOWN@param:<undeclared>x7]`
+  (identical violations grouped as `xN`). At most `maxLinesPerMinute` (default 30) lines per
+  60-second window; the rest are counted and reported in one `suppressed=N` line.
 
 ## 8. Caller identity (be honest)
 `getCallingPackage()` only works for `startActivityForResult`. `getReferrer()` can be

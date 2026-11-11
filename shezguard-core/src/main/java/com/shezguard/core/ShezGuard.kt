@@ -7,6 +7,8 @@ import com.shezguard.core.android.AndroidDomainVerifier
 import com.shezguard.core.android.AndroidExtras
 import com.shezguard.core.android.AndroidUriView
 import com.shezguard.core.android.IntentCopy
+import com.shezguard.core.audit.AuditEvent
+import com.shezguard.core.audit.AuditSink
 import com.shezguard.core.eval.CallerSource
 import com.shezguard.core.eval.DomainVerifier
 import com.shezguard.core.eval.Evaluation
@@ -22,6 +24,11 @@ import com.shezguard.core.policy.IntentPolicy
  * **Scope (v1, step 8).** The data URI, its query parameters, the extras, nested intents in
  * extras and caller signals are checked, and soft signals are scored. Use the [Activity]
  * overload to get caller identity and domain verification; the intent-only overload has neither.
+ *
+ * **Auditing.** If the policy has an `AuditSink` (`intentPolicy { auditSink(...) }`), every call to
+ * either overload sends it exactly one redacted `AuditEvent` after the decision is made,
+ * synchronously on the calling thread. The sink cannot change the decision; its exceptions are
+ * swallowed.
  *
  * **Reading extras deserialises them.** To find nested intents anywhere in the extras,
  * ShezGuard reads every extra value from a copy of the Bundle. Any code a hostile
@@ -96,17 +103,40 @@ public object ShezGuard {
         AndroidDomainVerifier(activity),
     )
 
-    /** The common path, with injectable caller and domain sources (tests use fakes). */
+    /**
+     * The common path, with injectable caller and domain sources (tests use fakes). Every return
+     * path, including `EVALUATION_FAILED`, goes through here, so exactly one audit event is emitted
+     * per call, after the decision is complete.
+     */
     internal fun evaluateWith(
         intent: Intent,
         policy: IntentPolicy,
         entryPointName: String,
         caller: (AndroidExtras) -> CallerSource,
         domain: DomainVerifier,
-    ): Decision = try {
-        decide(intent, policy, entryPointName, caller, domain)
-    } catch (e: RuntimeException) {
-        blocked(Evaluator.failed(entryPointName))
+    ): Decision {
+        val decision = try {
+            decide(intent, policy, entryPointName, caller, domain)
+        } catch (e: RuntimeException) {
+            blocked(Evaluator.failed(entryPointName))
+        }
+        audit(policy.auditSink, decision)
+        return decision
+    }
+
+    /**
+     * Sends the redacted event to [sink] (step 9). Runs synchronously on the caller's thread. A
+     * `RuntimeException` from building the event or from the sink is deliberately swallowed without
+     * logging: the decision is already final and is returned unchanged, and the exception's message
+     * is never written anywhere. `Error`s propagate.
+     */
+    private fun audit(sink: AuditSink, d: Decision) {
+        if (sink === AuditSink.NONE) return
+        try {
+            sink.onDecision(AuditEvent.from(d.entryPoint, d.outcome, d.violations, d.score, d.callerIdentitySource))
+        } catch (e: RuntimeException) {
+            // Deliberately ignored (see KDoc).
+        }
     }
 
     private fun decide(

@@ -510,3 +510,35 @@ pending (step 14)):
   rejected with `requireVerifiedDomain()` at build time. `DOMAIN_STATE_SELECTED` (the user chose
   the app) counts as not verified.
 - **Source:** step 8, author condition 4.
+
+## L33. Audit events: what is and is not protected (step 9)
+**Shown by tests** (Robolectric SDK 34):
+- A fixed-seed corpus of 600 evaluations puts the canary `zqxcanary` in every attacker-controlled
+  position: scheme, host, userinfo, path, parameter names and values (raw and percent-encoded),
+  fragment, extras keys and values, nested intents (component, data, extras), deep Bundles,
+  referrer extras, the calling package, the message of an exception thrown by a caller source,
+  and the message of an exception thrown by a sink. It covers every outcome, including Sanitize
+  decisions whose rebuilt URI and extras still contain the canary. The canary appears in no
+  `AuditEvent` (fields and `toString`) and in no logcat line, and no throwable is logged
+  (`AuditCanaryTest`).
+- Mutation checks: the test catches raw undeclared names in the event, an unvalidated entry point
+  name, a logged sink exception, a logged evaluation exception, a debug log of the data URI, and a
+  caller package placed in a declared field.
+- Exactly one event per call on every path; a throwing sink, or one that tries to modify the
+  event, does not change the decision; `Error`s from a sink propagate (`AuditWiringTest`).
+
+**Not protected:**
+- **A slow sink delays the app.** The sink runs synchronously on the calling thread, usually the
+  main thread; a blocking sink can cause an ANR. It cannot change the decision.
+- **A sink that throws is silent.** Its exceptions are swallowed on purpose, so a broken sink goes
+  unnoticed unless it reports its own failures.
+- **The app's own logging is outside ShezGuard.** `Violation.field` for an undeclared parameter or
+  extra still exposes the raw attacker-chosen name through `Field.Param.name` / `Field.Extra.key`
+  (and through `RiskScore.contributions`). An app that logs those properties, instead of
+  `toString()` or the `AuditEvent`, can write attacker text into its logs. Whether to make those
+  properties internal is an open question for the author (step 9 report).
+- **The entry point name** is assumed to come from app code. A valid but app-chosen name is
+  logged as given.
+- **`LogcatAuditSink` in a release build** advertises validation decisions to anyone with `adb`
+  access or a bug report. It is meant for debug builds only.
+- **Source:** step 9.

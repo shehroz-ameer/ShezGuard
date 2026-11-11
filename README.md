@@ -47,3 +47,26 @@ override fun onNewIntent(intent: Intent) {
 - An allowed caller that rotates its signing key is blocked until its new key is listed.
 
 See `docs/SPEC.md` (section 8.1) and `docs/LIMITATIONS.md` (L3, L30–L32).
+
+## Audit events
+
+```kotlin
+val policy = intentPolicy {
+    if (BuildConfig.DEBUG) auditSink(LogcatAuditSink())   // debug builds only
+    entryPoint("product") { /* ... */ }
+}
+```
+
+- Every `ShezGuard.evaluate(...)` call sends **one** redacted `AuditEvent` to the policy's sink,
+  after the decision is made: entry point, outcome, violation codes with redacted field labels
+  (`param:<undeclared>`), score, threshold and the caller identity source. Never URI or parameter
+  values, hosts, extras, package names or certificate digests.
+- **The sink runs synchronously on the thread that called `evaluate`**, usually the main thread.
+  Keep it fast; hand I/O to your own executor.
+- **A sink may be called concurrently from several threads and must be thread-safe.**
+- **A sink's exceptions are swallowed deliberately**, without logging, so a broken sink can neither
+  change the decision nor crash the app. Report your own failures if you need to know about them.
+- `LogcatAuditSink` is intended for **debug builds**: register it only when `BuildConfig.DEBUG`.
+  It logs Block decisions by default and caps output at 30 lines per minute.
+- Do not log `violation.field.name` / `.key` yourself: for undeclared parameters and extras they
+  hold the raw, attacker-chosen name. Log `violation.field.toString()` or the `AuditEvent` instead.

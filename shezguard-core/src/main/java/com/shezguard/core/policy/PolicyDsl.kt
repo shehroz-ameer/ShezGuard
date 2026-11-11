@@ -1,6 +1,7 @@
 package com.shezguard.core.policy
 
 import com.shezguard.core.Tier
+import com.shezguard.core.audit.AuditSink
 import com.shezguard.core.ViolationCode
 
 /**
@@ -80,6 +81,19 @@ public fun intentPolicy(block: IntentPolicyBuilder.() -> Unit): IntentPolicy =
 @ShezGuardDsl
 public class IntentPolicyBuilder internal constructor() {
     private val entryPoints = mutableListOf<EntryPointBuilder>()
+    private var auditSink: AuditSink? = null
+    private var auditSinkSetTwice = false
+
+    /**
+     * Registers the [AuditSink] that receives one redacted event per evaluation (step 9).
+     * Default: [AuditSink.NONE]. A sink is called synchronously on the evaluating thread, possibly
+     * from several threads at once, so it must be fast and thread-safe; its `RuntimeException`s are
+     * deliberately swallowed. Register `LogcatAuditSink` only in debug builds.
+     */
+    public fun auditSink(sink: AuditSink) {
+        if (auditSink != null) auditSinkSetTwice = true
+        auditSink = auditSink ?: sink
+    }
 
     /**
      * Declares the policy for one entry point.
@@ -94,12 +108,15 @@ public class IntentPolicyBuilder internal constructor() {
     internal fun build(): IntentPolicy {
         val problems = mutableListOf<String>()
         if (entryPoints.isEmpty()) problems += "intentPolicy: declares no entry points. Add entryPoint(\"name\") { ... }."
+        if (auditSinkSetTwice) {
+            problems += "intentPolicy: auditSink(...) is set more than once. Set it once; a second call is an error, not an override."
+        }
         entryPoints.groupBy { it.name }.filterValues { it.size > 1 }.keys.forEach {
             problems += "entryPoint(\"$it\"): declared more than once. Entry point names must be unique."
         }
         val built = entryPoints.mapNotNull { it.build(problems) }
         if (problems.isNotEmpty()) throw PolicyDefinitionException(problems.toList())
-        return IntentPolicy(built)
+        return IntentPolicy(built, auditSink ?: AuditSink.NONE)
     }
 }
 

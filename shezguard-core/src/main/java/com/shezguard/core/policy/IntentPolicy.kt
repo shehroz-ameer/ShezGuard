@@ -1,5 +1,7 @@
 package com.shezguard.core.policy
 
+import com.shezguard.core.audit.AuditSink
+
 /**
  * The complete set of entry point policies for an app (SPEC section 4).
  *
@@ -10,8 +12,14 @@ package com.shezguard.core.policy
  * `https` entry point with no allowed hosts, belong to the policy DSL.
  *
  * @param entryPoints the entry point policies. Names must be unique.
+ * @property auditSink receives one redacted event per evaluation against this policy (step 9).
+ * Defaults to [AuditSink.NONE]. Unlike the rest of the policy this is a side effect, not a rule;
+ * it lives here so that every evaluation against the policy is audited without global state.
  */
-public class IntentPolicy(entryPoints: Collection<EntryPointPolicy>) {
+public class IntentPolicy(
+    entryPoints: Collection<EntryPointPolicy>,
+    public val auditSink: AuditSink = AuditSink.NONE,
+) {
 
     /** The entry point policies, keyed by name. */
     public val entryPoints: Map<String, EntryPointPolicy>
