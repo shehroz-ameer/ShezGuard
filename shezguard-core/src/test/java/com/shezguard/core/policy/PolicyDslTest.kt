@@ -179,7 +179,8 @@ class PolicyDslTest {
 
     @Test
     fun buildsCallerShorthands() {
-        assertEquals(Caller.RequireVerifiedDomain, single { requireVerifiedDomain() }.caller)
+        // Step 8: requireVerifiedDomain() needs an http/https data URI (SPEC 8).
+        assertEquals(Caller.RequireVerifiedDomain, single { validData(); requireVerifiedDomain() }.caller)
         val ep = single { allowedPackages { pkg("com.partner.app", digest) } }
         assertEquals(Caller.AllowedPackages(mapOf("com.partner.app" to setOf(CertificateDigest(digest)))), ep.caller)
     }

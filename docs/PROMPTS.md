@@ -78,6 +78,10 @@ Verify by test that raw URIs and extras are never emitted by default.
 Provide a small helper (lifecycle callbacks or base-class helper) that evaluates the
 incoming intent for an annotated or registered entry point and finishes safely on Block.
 Cover `onCreate` and `onNewIntent`. Keep it optional so the core stays usable without it.
+Required by step 8 (author condition 2): call `ShezGuard.evaluate(activity, intent, delivery, ...)`
+with `Delivery.LAUNCH` and `getIntent()` in `onCreate`, and with `Delivery.NEW_INTENT` and the
+`onNewIntent` argument there. Never pass `activity.intent` from `onNewIntent`. Caller identity is
+not reliable for `NEW_INTENT` deliveries (`docs/PAPER_NOTES.md` N12); test both paths.
 
 ## 11. Sample app, vulnerable version
 In `:app`, build a deliberately vulnerable app: exported Activity with an https deep link
@@ -105,6 +109,17 @@ Also run the canonicaliser differential tests (section B of `docs/CANONICALISER_
 as an instrumented test on a real device or emulator, not only under Robolectric. Report the
 device, Android version and API level, and any case where the real `android.net.Uri`
 disagrees with the Robolectric result.
+
+Required by step 8 (author condition 6): instrumented tests with a second helper app as the
+caller, on API 24, 30, 31 and 34 where available:
+- `startActivityForResult` (calling package; reliable source), including
+  `FLAG_ACTIVITY_FORWARD_RESULT` through an intermediate activity;
+- `ActivityOptions.setShareIdentityEnabled(true)` on API 34 (`getLaunchedFromPackage`);
+- the referrer: none, `EXTRA_REFERRER`, `EXTRA_REFERRER_NAME`, and the system referrer;
+- `onNewIntent` delivery to a `singleTop` activity from a second caller (staleness, N12);
+- package visibility: certificate lookup of the caller without `<queries>` on API 30+;
+- domain verification state for a verified, a selected and an unverified host (API 31+).
+Until then every source-only caller claim is "unconfirmed on device" (`docs/LIMITATIONS.md` L30).
 
 ## 15. Hardening review
 Act as a security reviewer of `:shezguard-core`. List bypasses, edge cases and unsafe defaults

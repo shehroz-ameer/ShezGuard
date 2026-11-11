@@ -413,3 +413,111 @@ so it is `NESTED_INTENT_DENIED`, not `NESTED_INTENT_SANITIZED` (L25).
 
 **Do not claim:** that the score detects attacks, adapts, is calibrated, or reduces false
 positives. None of that has been measured.
+
+## Source index for step 8 (caller identity)
+
+Same repository and tags as the step 6 index above (fetched 2026-11-11). Additional files:
+`core/java/android/app/Activity.java`, `ActivityOptions.java`, `ActivityThread.java`,
+`Instrumentation.java`; `core/java/android/content/pm/PackageManager.java`, `SigningInfo.java`,
+`verify/domain/DomainVerificationManager.java`, `verify/domain/DomainVerificationUserState.java`;
+server side under `services/core/java/com/android/server/`: `am/ActivityManagerService.java`,
+`am/ActivityStarter.java`, `am/ActivityRecord.java`, `am/ActivityStackSupervisor.java` (24–28),
+`wm/ActivityTaskManagerService.java` (29–30), `wm/ActivityClientController.java` (31–34),
+`wm/ActivityStarter.java`, `wm/ActivityRecord.java`, `wm/ActivityTaskSupervisor.java` (29–34),
+`pm/AppsFilter.java` (30–31), `pm/AppsFilterImpl.java` / `pm/AppsFilterBase.java` (33–34).
+Not every file was read at every level; each claim names the levels read.
+
+**Every claim in N11–N13 is source-read or Robolectric-only and unconfirmed on device** (step 14).
+
+## N11. `Activity.getReferrer()` reads, and unparcels, the caller's extras
+
+**Observation (AOSP source, API 24–34).** `Activity.getReferrer()` (`Activity.java` line 5008 (24),
+5028 (25), 5303 (26), 5318 (27), 5425 (28), 6042 (29), 6193 (30), 6276 (31), 6279 (32), 6481 (33),
+6741 (34)) first calls `getIntent().getParcelableExtra(Intent.EXTRA_REFERRER)`, then
+`getStringExtra(Intent.EXTRA_REFERRER_NAME)`, and only if both are absent returns the system
+referrer `mReferrer` as `android-app://<package>`. It catches only `BadParcelableException`.
+
+**Why it matters.** Reading the referrer, an identity API, unparcels the caller's own Bundle: on
+API 24–32 every value is deserialised (N7), any other exception from a hostile `CREATOR` escapes,
+and a failure leaves the Bundle truncated (N6). The referrer also prefers caller-set extras over the
+system value.
+
+**Demonstrated (Robolectric SDK 24, 29, 31, 34; Robolectric-only, device check pending (step 14)).**
+With the guard removed from `ActivityCallerSource`, the test
+`systemReferrerIsNotReadWhenItWouldUnparcelTheCallersExtras` fails on all four SDKs because the
+activity's parcelled Bundle is unparcelled; with the guard it passes.
+
+**Design consequence.** ShezGuard calls `getReferrer()` only when the delivered intent and
+`activity.intent` both have `getExtras() == null` (a null check that never unparcels), and reads
+the referrer extras from its own copy (`docs/LIMITATIONS.md` L31).
+
+## N12. Caller identity describes the launch, not a later `onNewIntent` delivery
+
+**Observation (AOSP source).**
+- `getCallingPackage()` returns `resultTo.info.packageName` of the activity's record
+  (`getCallingRecordLocked` / `getCallingRecord`: `am/ActivityManagerService.java` 6989 (24),
+  8296 (28); `wm/ActivityTaskManagerService.java` 2290 (29), 2443 (30);
+  `wm/ActivityClientController.java` 565 (31), 688 (34)).
+- `getLaunchedFromUid/Package()` return the record's `launchedFromUid` / `launchedFromPackage`
+  (`wm/ActivityClientController.java` 571 (31), 694 and 707 (34)).
+- In `ActivityRecord`, `resultTo`, `launchedFromUid` and `launchedFromPackage` are assigned in the
+  constructor only (`am/ActivityRecord.java` 607/617 (24); `wm/ActivityRecord.java` 951/960 (29),
+  1633/1642 (31), 2012/2021 (33), 2099/2108 (34)); later assignments only clear `resultTo` or
+  restore state. `deliverNewIntentLocked` (34, line 4905) passes the new launcher only as the
+  referrer string.
+- On the client, `ActivityThread.deliverNewIntents` (2776 (24) ... 3954 (34)) calls
+  `Instrumentation.callActivityOnNewIntent(Activity, ReferrerIntent)` (1229 (24), 1314 (26),
+  1372 (28), 1406 (29), 1416 (30), 1436 (31), 1491 (33), 1563 (34)), which sets `mReferrer` to the
+  new intent's referrer **only for the duration of `onNewIntent`** and restores the old value in
+  `finally`. `getReferrer()` still checks `getIntent()` (the old intent, unless the app called
+  `setIntent`) first.
+
+**Consequence.** For an intent delivered to `onNewIntent`, all three sources can describe the
+earlier launch. ShezGuard takes the intent and a `Delivery` explicitly and reports no reliable
+identity, and no system referrer, for `Delivery.NEW_INTENT`.
+
+**Tested (Robolectric-only, device check pending (step 14)).**
+`newIntentDeliveryHasNoReliableIdentity`, `newIntentDeliveryIgnoresTheSystemReferrer`,
+`newIntentDeliveryStillReadsReferrerExtrasOfTheNewIntent` (SDK 24, 29, 31, 34). Robolectric does not
+run the server; the staleness itself is source-read only.
+
+## N13. Reliable sources, package visibility and signing certificates
+
+**Observation (AOSP source).**
+- **Shared identity (API 34).** `Activity.getLaunchedFromUid()` / `getLaunchedFromPackage()` are
+  `@hide` on 31–33 (`Activity.java` 6355/6364 (31), 6562/6571 (33)) and public on 34 (6846/6879).
+  `ActivityClientController.canGetLaunchedFromLocked` (742, 34) returns the identity only if
+  `r.mShareIdentity` (set from `ActivityOptions.isShareIdentityEnabled()`, `ActivityRecord.java`
+  2089) or the same uid, under compat change `ACCESS_SHARED_IDENTITY` (line 147), which has no
+  `@EnabledSince`; platform-signed, system and installer callers are exempt
+  (`isInternalCallerGetLaunchedFrom`).
+- **Forward result.** `ActivityStarter` (274 (24), 624 (28), 663 (29), 988 (34)) transfers
+  `sourceRecord.resultTo` to the new activity for `FLAG_ACTIVITY_FORWARD_RESULT`, so
+  `getCallingPackage()` names the original requester.
+- **System referrer.** `launchedFromPackage` is passed as the referrer
+  (`am/ActivityStackSupervisor.java` 1298 (24); `wm/ActivityTaskSupervisor.java` 929 (34), through
+  `ActivityRecord.getFilteredReferrer`, present on 33 and 34 but not 31, which nulls it when the
+  receiver cannot see the launcher). The caller-supplied `callingPackage` is checked against the
+  caller's uid by `assertPackageMatchesCallingUid` from API 30 (`ActivityTaskManagerService.java`
+  1057 (30); absent at 29).
+- **Visibility.** `ActivityStarter` calls `PackageManagerInternal.grantImplicitAccess` with the
+  started app as recipient and the result recipient as visible (1690 (30), 1768 (31), 1884 (33),
+  1793 (34)), and on 34 also the launcher when `mShareIdentity` (1799). `AppsFilter` keeps these in
+  `mImplicitlyQueryable` (30: line 468; 34: `AppsFilterBase.isImplicitlyQueryable` 217). No
+  `AppsFilter` exists at API 29 (no visibility filtering before 30).
+- **Certificates.** `PackageManager.hasSigningCertificate` (34, line 10339) matches certificates
+  the package "was or is signed by", i.e. the lineage too. `SigningInfo.getApkContentsSigners()`
+  (34, line 115) returns the current signers only; `getSigningCertificateHistory()` (92) returns the
+  lineage. `GET_SIGNING_CERTIFICATES` exists from 28 (line 504 (28), 1166 (34)); `GET_SIGNATURES`
+  (249 (24)) is deprecated from 28. `SigningInfo` does not exist before 28 (HTTP 404 at 24–27).
+- **Domain verification.** `DomainVerificationManager` and `DomainVerificationUserState` exist from
+  31 (HTTP 404 at 24–30). `getDomainVerificationUserState(packageName)` (330 (31, 34)) returns
+  `null` if the app declares no web domains; `DOMAIN_STATE_SELECTED` means chosen by the user, not
+  verified; `isLinkHandlingAllowed()` (229) and `getHostToStateMap()` (237) are public.
+
+**Tested** (Robolectric-only, device check pending (step 14)): current-signer matching, multi-signer
+and rotated-key rejection through Robolectric's `ShadowSigningInfo`. **Not tested at all**:
+visibility grants (Robolectric does not enforce visibility), the API 34 shared-identity path and
+real domain verification state (fakes only).
+
+**Not read:** server-side code for 25, 27 and 32; OEM changes.

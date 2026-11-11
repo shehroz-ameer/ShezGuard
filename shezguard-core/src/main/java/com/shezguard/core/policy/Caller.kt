@@ -18,7 +18,8 @@ public sealed class Caller {
      *
      * This checks the domain, not the intent: it cannot prove that a given intent came
      * through a verified link, because any app can send an explicit intent with `https`
-     * data. It produces soft signals only.
+     * data. It produces soft signals only. The canonical host is looked up exactly; the policy
+     * must accept only `http`/`https` data and may not use `subdomainsOf(...)`.
      */
     public data object RequireVerifiedDomain : Caller()
 
@@ -29,10 +30,24 @@ public sealed class Caller {
      * enough, because another app can be installed under that name if the real one is
      * absent.
      *
+     * **Advisory by default.** Without [requireReliableIdentity], an allow-list only adds to the
+     * risk score when the caller cannot be identified reliably, and most launches cannot: the OS
+     * reveals the caller only for `startActivityForResult`, or on API 34+ when the caller opts in
+     * with `ActivityOptions.setShareIdentityEnabled(true)`. A reliable caller that is not allowed
+     * always blocks.
+     *
+     * Certificates are compared with the caller's **current** signers only: every current signer
+     * must be listed. Keys from the caller's signing lineage are not accepted, so after the caller
+     * rotates its signing key the new key must be added here.
+     *
      * @property packages package name to the SHA-256 digests of its accepted signing certificates.
+     * @property requireReliableIdentity when true, a caller without a reliable identity is blocked
+     * (`CALLER_IDENTITY_REQUIRED`). This blocks ordinary browser deep links and plain
+     * `startActivity` calls; use it only for app-to-app integrations whose callers you control.
      */
     public data class AllowedPackages(
         public val packages: Map<String, Set<CertificateDigest>>,
+        public val requireReliableIdentity: Boolean = false,
     ) : Caller() {
         init {
             require(packages.isNotEmpty()) { "AllowedPackages needs at least one package" }

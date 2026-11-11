@@ -1,9 +1,14 @@
 package com.shezguard.core
 
+import android.app.Activity
 import android.content.Intent
+import com.shezguard.core.android.ActivityCallerSource
+import com.shezguard.core.android.AndroidDomainVerifier
 import com.shezguard.core.android.AndroidExtras
 import com.shezguard.core.android.AndroidUriView
 import com.shezguard.core.android.IntentCopy
+import com.shezguard.core.eval.CallerSource
+import com.shezguard.core.eval.DomainVerifier
 import com.shezguard.core.eval.Evaluation
 import com.shezguard.core.eval.Evaluator
 import com.shezguard.core.eval.QueryRemoval
@@ -14,8 +19,9 @@ import com.shezguard.core.policy.IntentPolicy
 /**
  * The public entry point: validates an incoming intent against an entry point policy.
  *
- * **Scope (v1, step 6).** The data URI, its query parameters, the extras and nested intents
- * in extras are checked. Risk scoring and caller signals are added in later steps.
+ * **Scope (v1, step 8).** The data URI, its query parameters, the extras, nested intents in
+ * extras and caller signals are checked, and soft signals are scored. Use the [Activity]
+ * overload to get caller identity and domain verification; the intent-only overload has neither.
  *
  * **Reading extras deserialises them.** To find nested intents anywhere in the extras,
  * ShezGuard reads every extra value from a copy of the Bundle. Any code a hostile
@@ -41,21 +47,80 @@ public object ShezGuard {
      * for `Nested.AllowSanitized` keys, `IntentSanitizer`'s output. After a Block, do not read
      * the intent at all.
      *
+     * This overload has no caller information and no `Context`: an `allowedPackages` rule
+     * reports `CALLER_UNIDENTIFIED` (or `CALLER_IDENTITY_REQUIRED` when enforcing), and
+     * `requireVerifiedDomain` reports `DOMAIN_VERIFICATION_UNAVAILABLE`. Use the [Activity]
+     * overload for those rules.
+     *
      * @param intent the intent the component received.
      * @param policy the app's policy.
      * @param entryPointName the name of the policy entry point for this component.
      */
-    public fun evaluate(intent: Intent, policy: IntentPolicy, entryPointName: String): Decision = try {
-        decide(intent, policy, entryPointName)
+    public fun evaluate(intent: Intent, policy: IntentPolicy, entryPointName: String): Decision =
+        evaluateWith(intent, policy, entryPointName, { CallerSource.NONE }, DomainVerifier.NONE)
+
+    /**
+     * Evaluates [intent], delivered to [activity] as [delivery], against [entryPointName] in
+     * [policy], including caller signals (SPEC section 8). Everything said for the intent-only
+     * overload applies.
+     *
+     * Pass the intent explicitly: `getIntent()` in `onCreate` with [Delivery.LAUNCH], and the
+     * argument of `onNewIntent` with [Delivery.NEW_INTENT]. For [Delivery.NEW_INTENT] no reliable
+     * caller identity is reported, because the OS keeps the identity of the launch that created
+     * the activity (`docs/PAPER_NOTES.md` N12).
+     *
+     * **Caller identity is advisory unless its source is reliable.** Reliable sources are
+     * `getCallingPackage()` (only for `startActivityForResult`; it names the app that receives the
+     * result, which with `FLAG_ACTIVITY_FORWARD_RESULT` can be an earlier app than the immediate
+     * launcher) and, on API 34+, `getLaunchedFromPackage()` (only if the launcher called
+     * `ActivityOptions.setShareIdentityEnabled(true)`). The referrer is set by the caller and is
+     * advisory only. `allowedPackages(requireReliableIdentity = true)` therefore blocks ordinary
+     * browser deep links. See `docs/LIMITATIONS.md` L3.
+     *
+     * @param activity the activity that received [intent]; used for caller identity, the
+     * package manager and domain verification.
+     * @param intent the delivered intent.
+     * @param delivery whether [intent] created the activity or arrived in `onNewIntent`.
+     */
+    public fun evaluate(
+        activity: Activity,
+        intent: Intent,
+        delivery: Delivery,
+        policy: IntentPolicy,
+        entryPointName: String,
+    ): Decision = evaluateWith(
+        intent,
+        policy,
+        entryPointName,
+        { extras -> ActivityCallerSource(activity, intent, delivery, extras) },
+        AndroidDomainVerifier(activity),
+    )
+
+    /** The common path, with injectable caller and domain sources (tests use fakes). */
+    internal fun evaluateWith(
+        intent: Intent,
+        policy: IntentPolicy,
+        entryPointName: String,
+        caller: (AndroidExtras) -> CallerSource,
+        domain: DomainVerifier,
+    ): Decision = try {
+        decide(intent, policy, entryPointName, caller, domain)
     } catch (e: RuntimeException) {
         blocked(Evaluator.failed(entryPointName))
     }
 
-    private fun decide(intent: Intent, policy: IntentPolicy, name: String): Decision {
-        val e = Evaluator.evaluate(policy, name, extras = AndroidExtras(intent)) { readData(intent) }
+    private fun decide(
+        intent: Intent,
+        policy: IntentPolicy,
+        name: String,
+        caller: (AndroidExtras) -> CallerSource,
+        domain: DomainVerifier,
+    ): Decision {
+        val extras = AndroidExtras(intent)
+        val e = Evaluator.evaluate(policy, name, extras = extras, caller = caller(extras), domain = domain) { readData(intent) }
         return when (e.outcome) {
             Outcome.BLOCK -> blocked(e)
-            Outcome.ALLOW -> Decision.Allow(intent, name, e.violations, e.score, e.guarded)
+            Outcome.ALLOW -> Decision.Allow(intent, name, e.violations, e.score, e.guarded, e.callerIdentitySource)
             Outcome.SANITIZE -> sanitize(intent, e)
         }
     }
@@ -85,8 +150,8 @@ public object ShezGuard {
             IntentCopy.copy(intent)
         }
         if (rebuild != null && !IntentCopy.replaceExtras(copy, rebuild)) return failed()
-        return Decision.Sanitize(copy, e.entryPoint, e.violations, e.score, e.guarded)
+        return Decision.Sanitize(copy, e.entryPoint, e.violations, e.score, e.guarded, e.callerIdentitySource)
     }
 
-    private fun blocked(e: Evaluation): Decision = Decision.Block(e.entryPoint, e.violations, e.score)
+    private fun blocked(e: Evaluation): Decision = Decision.Block(e.entryPoint, e.violations, e.score, e.callerIdentitySource)
 }

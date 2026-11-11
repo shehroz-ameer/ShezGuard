@@ -105,7 +105,7 @@ decision is Block.
    can throw on unparcelling failure: catch, record `EXTRAS_UNPARCEL_FAILED`, never crash.
    **[DECIDED]** (step 6) This stage always runs, even when the URI stages already block
    (section 5.4).
-5. Caller signals collected (best effort, see limitations).
+5. Caller signals collected (best effort, see limitations; section 8.1).
 6. Risk score from weighted signals (weights configurable, defaults documented).
 7. Produce `Decision` with a list of `Violation(code, entryPoint, field, severity)`.
    Codes are stable identifiers (e.g. `URI_DOUBLE_ENCODING`) so they can be asserted in
@@ -335,6 +335,8 @@ Package: `com.shezguard.core`.
   13. numbers in range (threshold `1..100`, positive limits and sizes, ports `1..65535`);
   14. (step 7) `scoreWeight(code, weight)` only for SOFT codes, with a weight in `0..100`, and
       at most once per code.
+  15. (step 8) `requireVerifiedDomain()` only on an entry point that accepts an `http`/`https`
+      data URI, without other schemes and without `subdomainsOf(...)`.
 - **[DECIDED]** (step 5) `@ShezGuardDsl` (a `@DslMarker`) is on every builder. The compiler
   rejects implicit calls to an outer builder; checked once by hand on 2026-11-10, Kotlin
   2.0.21: `param("id") { allowHosts("x") }`, `entryPoint("a") { entryPoint("b") { } }` and
@@ -358,6 +360,58 @@ the entry point uses a signature-protected permission. Document this in LIMITATI
   a risk signal, not proof that this intent came through a verified link: any app can send
   an explicit intent with `https` data. Threat 4 is handled mainly by the build-time check
   (section 9), which flags custom schemes and `BROWSABLE` filters without `autoVerify`.
+
+### 8.1 Caller signals (step 8) [DECIDED]
+Author approval of the step 8 proposal, 2026-11-11 (`docs/RESPONSE.md`). Source evidence in
+`docs/PAPER_NOTES.md` N11–N13; all of it is source-read or Robolectric-only, **unconfirmed on
+device** until step 14.
+- **API.** `ShezGuard.evaluate(intent, policy, name)` is unchanged and has no caller source and no
+  `Context`. The new overload `ShezGuard.evaluate(activity, intent, delivery, policy, name)` adds
+  caller identity and domain verification. The intent and `Delivery` (`LAUNCH` from `onCreate`,
+  `NEW_INTENT` from `onNewIntent`) are passed explicitly, because the OS keeps the identity of
+  the launch that created the activity (N12).
+- **Sources.** Reliable, `LAUNCH` only: `getLaunchedFromPackage()` (API 34+, only if the
+  launcher called `ActivityOptions.setShareIdentityEnabled(true)` or shares the app's uid) and
+  `getCallingPackage()` (only for `startActivityForResult`; it names the app that receives the
+  result, which with `FLAG_ACTIVITY_FORWARD_RESULT` can be an earlier app than the immediate
+  launcher). Advisory: `EXTRA_REFERRER` / `EXTRA_REFERRER_NAME`, read from ShezGuard's own copy
+  of the extras; and the system referrer through `Activity.getReferrer()`, only for `LAUNCH` and
+  only when both the delivered intent and `activity.intent` have `getExtras() == null`, because
+  otherwise `getReferrer()` unparcels the caller's Bundle (N11). The `@hide` `getLaunchedFrom*`
+  methods on API 31–33 are not used.
+- **Certificates.** `GET_SIGNING_CERTIFICATES` with `SigningInfo.getApkContentsSigners()`
+  (API 28+), `GET_SIGNATURES` (API 24–27): the caller's **current** signers. Every current
+  signer must be in the allow-list for that package; past signers from the signing lineage are
+  not accepted, so a key rotation needs an allow-list update. No `<queries>` entry is needed: the
+  OS grants implicit visibility of the reliable caller on API 30+ (N13). Advisory packages are
+  compared by name only.
+- **Codes** (only under `allowedPackages`; `Caller.Any` emits no caller signal), at most one per
+  decision:
+  - every reliable source is listed with all current signers listed: none;
+  - a reliable source fails, or its certificates cannot be read: `CALLER_NOT_ALLOWED_RELIABLE`
+    (HARD, fail closed);
+  - no reliable source and `requireReliableIdentity = true`: `CALLER_IDENTITY_REQUIRED` (HARD);
+  - no reliable source and the advisory source names an unlisted package: `CALLER_NOT_ALLOWED`
+    (SOFT);
+  - otherwise, including an advisory source naming an allowed package: `CALLER_UNIDENTIFIED`
+    (SOFT). A spoofed referrer therefore cannot lower the score below "unidentified".
+- **Enforcing mode.** `allowedPackages(requireReliableIdentity = true) { ... }`. It blocks every
+  caller without a reliable identity, **including ordinary browser deep links and plain
+  `startActivity` calls**. Meant for app-to-app integrations whose callers you control.
+- **Domain.** `requireVerifiedDomain()` (API 31+): `DomainVerificationManager
+  .getDomainVerificationUserState(packageName)`; verified means the canonical host's state is
+  `DOMAIN_STATE_VERIFIED` and `isLinkHandlingAllowed()`. Otherwise `DOMAIN_NOT_VERIFIED`. Below
+  API 31, without a `Context`, without the service or state, or on any exception:
+  `DOMAIN_VERIFICATION_UNAVAILABLE`. No data URI or a rejected URI: no domain code. At most one
+  domain code per decision.
+- **DSL checks (rule 15).** `requireVerifiedDomain()` needs a data-accepting entry point with only
+  `http`/`https` schemes and may not be combined with `subdomainsOf(...)` (hosts are looked up
+  exactly; wildcard hosts are not expanded).
+- **Explanation.** `Decision.callerIdentitySource` (`CALLING_PACKAGE`, `LAUNCHED_FROM_PACKAGE`,
+  `REFERRER_EXTRA`, `REFERRER_SYSTEM`, `NONE`; `null` when the caller is not looked at). Package
+  names and digests never appear in a violation or decision (`Field.CallerSignal`).
+- **Not in v1.** A signature-level permission on the component (SPEC 8 above) is enforced by the
+  OS, not detected by ShezGuard; ShezGuard does not read the manifest at runtime.
 
 ## 9. Build-time coverage check
 Goal: fail the build if an exported component, or a component with a BROWSABLE intent

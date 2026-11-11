@@ -35,7 +35,7 @@ class ViolationModelTest {
             "PARAM_UNKNOWN_IGNORED",
             "EXTRAS_UNPARCEL_FAILED", "EXTRAS_TOO_MANY", "EXTRAS_TOO_DEEP", "EXTRA_NOT_ALLOWED", "EXTRA_WRONG_TYPE",
             "EXTRA_TOO_LARGE", "NESTED_INTENT_DENIED", "NESTED_INTENT_SANITIZED",
-            "CALLER_UNIDENTIFIED", "CALLER_NOT_ALLOWED", "CALLER_NOT_ALLOWED_RELIABLE",
+            "CALLER_UNIDENTIFIED", "CALLER_NOT_ALLOWED", "CALLER_NOT_ALLOWED_RELIABLE", "CALLER_IDENTITY_REQUIRED",
             "DOMAIN_NOT_VERIFIED", "DOMAIN_VERIFICATION_UNAVAILABLE",
         )
         assertEquals(expected, ViolationCode.entries.map { it.id })
@@ -69,6 +69,14 @@ class ViolationModelTest {
             ViolationCode.NESTED_INTENT_SANITIZED to Tier.REMOVABLE,
         )
         expected.forEach { (code, tier) -> assertEquals(code.id, tier, code.tier) }
+    }
+
+    /** Step 8: enforcing allow-lists fail closed when no reliable identity exists. */
+    @Test
+    fun callerIdentityRequiredIsHardAndHigh() {
+        assertEquals(Tier.HARD, ViolationCode.CALLER_IDENTITY_REQUIRED.tier)
+        assertEquals(Severity.HIGH, ViolationCode.CALLER_IDENTITY_REQUIRED.defaultSeverity)
+        assertEquals(Tier.HARD, ViolationCode.CALLER_NOT_ALLOWED_RELIABLE.tier)
     }
 
     @Test

@@ -228,22 +228,47 @@ public enum class ViolationCode(
 
     // ---- Caller signals (SPEC section 8, advisory unless noted) ------------------
 
-    /** No caller identity was available from any source. */
+    /**
+     * `allowedPackages` is declared and no reliable caller identity is available, and no advisory
+     * source names a package outside the allow-list. Never emitted together with
+     * [CALLER_NOT_ALLOWED] (step 8). An advisory source naming an *allowed* package still gives
+     * this code, because the caller can set it (`docs/LIMITATIONS.md` L3).
+     */
     CALLER_UNIDENTIFIED("CALLER_UNIDENTIFIED", Tier.SOFT, Severity.LOW),
 
-    /** An advisory caller source (e.g. `getReferrer()`) names a package or signature outside the allow-list. */
+    /**
+     * No reliable caller identity, and an advisory source (the referrer, which the caller can
+     * set) names a package outside the allow-list. Never emitted together with [CALLER_UNIDENTIFIED].
+     */
     CALLER_NOT_ALLOWED("CALLER_NOT_ALLOWED", Tier.SOFT, Severity.HIGH),
 
     /**
-     * A reliable caller source names a package or signature outside the allow-list.
-     * Hard, because the identity comes from the OS rather than from the caller.
+     * A reliable caller source (the OS-set calling package, or the shared launcher identity on
+     * API 34+) names a package outside the allow-list, a package whose current signing
+     * certificates are not all listed, or a package whose certificates cannot be read. Hard,
+     * because the identity comes from the OS rather than from the caller.
      */
     CALLER_NOT_ALLOWED_RELIABLE("CALLER_NOT_ALLOWED_RELIABLE", Tier.HARD, Severity.CRITICAL),
 
-    /** The app's own domain is not verified for App Links (API 31+). A fact about the domain, not the intent. */
+    /**
+     * `allowedPackages(requireReliableIdentity = true)` is declared and no reliable caller
+     * identity is available. This blocks ordinary launches, including browser deep links: only a
+     * caller that uses `startActivityForResult`, or `ActivityOptions.setShareIdentityEnabled(true)`
+     * on API 34+, can be identified (`docs/LIMITATIONS.md` L3).
+     */
+    CALLER_IDENTITY_REQUIRED("CALLER_IDENTITY_REQUIRED", Tier.HARD, Severity.HIGH),
+
+    /**
+     * The app's own domain is not verified for App Links (API 31+): the canonical host's state is
+     * not `DOMAIN_STATE_VERIFIED`, or link handling is disabled. A fact about the domain, not the
+     * intent. Never emitted together with [DOMAIN_VERIFICATION_UNAVAILABLE].
+     */
     DOMAIN_NOT_VERIFIED("DOMAIN_NOT_VERIFIED", Tier.SOFT, Severity.HIGH),
 
-    /** Domain verification state could not be read (below API 31, or the call failed). */
+    /**
+     * Domain verification state could not be read: below API 31, no `Context` (the intent-only
+     * `ShezGuard.evaluate` overload), no service, no state, or the call failed.
+     */
     DOMAIN_VERIFICATION_UNAVAILABLE("DOMAIN_VERIFICATION_UNAVAILABLE", Tier.SOFT, Severity.LOW),
     ;
 

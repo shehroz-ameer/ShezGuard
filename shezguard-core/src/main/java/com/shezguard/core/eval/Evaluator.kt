@@ -2,6 +2,7 @@ package com.shezguard.core.eval
 
 import com.shezguard.core.Field
 import com.shezguard.core.GuardedUri
+import com.shezguard.core.IdentitySource
 import com.shezguard.core.Outcome
 import com.shezguard.core.RiskScore
 import com.shezguard.core.Tier
@@ -28,6 +29,7 @@ import com.shezguard.core.validate.UriPolicyValidator
  * @property droppedNames names of the parameters dropped under `Unknown.Drop`.
  * @property dataString the raw data string that was canonicalised, if any.
  * @property extrasRebuild the extras a Sanitize copy must carry, or `null` if they need no change.
+ * @property callerIdentitySource the caller identity source used (step 8), or `null` if none was looked at.
  */
 internal class Evaluation(
     val entryPoint: String,
@@ -41,12 +43,14 @@ internal class Evaluation(
     val droppedNames: Set<String> = emptySet(),
     val dataString: String? = null,
     val extrasRebuild: List<KeptExtra>? = null,
+    val callerIdentitySource: IdentitySource? = null,
 )
 
 /**
  * SPEC section 5 for URI, parameter (step 5b) and extras (step 6) checks. Pure Kotlin; the
- * intent is seen only through [UriInput] and [ExtrasSource]. The soft violations are scored
- * by [Scorer.WEIGHTED] (step 7); step 8 adds caller signals; the outcome rule stays in [OutcomeRule].
+ * intent is seen only through [UriInput], [ExtrasSource], [CallerSource] and [DomainVerifier].
+ * The caller stage (step 8) runs after the extras stage. The soft violations are scored by
+ * [Scorer.WEIGHTED] (step 7); the outcome rule stays in [OutcomeRule].
  *
  * Order: deny unknown entry points (nothing is read); apply the data rule; canonicalise;
  * compare with the platform parser; check the policy; then the extras stage, which always
@@ -67,9 +71,11 @@ internal object Evaluator {
         entryPoint: String,
         scorer: Scorer = Scorer.WEIGHTED,
         extras: ExtrasSource = ExtrasSource.NONE,
+        caller: CallerSource = CallerSource.NONE,
+        domain: DomainVerifier = DomainVerifier.NONE,
         input: () -> UriInput?,
     ): Evaluation = try {
-        run(policy, entryPoint, scorer, extras, input)
+        run(policy, entryPoint, scorer, extras, caller, domain, input)
     } catch (e: RuntimeException) {
         failed(entryPoint)
     }
@@ -87,6 +93,8 @@ internal object Evaluator {
         entryPoint: String,
         scorer: Scorer,
         extras: ExtrasSource,
+        caller: CallerSource,
+        domain: DomainVerifier,
         input: () -> UriInput?,
     ): Evaluation {
         // Deny by default, before the intent is read at all.
@@ -131,6 +139,11 @@ internal object Evaluator {
         val ex = ExtrasValidator.validate(extras.read(ep.extras.maxKeys), ep, extras)
         out.addAll(ex.violations)
 
+        // Caller signals (SPEC section 8). Runs after extras: the referrer extras are read from
+        // the extras stage's own copy, never from the caller's Bundle.
+        val callerOutcome = CallerValidator.validate(ep, canonical?.host, caller, domain)
+        out.addAll(callerOutcome.violations)
+
         val violations = out.toList()
         val score = scorer.score(violations.filter { it.tier == Tier.SOFT }, ep)
         return Evaluation(
@@ -145,6 +158,7 @@ internal object Evaluator {
             droppedNames = dropped,
             dataString = data?.dataString,
             extrasRebuild = ex.rebuilt,
+            callerIdentitySource = callerOutcome.identitySource,
         )
     }
 

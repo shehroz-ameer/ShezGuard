@@ -214,17 +214,28 @@ public class EntryPointBuilder internal constructor(internal val name: String) {
         callerCalls += "caller(...)" to { rule }
     }
 
-    /** Shorthand for `caller(Caller.RequireVerifiedDomain)`: an advisory signal (SPEC section 8). */
+    /**
+     * Shorthand for `caller(Caller.RequireVerifiedDomain)`: an advisory signal (SPEC section 8).
+     * Needs an entry point that accepts `http`/`https` data with exact hosts (no `subdomainsOf`).
+     */
     public fun requireVerifiedDomain() {
         callerCalls += "requireVerifiedDomain()" to { Caller.RequireVerifiedDomain }
     }
 
     /**
      * Shorthand for `caller(Caller.AllowedPackages(...))`. Each package needs at least one
-     * SHA-256 certificate digest. Soft unless the identity source is reliable (SPEC section 8).
+     * SHA-256 certificate digest, and every current signer of a caller must be listed.
+     *
+     * Advisory by default: without [requireReliableIdentity] an unidentified caller only adds to
+     * the risk score, and most launches cannot be identified (SPEC section 8).
+     *
+     * @param requireReliableIdentity block every caller without a reliable identity
+     * (`CALLER_IDENTITY_REQUIRED`). **This blocks ordinary browser deep links and plain
+     * `startActivity` calls**: only callers using `startActivityForResult`, or
+     * `ActivityOptions.setShareIdentityEnabled(true)` on API 34+, can be identified.
      */
-    public fun allowedPackages(block: AllowedPackagesBuilder.() -> Unit) {
-        val b = AllowedPackagesBuilder().apply(block)
+    public fun allowedPackages(requireReliableIdentity: Boolean = false, block: AllowedPackagesBuilder.() -> Unit) {
+        val b = AllowedPackagesBuilder(requireReliableIdentity).apply(block)
         callerCalls += "allowedPackages { }" to { null }
         allowedPackagesBuilder = b
     }
@@ -358,6 +369,30 @@ public class EntryPointBuilder internal constructor(internal val name: String) {
                 "the caller rule is set more than once (${callerCalls.joinToString { it.first }}). " +
                     "Choose one of caller(...), requireVerifiedDomain() or allowedPackages { }.",
             )
+        }
+        // requireVerifiedDomain() needs exact http/https hosts (step 8).
+        if (callerCalls.any { it.first == "requireVerifiedDomain()" }) {
+            if (effectiveData == Data.Forbidden) {
+                problem(
+                    "requireVerifiedDomain() needs an entry point that accepts an http or https data URI, but data is " +
+                        "Forbidden. Add allowSchemes(\"https\") and allowHosts(...), or remove requireVerifiedDomain().",
+                )
+            } else {
+                schemes.filter { it != "http" && it != "https" }.distinct().forEach {
+                    problem(
+                        "requireVerifiedDomain() with allowSchemes(\"$it\"): only http and https links can be verified as " +
+                            "App Links. Remove the other schemes or remove requireVerifiedDomain().",
+                    )
+                }
+            }
+            hosts.filter { it.call.startsWith("subdomainsOf") }.forEach {
+                val domain = it.call.removePrefix("subdomainsOf(\"").removeSuffix("\")")
+                problem(
+                    "requireVerifiedDomain() cannot be combined with ${it.call}: ShezGuard looks up each host exactly and " +
+                        "does not expand wildcard hosts (*.$domain) in the verification state, so every subdomain would be " +
+                        "reported as not verified. List the verified hosts with allowHosts(...) instead.",
+                )
+            }
         }
         val builtCaller = when {
             callerCalls.isEmpty() -> Caller.Any
@@ -603,7 +638,7 @@ public class ExtrasBuilder internal constructor() {
  * certificates ([Caller.AllowedPackages]).
  */
 @ShezGuardDsl
-public class AllowedPackagesBuilder internal constructor() {
+public class AllowedPackagesBuilder internal constructor(private val requireReliableIdentity: Boolean = false) {
     private val packages = mutableListOf<Pair<String, List<String>>>()
 
     /**
@@ -648,7 +683,7 @@ public class AllowedPackagesBuilder internal constructor() {
             }
             map[pkg] = normalised.map { CertificateDigest(it) }.toSet()
         }
-        return if (problems.size > before) null else Caller.AllowedPackages(map)
+        return if (problems.size > before) null else Caller.AllowedPackages(map, requireReliableIdentity)
     }
 
     private fun normaliseDigest(d: String): String? = when {

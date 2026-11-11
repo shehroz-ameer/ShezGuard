@@ -30,6 +30,13 @@ public sealed class Decision {
     public abstract val outcome: Outcome
 
     /**
+     * Which source the caller check used (SPEC section 8), or `null` when the entry point's
+     * caller rule does not look at the caller (`Caller.Any`, `requireVerifiedDomain`) or no
+     * policy applied. The caller's package name and certificate digests are never exposed.
+     */
+    public abstract val callerIdentitySource: IdentitySource?
+
+    /**
      * The intent may be used as received.
      *
      * Only [Tier.SOFT] violations can be present. Read data from [data], not from
@@ -46,6 +53,7 @@ public sealed class Decision {
         override val violations: List<Violation>,
         override val score: RiskScore,
         public val data: GuardedUri? = null,
+        override val callerIdentitySource: IdentitySource? = null,
     ) : Decision() {
         override val outcome: Outcome = Outcome.ALLOW
 
@@ -77,6 +85,7 @@ public sealed class Decision {
         override val violations: List<Violation>,
         override val score: RiskScore,
         public val data: GuardedUri? = null,
+        override val callerIdentitySource: IdentitySource? = null,
     ) : Decision() {
         override val outcome: Outcome = Outcome.SANITIZE
 
@@ -99,6 +108,7 @@ public sealed class Decision {
         override val entryPoint: String,
         override val violations: List<Violation>,
         override val score: RiskScore,
+        override val callerIdentitySource: IdentitySource? = null,
     ) : Decision() {
         override val outcome: Outcome = Outcome.BLOCK
 

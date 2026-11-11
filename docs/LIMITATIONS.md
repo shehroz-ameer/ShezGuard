@@ -46,6 +46,9 @@ reliable or a signature-level permission protects the component.
   (`DomainVerificationManager`, API 31+; unknown below). It cannot tell whether a
   particular intent came through a verified App Link: any app can send an explicit intent
   with `https` data.
+- **Step 8 update:** `getLaunchedFromUid()` / `getLaunchedFromPackage()` are public only from
+  API 34; on 31–33 they are `@hide` and not used. On API 34 they also require the launcher's
+  opt-in. All of this is from the AOSP source; unconfirmed on device (L30).
 - **Source:** orientation items 22 and 23; SPEC section 8.
 
 ## L4. The build-time check proves a policy is declared, not that it is enforced
@@ -431,9 +434,11 @@ Every "protected" item below is shown by the named test under Robolectric SDK 24
   measured against real traffic, and no false-positive or false-negative rate is claimed.
 - **The default rule depends on two exclusive pairs** (`CALLER_UNIDENTIFIED` /
   `CALLER_NOT_ALLOWED`, `DOMAIN_NOT_VERIFIED` / `DOMAIN_VERIFICATION_UNAVAILABLE`) never being
-  emitted together. That is true by their definitions, but the evaluator does not emit them
-  yet; step 8 must prove it by test. If both of a pair were emitted, one HIGH signal plus all
-  LOW ones would reach 70.
+  emitted together. Since step 8 the evaluator emits them, at most one per pair, from single
+  `when` expressions; `CallerValidatorTest.neverEmitsBothSignalsOfAnExclusivePair` (20 000
+  fixed-seed cases with fakes) and `CallerAndroidTest.neverEmitsBothSignalsOfAnExclusivePairEndToEnd`
+  (Robolectric) check it. If both of a pair were emitted, one HIGH signal plus all LOW ones would
+  reach 70.
 - **Counting each code once** means volume is not evidence: 1 and 50 ignored parameters weigh
   the same. That is deliberate (benign links carry many tracking parameters), but it also
   means the score cannot express "unusually many" of anything.
@@ -441,3 +446,67 @@ Every "protected" item below is shown by the named test under Robolectric SDK 24
   one: no weight can unblock a HARD violation or turn a REMOVABLE one into Allow
   (`noCombinationOfWeightsTurnsHardIntoAllowOrSanitize`, `scoreCanOnlyAddBlock`).
 - **Source:** step 7 (author approval 2026-11-11).
+
+## L30. Caller signals: what is and is not established (step 8)
+Everything below the "shown by tests" list is from the AOSP source (`docs/PAPER_NOTES.md`
+N11–N13) and **unconfirmed on device**; the device check is step 14.
+
+**Shown by tests** (Robolectric SDK 24, 29, 31, 34, unless noted; Robolectric-only, device check
+pending (step 14)):
+- A reliable caller (`getCallingPackage()`, faked by Robolectric's `ShadowActivity`) that is not
+  listed, is signed by an unlisted key, has any unlisted signer (multi-signer), cannot be read,
+  or (SDK 29, 31, 34) is signed by a current key while only a rotated-out key is listed, is
+  blocked (`CallerAndroidTest`).
+- A referrer extra naming an allowed package gives `CALLER_UNIDENTIFIED`; naming an unlisted one
+  gives `CALLER_NOT_ALLOWED`; a web referrer names no package.
+- The system referrer is read only when neither intent has extras; with extras, `getReferrer()`
+  is not called and the caller's Bundle stays parcelled
+  (`systemReferrerIsNotReadWhenItWouldUnparcelTheCallersExtras`).
+- `Delivery.NEW_INTENT` reports no reliable identity and ignores the system referrer.
+- `requireReliableIdentity = true` blocks a launch without a reliable identity.
+- The exclusive pairs never co-occur: a 20 000-case fixed-seed property test with fakes, and an
+  end-to-end grid under Robolectric.
+- No package name or digest appears in any decision output.
+
+**Not shown, or not protected:**
+- **`getLaunchedFromPackage()` (API 34)** is tested with fakes only; Robolectric has no shadow.
+- **Domain verification** VERIFIED / NOT_VERIFIED is tested with fakes only; under Robolectric
+  `DomainVerificationManager` is unavailable, so only the UNAVAILABLE path runs for real.
+- **Package visibility** (Android 11+) is not enforced by Robolectric. The claim that no
+  `<queries>` entry is needed for a reliable caller rests on the source only (N13).
+- **Forward-result caveat:** `getCallingPackage()` names the app that receives the result. An
+  activity started for result by an allowed app can forward that result slot
+  (`FLAG_ACTIVITY_FORWARD_RESULT`) when it launches this one, so the allowed app is reported
+  although another app launched. ShezGuard cannot detect this from `getCallingPackage()` alone;
+  on API 34 a shared launcher identity is also checked when present.
+- **Key rotation:** only current signers are accepted. When an allowed caller rotates its signing
+  key, it is blocked until the new key is added to the allow-list.
+- **Most launches are unidentified.** Plain `startActivity` and browser deep links carry no
+  reliable identity, so a default (advisory) allow-list only scores them. Enforcing mode blocks
+  them all.
+- **The referrer is worth little:** a caller can set it to any value. It catches only callers
+  that do not bother to spoof it.
+- **`onNewIntent` deliveries** get no reliable identity at all, even if the new sender used
+  `startActivityForResult`.
+- **Signature-level permissions** on the component are not detected at runtime.
+- **Source:** step 8 (author approval 2026-11-11).
+
+## L31. `Activity.getReferrer()` unparcels the caller's extras (platform behaviour)
+- **What:** `getReferrer()` reads `EXTRA_REFERRER` with `getParcelableExtra` on `getIntent()`, the
+  caller's own intent, on API 24–34 (N11). That unparcels the caller's Bundle (on API 24–32, every
+  value), runs any hostile `CREATOR` in it, and catches only `BadParcelableException`; any other
+  exception propagates, and a failure leaves the Bundle truncated (N6).
+- **What ShezGuard does:** never calls it when either intent has extras (`getExtras() == null` is
+  the test, which never unparcels); reads the referrer extras from its own copy instead.
+- **Cost:** with extras present and no referrer extra, the system referrer is not read, so the
+  only advisory source is lost for that delivery.
+- **What it does not do:** stop an app from calling `getReferrer()` itself.
+- **Source:** step 8; shown under Robolectric (SDK 24, 29, 31, 34) by the mutation check of
+  `systemReferrerIsNotReadWhenItWouldUnparcelTheCallersExtras`.
+
+## L32. `requireVerifiedDomain` needs exact hosts
+- **What:** ShezGuard looks up the canonical host exactly in the app's verification state. Wildcard
+  hosts declared in the manifest (`*.example.com`) are not expanded, so `subdomainsOf(...)` is
+  rejected with `requireVerifiedDomain()` at build time. `DOMAIN_STATE_SELECTED` (the user chose
+  the app) counts as not verified.
+- **Source:** step 8, author condition 4.

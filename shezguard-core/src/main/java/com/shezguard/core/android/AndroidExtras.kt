@@ -31,6 +31,9 @@ import com.shezguard.core.policy.ExtrasRule
  */
 internal class AndroidExtras(private val intent: Intent) : ExtrasSource {
 
+    /** ShezGuard's own copy, kept after a successful full read so the caller stage can reuse it. */
+    private var readCopy: Bundle? = null
+
     override fun read(maxKeys: Int): ExtrasRead {
         val bundle: Bundle
         val keys: List<String?>
@@ -41,7 +44,26 @@ internal class AndroidExtras(private val intent: Intent) : ExtrasSource {
             return ExtrasRead.Unreadable
         }
         if (keys.size > maxKeys) return ExtrasRead.TooMany(keys.size)
+        readCopy = bundle
         return ExtrasRead.Entries(keys.map { ExtraEntry(it, valueAt(bundle, it, depth = 0)) })
+    }
+
+    /**
+     * The caller-set referrer, read the way `Activity.getReferrer()` reads it (`EXTRA_REFERRER`
+     * as a `Uri`, else `EXTRA_REFERRER_NAME` as a string), but from ShezGuard's already-read copy
+     * instead of the caller's Bundle (`docs/PAPER_NOTES.md` N11). Returns `null` if neither is
+     * present, or if the extras were not fully read (unreadable or too many keys); it never
+     * reads the Bundle again. The value is a `Uri` string; the caller decides what it names.
+     */
+    @Suppress("DEPRECATION")
+    fun referrerExtra(): String? {
+        val b = readCopy ?: return null
+        return try {
+            (b.get(Intent.EXTRA_REFERRER) as? android.net.Uri)?.toString()
+                ?: (b.get(Intent.EXTRA_REFERRER_NAME) as? String)
+        } catch (e: RuntimeException) {
+            null
+        }
     }
 
     override fun sanitizeNested(handle: Any, sanitizer: NestedIntentSanitizer): NestedResult {
