@@ -68,5 +68,8 @@ val policy = intentPolicy {
   change the decision nor crash the app. Report your own failures if you need to know about them.
 - `LogcatAuditSink` is intended for **debug builds**: register it only when `BuildConfig.DEBUG`.
   It logs Block decisions by default and caps output at 30 lines per minute.
-- Do not log `violation.field.name` / `.key` yourself: for undeclared parameters and extras they
-  hold the raw, attacker-chosen name. Log `violation.field.toString()` or the `AuditEvent` instead.
+- Violations never expose an undeclared (attacker-chosen) parameter or extra name. For
+  `Field.Param` and `Field.Extra`, `declaredName` gives the name only when it comes from your policy,
+  and is `null` otherwise; `toString()` prints `param:<undeclared>` / `extra:<undeclared>`. Both are
+  safe to log. The raw intent (`Decision.Allow.intent`, `Decision.Sanitize.sanitizedIntent`) still
+  contains everything the caller sent, so never log it.

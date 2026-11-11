@@ -4,9 +4,8 @@ package com.shezguard.core
  * One reason behind a [Decision].
  *
  * ShezGuard collects every violation it finds for an intent, not just the first.
- * A violation never contains raw intent data: no URI, parameter value or extra value.
- * The only attacker-influenced text it can hold is the name of an undeclared parameter
- * or extra, and [Field.toString] redacts that.
+ * A violation never exposes raw intent data: no URI, parameter value or extra value, and no
+ * undeclared parameter or extra name through any public member (see [Field]).
  *
  * @property code the stable reason code.
  * @property entryPoint the name of the entry point policy that was evaluated.
@@ -27,8 +26,14 @@ public data class Violation(
  * The part of an intent a [Violation] refers to.
  *
  * `toString()` is safe to log: names that come from the policy are shown, names that
- * come only from the incoming intent are replaced with `<undeclared>`. The raw name
- * is still available through the property for debugging, so do not log it by default.
+ * come only from the incoming intent are replaced with `<undeclared>`.
+ *
+ * **No public member returns an undeclared name** (step 9 follow-up). For [Param] and [Extra] the
+ * name is public only as [Param.declaredName] / [Extra.declaredName], which is non-null only when
+ * the name comes from the policy. The raw name is kept internally for equality. It is also
+ * `@JvmSynthetic`, because Kotlin `internal` members compile to public JVM methods. This keeps
+ * attacker-chosen text (an extra key can be any string) out of app logs; it is not a security
+ * boundary against code that uses reflection.
  */
 public sealed class Field {
 
@@ -40,20 +45,34 @@ public sealed class Field {
     /**
      * A query parameter.
      *
-     * @property name the parameter name. Attacker-controlled when [declared] is false.
      * @property declared whether the policy declares this parameter.
      */
-    public data class Param(public val name: String, public val declared: Boolean) : Field() {
+    public class Param internal constructor(
+        @get:JvmSynthetic internal val name: String,
+        public val declared: Boolean,
+    ) : Field() {
+        /** The parameter name if the policy declares it, otherwise `null` (the name is attacker-chosen). */
+        public val declaredName: String? get() = if (declared) name else null
+
+        override fun equals(other: Any?): Boolean = other is Param && other.name == name && other.declared == declared
+        override fun hashCode(): Int = 31 * name.hashCode() + declared.hashCode()
         override fun toString(): String = if (declared) "param:$name" else "param:$UNDECLARED"
     }
 
     /**
      * An intent extra.
      *
-     * @property key the extra key. Attacker-controlled when [declared] is false.
-     * @property declared whether the policy declares this key.
+     * @property declared whether the policy declares this key (as an allowed extra or a nested-intent key).
      */
-    public data class Extra(public val key: String, public val declared: Boolean) : Field() {
+    public class Extra internal constructor(
+        @get:JvmSynthetic internal val key: String,
+        public val declared: Boolean,
+    ) : Field() {
+        /** The extra key if the policy declares it, otherwise `null` (the key is attacker-chosen). */
+        public val declaredName: String? get() = if (declared) key else null
+
+        override fun equals(other: Any?): Boolean = other is Extra && other.key == key && other.declared == declared
+        override fun hashCode(): Int = 31 * key.hashCode() + declared.hashCode() + 1
         override fun toString(): String = if (declared) "extra:$key" else "extra:$UNDECLARED"
     }
 

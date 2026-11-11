@@ -359,6 +359,11 @@ Author approval of the step 9 proposal, 2026-11-11 (`docs/RESPONSE.md`).
   `AuditContribution(code, weight, occurrences)`, and `callerIdentitySource`. It never carries the
   intent, the `Decision`, `Violation`/`Field` objects, any URI component or parameter value, the
   host, extras, nested intents, package names, certificate digests or exception messages.
+- **Raw names** (step 9 follow-up, author decision): `Field.Param` / `Field.Extra` are regular
+  classes with explicit `equals`/`hashCode`/`toString`; the raw name is `internal` and
+  `@JvmSynthetic`, and the public `declaredName` is non-null only for names from the policy. No
+  public member of `Field`, `Violation`, `ScoreContribution`, `RiskScore` or `Decision` returns an
+  undeclared name (`RawNameExposureTest`).
 - **When:** exactly once per `evaluate` call, on every path (Allow, Sanitize, Block,
   `ENTRY_POINT_UNKNOWN`, `EVALUATION_FAILED`), **after** the decision is complete, synchronously on
   the calling thread. A sink may be called from several threads at once and must be thread-safe.

@@ -532,11 +532,22 @@ pending (step 14)):
   main thread; a blocking sink can cause an ANR. It cannot change the decision.
 - **A sink that throws is silent.** Its exceptions are swallowed on purpose, so a broken sink goes
   unnoticed unless it reports its own failures.
-- **The app's own logging is outside ShezGuard.** `Violation.field` for an undeclared parameter or
-  extra still exposes the raw attacker-chosen name through `Field.Param.name` / `Field.Extra.key`
-  (and through `RiskScore.contributions`). An app that logs those properties, instead of
-  `toString()` or the `AuditEvent`, can write attacker text into its logs. Whether to make those
-  properties internal is an open question for the author (step 9 report).
+- **Raw names are no longer public** (author decision, step 9 follow-up). `Field.Param` and
+  `Field.Extra` keep the raw name internally (`internal` and `@JvmSynthetic`, because Kotlin
+  `internal` members compile to public JVM methods). The only public form is `declaredName`,
+  which is non-null only for names from the policy. This also covers
+  `RiskScore.contributions[].violation.field`. `RawNameExposureTest` walks every public,
+  non-synthetic, zero-argument method of `Field`, `Violation`, `ScoreContribution`, `RiskScore` and
+  `Decision` (all outcomes) and finds no undeclared name; mutation checks (name public again, key
+  public again, `internal` without `@JvmSynthetic`, `declaredName` ignoring `declared`) are all caught.
+  - It is not a security boundary: code inside the app can still read the field by reflection.
+  - The walk does not descend into Android objects: `Decision.Allow.intent` and
+    `Decision.Sanitize.sanitizedIntent` are the app's intents and still contain the raw URI and
+    extras by design.
+- **A failure while building the Sanitize copy** is caught by ShezGuard's outer catch, gives
+  `EVALUATION_FAILED`, emits one event, and leaks nothing into the event, the decision or logcat,
+  even with the canary in the exception message (`SanitizeCopyFailureTest`, using an internal
+  failure hook that is a no-op in production).
 - **The entry point name** is assumed to come from app code. A valid but app-chosen name is
   logged as given.
 - **`LogcatAuditSink` in a release build** advertises validation decisions to anyone with `adb`

@@ -94,7 +94,7 @@ class AuditWiringTest {
             override fun read(): CallerInfo = throw IllegalStateException("broken source")
             override fun currentSignerDigests(packageName: String): Set<String>? = null
         }
-        val d = ShezGuard.evaluateWith(Intent(), policy(sink), "partner", { throwing }, DomainVerifier.NONE)
+        val d = ShezGuard.evaluateWith(Intent(), policy(sink), "partner", { throwing }, domain = DomainVerifier.NONE)
         assertEquals(listOf(ViolationCode.EVALUATION_FAILED), d.violations.map { it.code })
         assertEquals(1, sink.events.size)
         assertEquals(listOf(ViolationCode.EVALUATION_FAILED), sink.events.single().violations.map { it.code })

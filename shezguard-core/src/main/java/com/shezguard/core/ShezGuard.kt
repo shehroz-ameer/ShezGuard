@@ -64,7 +64,7 @@ public object ShezGuard {
      * @param entryPointName the name of the policy entry point for this component.
      */
     public fun evaluate(intent: Intent, policy: IntentPolicy, entryPointName: String): Decision =
-        evaluateWith(intent, policy, entryPointName, { CallerSource.NONE }, DomainVerifier.NONE)
+        evaluateWith(intent, policy, entryPointName, { CallerSource.NONE }, domain = DomainVerifier.NONE)
 
     /**
      * Evaluates [intent], delivered to [activity] as [delivery], against [entryPointName] in
@@ -100,7 +100,7 @@ public object ShezGuard {
         policy,
         entryPointName,
         { extras -> ActivityCallerSource(activity, intent, delivery, extras) },
-        AndroidDomainVerifier(activity),
+        domain = AndroidDomainVerifier(activity),
     )
 
     /**
@@ -113,10 +113,11 @@ public object ShezGuard {
         policy: IntentPolicy,
         entryPointName: String,
         caller: (AndroidExtras) -> CallerSource,
+        afterSanitizeCopy: (Intent) -> Unit = {},
         domain: DomainVerifier,
     ): Decision {
         val decision = try {
-            decide(intent, policy, entryPointName, caller, domain)
+            decide(intent, policy, entryPointName, caller, domain, afterSanitizeCopy)
         } catch (e: RuntimeException) {
             blocked(Evaluator.failed(entryPointName))
         }
@@ -145,13 +146,14 @@ public object ShezGuard {
         name: String,
         caller: (AndroidExtras) -> CallerSource,
         domain: DomainVerifier,
+        afterSanitizeCopy: (Intent) -> Unit,
     ): Decision {
         val extras = AndroidExtras(intent)
         val e = Evaluator.evaluate(policy, name, extras = extras, caller = caller(extras), domain = domain) { readData(intent) }
         return when (e.outcome) {
             Outcome.BLOCK -> blocked(e)
             Outcome.ALLOW -> Decision.Allow(intent, name, e.violations, e.score, e.guarded, e.callerIdentitySource)
-            Outcome.SANITIZE -> sanitize(intent, e)
+            Outcome.SANITIZE -> sanitize(intent, e, afterSanitizeCopy)
         }
     }
 
@@ -166,7 +168,7 @@ public object ShezGuard {
      * One copy of the intent carries every removal: the dropped query parameters (step 5b) and
      * the rebuilt extras (step 6). Each part is checked after it is built; a mismatch fails closed.
      */
-    private fun sanitize(intent: Intent, e: Evaluation): Decision {
+    private fun sanitize(intent: Intent, e: Evaluation, afterCopy: (Intent) -> Unit): Decision {
         val failed = { blocked(Evaluator.failed(e.entryPoint)) }
         val dropsParams = e.droppedNames.isNotEmpty()
         val rebuild = e.extrasRebuild
@@ -180,6 +182,7 @@ public object ShezGuard {
             IntentCopy.copy(intent)
         }
         if (rebuild != null && !IntentCopy.replaceExtras(copy, rebuild)) return failed()
+        afterCopy(copy) // Test hook: lets tests inject a failure here; a no-op in production.
         return Decision.Sanitize(copy, e.entryPoint, e.violations, e.score, e.guarded, e.callerIdentitySource)
     }
 

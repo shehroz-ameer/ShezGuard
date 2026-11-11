@@ -138,7 +138,7 @@ class AuditCanaryTest {
                     shadowOf(a).setCallingPackage("com.$CANARY.app")
                     ShezGuard.evaluate(a, intent, Delivery.entries[r.nextInt(2)], p, ep)
                 }
-                2 -> ShezGuard.evaluateWith(intent, p, ep, { throwingCaller }, DomainVerifier.NONE)
+                2 -> ShezGuard.evaluateWith(intent, p, ep, { throwingCaller }, domain = DomainVerifier.NONE)
                 else -> ShezGuard.evaluate(intent, policy(throwingSink), ep)
             }
         }
