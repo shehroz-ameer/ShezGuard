@@ -43,7 +43,9 @@ kotlin {
 
 dependencies {
     // The only allowed runtime dependency: androidx.core (for IntentSanitizer).
-    implementation(libs.androidx.core)
+    // `api`, not `implementation`: the public constructor NestedIntentSanitizer(IntentSanitizer)
+    // exposes androidx.core.content.IntentSanitizer to apps.
+    api(libs.androidx.core)
 
     testImplementation(libs.junit)
     testImplementation(libs.robolectric)

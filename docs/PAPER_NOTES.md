@@ -363,14 +363,20 @@ dead code under minSdk 24 (`diff` of the two source jars, 2026-11-11). AAR metad
 (`META-INF/com/android/build/gradle/aar-metadata.properties`): 1.16.0 requires
 `minCompileSdk=35`, `minAndroidGradlePluginVersion=8.6.0`; 1.9.0 requires `minCompileSdk=33`.
 
-**Tested (Robolectric-only, device check pending (step 14)), androidx.core 1.16.0, SDK 24, 29,
-34.** Point 2: `NestedIntentTest.blocksNestedIntentWhoseComponentIntentSanitizerRewrites`,
+**Tested (Robolectric-only, device check pending (step 14)), SDK 24, 29, 34, first against
+androidx.core 1.16.0 (step 6) and again against 1.9.0 (2026-11-11, after the switch), with the
+same results (574 tests per variant, 0 failures).** Point 2: `NestedIntentTest.blocksNestedIntentWhoseComponentIntentSanitizerRewrites`,
 `blocksImplicitNestedIntentWithoutAllowAnyComponent`,
 `sanitizesImplicitNestedIntentWithAllowAnyComponent`. Point 3: `blocksDoublyNestedIntentLeftBySanitizer`.
 Point 4 (extra, category and grant-flag removal): `sanitizesNestedIntentThroughIntentSanitizer`.
 Point 1 is shown indirectly: `intentSanitizerMessagesNeverReachDecisionOutput` checks that no
-raw value reaches the decision; the message text itself was read in the source only. The
-1.9.0 build was not run.
+raw value reaches the decision; the message text itself was read in the source only.
+
+**Dependency (author decision, 2026-11-11).** `:shezguard-core` depends on androidx.core
+**1.9.0**, declared `api` because the public constructor `NestedIntentSanitizer(IntentSanitizer)`
+exposes the androidx type. This is a minimum: Gradle resolves the highest requested version, so
+in the demo `:app` (which uses `core-ktx` 1.16.0) the runtime version is 1.16.0. ShezGuard's own
+tests run against 1.9.0; an app's actual version depends on its other dependencies.
 
 **Design consequence.** ShezGuard's penalty consumer discards every message unread (`docs/LIMITATIONS.md` L24). A replaced component is a rewrite, not a removal (SPEC 4.1),
 so it is `NESTED_INTENT_DENIED`, not `NESTED_INTENT_SANITIZED` (L25).
