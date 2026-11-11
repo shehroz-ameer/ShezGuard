@@ -2,6 +2,8 @@ package com.shezguard.core.eval
 
 import android.content.Intent
 import android.net.Uri
+import android.os.Bundle
+import android.os.Parcelable
 import com.shezguard.core.Decision
 import com.shezguard.core.Outcome
 import com.shezguard.core.ShezGuard
@@ -69,7 +71,82 @@ class EvaluateInvariantsTest {
         return "https://example.com/$path" + (if (query.isEmpty()) "" else "?$query") + fragment
     }
 
-    private fun randomIntent(r: Random): Intent = when (r.nextInt(20)) {
+    // ---- Random extras (step 6) ------------------------------------------------------
+
+    private val extraKeys = listOf("k", "title", "count", "tags", "ids", "on", "next", "evil", "note", "a".repeat(70))
+
+    private fun randomExtraValue(r: Random, depth: Int = 0): Any? = when (r.nextInt(if (depth > 6) 9 else 17)) {
+        0 -> null
+        1 -> tokens[r.nextInt(tokens.size)]
+        2 -> "x".repeat(r.nextInt(250, 270))
+        3 -> r.nextInt()
+        4 -> r.nextLong()
+        5 -> r.nextBoolean()
+        6 -> Array(r.nextInt(0, 70)) { tokens[r.nextInt(tokens.size)] }
+        7 -> LongArray(r.nextInt(0, 70)) { it.toLong() }
+        8 -> if (r.nextBoolean()) PlainParcelable() else ThrowingParcelable()
+        9 -> Intent(Intent.ACTION_VIEW).setComponent(ExtrasFixtures.target).also { randomExtras(r, it, depth + 1) }
+        10 -> Intent("x.ACTION").also { randomExtras(r, it, depth + 1) }
+        11 -> Bundle().also { b -> repeat(r.nextInt(3)) { putValue(b, extraKeys[r.nextInt(extraKeys.size)], randomExtraValue(r, depth + 1)) } }
+        12 -> arrayOf<Parcelable>(Bundle(), Intent("x"))
+        13 -> arrayListOf<Parcelable>(Bundle().apply { putString("s", "v") })
+        14 -> arrayOf<CharSequence>("a")
+        15 -> ExtrasFixtures.nestedBundles(r.nextInt(3, 7)) { if (r.nextBoolean()) putString("s", "v") else putParcelable("i", Intent("x")) }
+        else -> NoCreatorParcelable()
+    }
+
+    private fun putValue(b: Bundle, key: String?, v: Any?) {
+        @Suppress("UNCHECKED_CAST")
+        when (v) {
+            null -> b.putString(key, null)
+            is String -> b.putString(key, v)
+            is Int -> b.putInt(key, v)
+            is Long -> b.putLong(key, v)
+            is Boolean -> b.putBoolean(key, v)
+            is LongArray -> b.putLongArray(key, v)
+            is Bundle -> b.putBundle(key, v)
+            is Parcelable -> b.putParcelable(key, v)
+            is ArrayList<*> -> b.putParcelableArrayList(key, v as ArrayList<Parcelable>)
+            is Array<*> -> when {
+                v.isArrayOf<String>() -> b.putStringArray(key, v as Array<String?>)
+                v.isArrayOf<Parcelable>() -> b.putParcelableArray(key, v as Array<Parcelable>)
+                else -> b.putCharSequenceArray(key, v as Array<CharSequence>)
+            }
+            else -> error("unsupported fuzz value")
+        }
+    }
+
+    private fun randomExtras(r: Random, intent: Intent, depth: Int = 0) {
+        val b = Bundle()
+        val many = r.nextInt(10) == 0
+        repeat(r.nextInt(0, if (many) 20 else 5)) {
+            val key = when {
+                many -> "m$it"
+                r.nextInt(30) == 0 -> null
+                else -> extraKeys[r.nextInt(extraKeys.size)] + (if (r.nextInt(4) == 0) "$it" else "")
+            }
+            putValue(b, key, randomExtraValue(r, depth))
+        }
+        // Bias towards the AllowSanitized path, which needs this exact key and an allowed component.
+        if (depth == 0 && r.nextInt(4) == 0) {
+            b.putParcelable("next", Intent(Intent.ACTION_VIEW).setComponent(ExtrasFixtures.target).putExtra("note", "n"))
+        }
+        intent.putExtras(b)
+    }
+
+    /** Every fuzz case is evaluated against one of these (policy, entry point) pairs. */
+    private val targets: List<Pair<com.shezguard.core.policy.IntentPolicy, String>> by lazy {
+        entryPointNames.map { policy to it } +
+            listOf("share", "forward", "forwardAny", "searchExtras").map { ExtrasFixtures.policy to it }
+    }
+
+    private fun randomIntent(r: Random): Intent {
+        val i = randomUriIntent(r)
+        if (r.nextInt(3) == 0) randomExtras(r, i)
+        return if (r.nextInt(4) == 0) ExtrasFixtures.received(i) else i
+    }
+
+    private fun randomUriIntent(r: Random): Intent = when (r.nextInt(20)) {
         0 -> Intent(Intent.ACTION_VIEW) // no data
         1, 2 -> {
             val b = Uri.Builder().scheme(listOf("https", "http", "myapp", "")[r.nextInt(4)])
@@ -86,23 +163,35 @@ class EvaluateInvariantsTest {
 
     private val fuzzCount = 4000
 
+    private val expectedExtrasCodes = setOf(
+        ViolationCode.EXTRAS_UNPARCEL_FAILED, ViolationCode.EXTRAS_TOO_MANY, ViolationCode.EXTRAS_TOO_DEEP,
+        ViolationCode.EXTRA_NOT_ALLOWED, ViolationCode.EXTRA_WRONG_TYPE, ViolationCode.EXTRA_TOO_LARGE,
+        ViolationCode.NESTED_INTENT_DENIED, ViolationCode.NESTED_INTENT_SANITIZED,
+    )
+
     @Test
     fun evaluateNeverThrowsOnFuzzedIntents() {
         val r = Random(0x5EED_5B)
         val outcomes = HashMap<Outcome, Int>()
+        val extrasCodes = java.util.TreeMap<ViolationCode, Int>()
         repeat(fuzzCount) { i ->
             val intent = randomIntent(r)
-            val ep = entryPointNames[r.nextInt(entryPointNames.size)]
-            val d = ShezGuard.evaluate(intent, policy, ep)
+            val (pol, ep) = targets[r.nextInt(targets.size)]
+            val d = ShezGuard.evaluate(intent, pol, ep)
             assertFalse(
                 "EVALUATION_FAILED on fuzz case $i (ep=$ep, data=${intent.dataString?.let(::escape)})",
                 d.violations.any { it.code == ViolationCode.EVALUATION_FAILED },
             )
             outcomes.merge(d.outcome, 1, Int::plus)
+            d.violations.map { it.code }.filter { it in expectedExtrasCodes }.toSet().forEach { extrasCodes.merge(it, 1, Int::plus) }
         }
-        // The corpus must reach every outcome, or it is not exercising the pipeline.
-        println("[fuzz] seed=0x5EED5B n=$fuzzCount outcomes=$outcomes")
+        // The corpus must reach every outcome and the extras codes, or it is not exercising the pipeline.
+        println("[fuzz] seed=0x5EED5B n=$fuzzCount outcomes=$outcomes extrasCodes=$extrasCodes")
         assertEquals(Outcome.entries.toSet(), outcomes.keys)
+        assertTrue(
+            "extras codes not reached: ${expectedExtrasCodes - extrasCodes.keys}",
+            extrasCodes.keys.containsAll(expectedExtrasCodes),
+        )
     }
 
     @Test
@@ -110,11 +199,11 @@ class EvaluateInvariantsTest {
         val r = Random(0xD5_7E)
         repeat(1000) {
             val intent = randomIntent(r)
-            val ep = entryPointNames[r.nextInt(entryPointNames.size)]
-            val first = summary(ShezGuard.evaluate(intent, policy, ep))
+            val (pol, ep) = targets[r.nextInt(targets.size)]
+            val first = summary(ShezGuard.evaluate(intent, pol, ep))
             val copy = Intent(intent)
-            assertEquals(first, summary(ShezGuard.evaluate(intent, policy, ep)))
-            assertEquals(first, summary(ShezGuard.evaluate(copy, policy, ep)))
+            assertEquals(first, summary(ShezGuard.evaluate(intent, pol, ep)))
+            assertEquals(first, summary(ShezGuard.evaluate(copy, pol, ep)))
         }
     }
 

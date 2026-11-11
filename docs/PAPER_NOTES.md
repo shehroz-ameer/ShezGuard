@@ -188,3 +188,189 @@ sanitized copy still report `BaseBundle.isParcelled() == true` (`IntentCopyParce
 on the **source** Bundle when its map is already unparcelled. That is a change to private
 state of the caller's intent that no public API reports. It is not a change to any value
 (`docs/LIMITATIONS.md` L21).
+
+## Source index for step 6 (AOSP and androidx claims)
+
+Every AOSP claim in N6–N9 was read in `platform/frameworks/base` on
+`android.googlesource.com`, fetched 2026-11-11 with
+`https://android.googlesource.com/platform/frameworks/base/+/refs/tags/<tag>/<path>?format=TEXT`.
+One tag per API level (the latest release or security tag of each branch, as in N4):
+
+| API | Tag |
+|---|---|
+| 24 | `android-7.0.0_r36` |
+| 25 | `android-7.1.2_r39` |
+| 26 | `android-security-8.0.0_r54` |
+| 27 | `android-security-8.1.0_r93` |
+| 28 | `android-security-9.0.0_r76` |
+| 29 | `android-security-10.0.0_r75` |
+| 30 | `android-security-11.0.0_r76` |
+| 31 | `android-security-12.0.0_r69` |
+| 32 | `android-security-12.1.0_r7` |
+| 33 | `android-security-13.0.0_r33` |
+| 34 | `android-security-14.0.0_r31` |
+
+Files: `core/java/android/os/BaseBundle.java`, `core/java/android/os/Bundle.java`,
+`core/java/android/os/Parcel.java`, `core/java/android/content/Intent.java`.
+Line numbers below are for those tags. Other tags of the same branch, OEM builds and devices
+without these patches were **not** read.
+
+Marking convention: a claim that has also been exercised by a test is marked with the test
+name. Tests run under Robolectric (AOSP Java code, JVM-emulated native `Parcel`), so every such
+claim is **Robolectric-only, device check pending (step 14)** unless stated otherwise.
+
+## N6. A failed unparcel leaves a Bundle silently truncated (API 24–34)
+
+**Observation (AOSP source).** The method that unparcels a Bundle catches
+`BadParcelableException` only to rethrow it (unless the process-wide `sShouldDefuse` flag is
+set, which only `system_server` does), and in its `finally` block installs the map it was
+filling and drops the parcel. The map is filled entry by entry, so after an exception it holds
+every entry read before the failing one. A second call on the same Bundle sees
+`mParcelledData == null`, returns at once, and every accessor then answers from the partial map
+without any error. A `RuntimeException` that is not a `BadParcelableException` (for example,
+thrown by a hostile `CREATOR`) is not caught there at all, but the same `finally` block runs.
+
+| API | Method (file `BaseBundle.java` unless noted) | `finally { mMap = map; ... mParcelledData = null; }` at line | Entry-by-entry fill |
+|---|---|---|---|
+| 24 | `unparcel()` | 278 | `Parcel.readArrayMapInternal(ArrayMap, int, ClassLoader)`, `Parcel.java` 2714–2733 (`outVal.append(key, value)` per entry) |
+| 25 | `unparcel()` | 278 | same method |
+| 26 | `unparcel()` | 266 | same method |
+| 27 | `initializeFromParcelLocked(Parcel, boolean, boolean)` | 282 | same method (or `readArrayMapSafelyInternal`) |
+| 28–32 | `initializeFromParcelLocked(Parcel, boolean, boolean)` | 298 (28), 302 (29–32) | same |
+| 33 | `initializeFromParcelLocked(Parcel, boolean, boolean)` | 459 | `Parcel.readArrayMap(ArrayMap, int, boolean, boolean, ClassLoader, int[])` |
+| 34 | `initializeFromParcelLocked(Parcel, boolean, boolean)` | 497 | same, `Parcel.java` 5352–5370 (`map.append` / `map.put` per entry) |
+
+**Why it matters.** An app (or a validator) that catches the exception from its first extras
+read and carries on gets a Bundle that silently lacks some keys, with no further error. A
+validator that unparcels the **caller's** Bundle and fails would leave the app with that
+truncated Bundle. ShezGuard therefore (1) reads only a copy (N7, `getExtras()`), and (2) treats
+the first failure as final and never re-reads the same Bundle. See `docs/LIMITATIONS.md` L23.
+
+**Demonstrated (Robolectric SDK 24 and 29; Robolectric-only, device check pending (step 14)).**
+`ExtrasUnparcelTest.characterisesPartialMapAfterFailedUnparcel` writes a Bundle holding `"a"`
+(a String) and `"zzzz"` (a Parcelable whose `CREATOR` throws), reads it back, and calls
+`keySet()` twice. Recorded output (2026-11-11):
+```
+[N6] sdk=24 first keySet() threw IllegalStateException; second keySet()=[a]
+[N6] sdk=29 first keySet() threw IllegalStateException; second keySet()=[a]
+```
+The test is skipped on SDK 34: the hostile value is lazy there (N7), so `keySet()` succeeds.
+ShezGuard's mitigation is shown by `callerBundleStaysParcelledAfterUnparcelFailure` and
+`repeatedEvaluationGivesTheSameDecision` (SDK 24, 29, 34; Robolectric-only, device check
+pending (step 14)).
+
+**Not verified.** Not run on a device. From API 33, lazy values (N7) make a failure in
+`initializeFromParcelLocked` rarer, because most attacker-chosen types are no longer
+deserialised there; it is still possible for eagerly read types. The partial map on API 33–34
+was read in the source but not demonstrated.
+
+## N7. What triggers deserialisation, per API level
+
+**Observation (AOSP source).**
+1. `Intent.getExtras()` returns `new Bundle(mExtras)` on every level (`Intent.java`, method
+   `getExtras()`, lines 6532 (24), 6564 (25), 7368 (26), 7460 (27), 7770 (28), 8227 (29),
+   8575 (30), 8834 (31), 8850 (32), 9267 (33), 9520 (34)). The copy constructor
+   `BaseBundle(BaseBundle)` (`BaseBundle.java` line 158 on 24–26, 164 (27), 170 (28),
+   173 (29–32); on 33–34 it delegates to `BaseBundle(BaseBundle, boolean deep = false)`, lines
+   200 / 206) copies the parcelled bytes with `Parcel.appendFrom` without unparcelling, and
+   copies `mClassLoader`. So reading the copy never unparcels the caller's Bundle, and setting
+   a class loader on the copy does not change the caller's.
+2. `keySet()`, `size()`, `isEmpty()`, `get(String)` and every typed getter call `unparcel()`
+   first (all levels).
+3. **API 24–32:** unparcelling reads every value with `Parcel.readValue`, so every Parcelable
+   `CREATOR` and every Serializable runs at the first `keySet()`.
+4. **API 33–34:** unparcelling reads values with `Parcel.readLazyValue`. Types for which
+   `Parcel.isLengthPrefixed(int)` returns true become `LazyValue`s and are not deserialised:
+   `VAL_MAP`, `VAL_PARCELABLE`, `VAL_LIST`, `VAL_SPARSEARRAY`, `VAL_PARCELABLEARRAY`,
+   `VAL_OBJECTARRAY`, `VAL_SERIALIZABLE` (`Parcel.java` line 4695 (33), 4783 (34)). Primitives,
+   `String`, primitive arrays, `String[]` and `Bundle` are read eagerly.
+5. **API 33–34:** `get(String)` calls `BaseBundle.getValueAt(int, Class, Class...)` (line 390
+   (33), 397 (34)), which applies the `LazyValue` and stores the result with `mMap.setValueAt`
+   only after it succeeded. A failure is therefore per key: the entry stays lazy and the other
+   keys are unaffected.
+6. Typed getters (`getString`, `getInt`, ...) catch `ClassCastException` and return `null` or
+   the default (e.g. `BaseBundle.getString(String)`, line 991 on 24), so they cannot tell a
+   wrong type from an absent key. The typed `get(String, Class)` of API 33+ also catches
+   `BadTypeParcelableException` (`BaseBundle.java` 33, line 698).
+
+**Tested (Robolectric-only, device check pending (step 14)).** Points 3 and 5:
+`ExtrasUnparcelTest.blocksBundleWhoseParcelableThrowsOnRead` and
+`blocksBundleWithParcelableMissingItsCreator` assert a whole-Bundle failure (`Field.Extras`)
+on SDK 24 and 29 and a per-key failure (`Field.Extra("evil")`, other key read normally) on
+SDK 34. Point 1: `callerBundleStaysParcelledAfterUnparcelFailure` (SDK 24, 29, 34) and
+`IntentCopyParcelTest` (SDK 29, 34). Points 2, 4 (beyond the failure behaviour) and 6 were read
+in the source only.
+
+**Design consequence.** ShezGuard reads `intent.getExtras()` once, then `keySet()` once, then
+`get(key)` for every key (the only accessor that reveals the real type, and the only one that
+can find an Intent inside a mixed List or Map). On API 33–34 this deserialises every lazy value,
+which the app itself might never have done (`docs/LIMITATIONS.md` L27).
+
+## N8. A nested Intent's extras are resolved with the framework class loader
+
+**Observation (AOSP source).** `Intent.readFromParcel(Parcel)` reads extras with
+`mExtras = in.readBundle()` (`Intent.java` line 8704 (24), 8736 (25), 9529 (26), 9644 (27),
+10010 (28), 10545 (29), 10905 (30), 11156 (31), 11172 (32), 11601 (33), 11861 (34)), i.e.
+`Parcel.readBundle(null)`, which calls `setClassLoader` only for a non-null loader
+(`Parcel.readBundle(ClassLoader)`, `Parcel.java` line 1879 (24), 1880 (25), 2150 (26),
+2223 (27), 2158 (28), 2278 (29), 2599 (30), 2673 (31, 32), 3321 (33), 3373 (34)). The Bundle is built with
+`BaseBundle(Parcel, int)`, which never assigns `mClassLoader` (the only assignments are in
+`BaseBundle(ClassLoader, int)`, the copy constructor and `setClassLoader`). With a null loader,
+`Parcel.readParcelableCreator` falls back to `getClass().getClassLoader()`, the loader of
+`Parcel` itself (`Parcel.readParcelableCreator(ClassLoader)` on 24–32, `readParcelableCreatorInternal` on
+33–34; `Parcel.java` line 2512 (24), 2513 (25), 2824 (26), 2894 (27), 2808 (28), 3012 (29),
+3336 (30), 3410 (31, 32), 4888 (33), 4996 (34)). On a device
+that is the framework (boot) class loader, so app-defined Parcelables inside a nested Intent's
+extras fail to resolve. A nested `Bundle` read with `readBundle(loader)` inherits the parent's
+loader.
+
+**Why it matters.** The platform already resolves nested-Intent extras with a framework-only
+loader. A restrictive loader on ShezGuard's top-level copy would mirror that (evaluated in
+step 6, not adopted: it cannot be tested under Robolectric, where one sandbox loader loads both
+framework and test classes; revisit in step 14).
+
+**Tested:** nothing in this note. Under Robolectric one sandbox class loader loads both
+framework and test classes, so the framework-only behaviour cannot be observed there.
+
+**Not verified.** That the class loader of `Parcel` on ART is the boot class loader; what
+`ObjectInputStream.resolveClass` does with a null loader on ART (Serializables); whether
+`ActivityThread` sets the app's class loader on the extras of a delivered intent
+(`ActivityThread.java` was not read).
+
+## N9. `IntentSanitizer.sanitize(Intent, Consumer<String>)`: messages, component rewrite, versions
+
+**Observation (androidx source).** `androidx/core/content/IntentSanitizer.java` in
+`androidx.core:core:1.16.0` (`core-1.16.0-sources.jar` from Google Maven), method
+`sanitize(Intent in, Consumer<String> penalty)`:
+1. Penalty messages embed raw values from the nested intent, e.g. `"Extra is not allowed. Key: "
+   + key + ". Value: " + value`, `"Data is not allowed: " + data`, ClipData text and URIs.
+2. A component that is not allowed is **replaced**:
+   `intent.setComponent(new ComponentName("android", "java.lang.Void"))`. A `null` component
+   (an implicit intent) is treated the same way unless the sanitizer was built with
+   `allowAnyComponent()`.
+3. Extras are read with `in.getExtras()`, `keySet()` and the deprecated `Bundle.get(key)`; an
+   allowed extra is copied as the same object. A nested Intent allowed by an `allowExtra`
+   predicate is copied without being sanitized itself.
+4. Flags are reduced to `allowedFlags & in.getFlags()`; action, data, type, categories,
+   package, ClipData items, identifier (API 29+), selector and source bounds are dropped when
+   not allowed.
+
+**Versions.** `IntentSanitizer` is absent from `androidx.core:core:1.8.0` and present from
+`1.9.0` with the same `sanitize(Intent, androidx.core.util.Consumer<String>)` signature
+(checked with `javap` on both `classes.jar`). Between 1.9.0 and 1.16.0 the method bodies are
+the same except that 1.16.0 drops the API 15/16 guards (`Api15Impl`, `Api16Impl`), which are
+dead code under minSdk 24 (`diff` of the two source jars, 2026-11-11). AAR metadata
+(`META-INF/com/android/build/gradle/aar-metadata.properties`): 1.16.0 requires
+`minCompileSdk=35`, `minAndroidGradlePluginVersion=8.6.0`; 1.9.0 requires `minCompileSdk=33`.
+
+**Tested (Robolectric-only, device check pending (step 14)), androidx.core 1.16.0, SDK 24, 29,
+34.** Point 2: `NestedIntentTest.blocksNestedIntentWhoseComponentIntentSanitizerRewrites`,
+`blocksImplicitNestedIntentWithoutAllowAnyComponent`,
+`sanitizesImplicitNestedIntentWithAllowAnyComponent`. Point 3: `blocksDoublyNestedIntentLeftBySanitizer`.
+Point 4 (extra, category and grant-flag removal): `sanitizesNestedIntentThroughIntentSanitizer`.
+Point 1 is shown indirectly: `intentSanitizerMessagesNeverReachDecisionOutput` checks that no
+raw value reaches the decision; the message text itself was read in the source only. The
+1.9.0 build was not run.
+
+**Design consequence.** ShezGuard's penalty consumer discards every message unread (`docs/LIMITATIONS.md` L24). A replaced component is a rewrite, not a removal (SPEC 4.1),
+so it is `NESTED_INTENT_DENIED`, not `NESTED_INTENT_SANITIZED` (L25).

@@ -33,7 +33,7 @@ class ViolationModelTest {
             "PARAM_MISSING", "PARAM_TOO_LONG", "PARAM_NAME_INVALID", "PARAM_INVALID_FORMAT",
             "PARAM_URL_NOT_ALLOWED", "PARAM_REPEATED", "PARAM_UNKNOWN", "PARAM_UNKNOWN_DROPPED",
             "PARAM_UNKNOWN_IGNORED",
-            "EXTRAS_UNPARCEL_FAILED", "EXTRAS_TOO_MANY", "EXTRA_NOT_ALLOWED", "EXTRA_WRONG_TYPE",
+            "EXTRAS_UNPARCEL_FAILED", "EXTRAS_TOO_MANY", "EXTRAS_TOO_DEEP", "EXTRA_NOT_ALLOWED", "EXTRA_WRONG_TYPE",
             "EXTRA_TOO_LARGE", "NESTED_INTENT_DENIED", "NESTED_INTENT_SANITIZED",
             "CALLER_UNIDENTIFIED", "CALLER_NOT_ALLOWED", "CALLER_NOT_ALLOWED_RELIABLE",
             "DOMAIN_NOT_VERIFIED", "DOMAIN_VERIFICATION_UNAVAILABLE",
@@ -46,6 +46,29 @@ class ViolationModelTest {
     fun evaluationFailedIsHardAndCritical() {
         assertEquals(Tier.HARD, ViolationCode.EVALUATION_FAILED.tier)
         assertEquals(Severity.CRITICAL, ViolationCode.EVALUATION_FAILED.defaultSeverity)
+    }
+
+    /** Step 6, author decision 2: extras nested too deep fail closed (absence of an intent cannot be shown). */
+    @Test
+    fun extrasTooDeepIsHardAndHigh() {
+        assertEquals(Tier.HARD, ViolationCode.EXTRAS_TOO_DEEP.tier)
+        assertEquals(Severity.HIGH, ViolationCode.EXTRAS_TOO_DEEP.defaultSeverity)
+    }
+
+    /** Step 6: every extras and nested-intent code except the two removable ones blocks. */
+    @Test
+    fun extrasAndNestedIntentCodesHaveTheApprovedTiers() {
+        val expected = mapOf(
+            ViolationCode.EXTRAS_UNPARCEL_FAILED to Tier.HARD,
+            ViolationCode.EXTRAS_TOO_MANY to Tier.HARD,
+            ViolationCode.EXTRAS_TOO_DEEP to Tier.HARD,
+            ViolationCode.EXTRA_NOT_ALLOWED to Tier.REMOVABLE,
+            ViolationCode.EXTRA_WRONG_TYPE to Tier.HARD,
+            ViolationCode.EXTRA_TOO_LARGE to Tier.HARD,
+            ViolationCode.NESTED_INTENT_DENIED to Tier.HARD,
+            ViolationCode.NESTED_INTENT_SANITIZED to Tier.REMOVABLE,
+        )
+        expected.forEach { (code, tier) -> assertEquals(code.id, tier, code.tier) }
     }
 
     @Test

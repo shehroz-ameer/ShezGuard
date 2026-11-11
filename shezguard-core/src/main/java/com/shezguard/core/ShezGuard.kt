@@ -1,6 +1,7 @@
 package com.shezguard.core
 
 import android.content.Intent
+import com.shezguard.core.android.AndroidExtras
 import com.shezguard.core.android.AndroidUriView
 import com.shezguard.core.android.IntentCopy
 import com.shezguard.core.eval.Evaluation
@@ -13,10 +14,14 @@ import com.shezguard.core.policy.IntentPolicy
 /**
  * The public entry point: validates an incoming intent against an entry point policy.
  *
- * **Scope (v1, step 5b).** Only the data URI and its query parameters are checked. Extras,
- * nested intents, risk scoring and caller signals are added in later steps; until then
- * ShezGuard does not read extras at all, so an intent's extras are neither checked nor
- * unparcelled here.
+ * **Scope (v1, step 6).** The data URI, its query parameters, the extras and nested intents
+ * in extras are checked. Risk scoring and caller signals are added in later steps.
+ *
+ * **Reading extras deserialises them.** To find nested intents anywhere in the extras,
+ * ShezGuard reads every extra value from a copy of the Bundle. Any code a hostile
+ * `Parcelable` or `Serializable` runs while being read therefore runs here, even for an
+ * intent that is then blocked (`docs/LIMITATIONS.md` L1, L27). An exception while reading is
+ * caught and becomes `EXTRAS_UNPARCEL_FAILED`; the caller's Bundle is not read or changed.
  */
 public object ShezGuard {
 
@@ -31,7 +36,10 @@ public object ShezGuard {
      *   becomes a Block with `EVALUATION_FAILED`. `Error`s are not caught.
      *
      * Read the URI's data from `Decision.Allow.data` / `Decision.Sanitize.data`, never from
-     * `intent.getData()`.
+     * `intent.getData()`. After a Sanitize, read extras and nested intents from
+     * `Decision.Sanitize.sanitizedIntent`, which holds only the values ShezGuard checked and,
+     * for `Nested.AllowSanitized` keys, `IntentSanitizer`'s output. After a Block, do not read
+     * the intent at all.
      *
      * @param intent the intent the component received.
      * @param policy the app's policy.
@@ -44,7 +52,7 @@ public object ShezGuard {
     }
 
     private fun decide(intent: Intent, policy: IntentPolicy, name: String): Decision {
-        val e = Evaluator.evaluate(policy, name) { readData(intent) }
+        val e = Evaluator.evaluate(policy, name, extras = AndroidExtras(intent)) { readData(intent) }
         return when (e.outcome) {
             Outcome.BLOCK -> blocked(e)
             Outcome.ALLOW -> Decision.Allow(intent, name, e.violations, e.score, e.guarded)
@@ -59,13 +67,24 @@ public object ShezGuard {
         return UriInput(dataString, AndroidUriView(uri))
     }
 
+    /**
+     * One copy of the intent carries every removal: the dropped query parameters (step 5b) and
+     * the rebuilt extras (step 6). Each part is checked after it is built; a mismatch fails closed.
+     */
     private fun sanitize(intent: Intent, e: Evaluation): Decision {
-        val raw = e.dataString ?: return blocked(Evaluator.failed(e.entryPoint))
-        val copy = IntentCopy.withData(intent, QueryRemoval.remove(raw, e.droppedNames))
-        val rebuilt = copy.data
-        if (!SanitizeCheck.verify(e, copy.dataString, rebuilt?.let(::AndroidUriView))) {
-            return blocked(Evaluator.failed(e.entryPoint))
+        val failed = { blocked(Evaluator.failed(e.entryPoint)) }
+        val dropsParams = e.droppedNames.isNotEmpty()
+        val rebuild = e.extrasRebuild
+        if (!dropsParams && rebuild == null) return failed()
+        val copy = if (dropsParams) {
+            val raw = e.dataString ?: return failed()
+            IntentCopy.withData(intent, QueryRemoval.remove(raw, e.droppedNames)).also { c ->
+                if (!SanitizeCheck.verify(e, c.dataString, c.data?.let(::AndroidUriView))) return failed()
+            }
+        } else {
+            IntentCopy.copy(intent)
         }
+        if (rebuild != null && !IntentCopy.replaceExtras(copy, rebuild)) return failed()
         return Decision.Sanitize(copy, e.entryPoint, e.violations, e.score, e.guarded)
     }
 

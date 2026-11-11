@@ -6,6 +6,7 @@ import com.shezguard.core.Decision
 import com.shezguard.core.ViolationCode
 import com.shezguard.core.policy.CharClass
 import com.shezguard.core.policy.Data
+import com.shezguard.core.policy.ExtraType
 import com.shezguard.core.policy.IntentPolicy
 import com.shezguard.core.policy.Unknown
 import com.shezguard.core.policy.intentPolicy
@@ -29,6 +30,8 @@ internal object EvalFixtures {
             param("q") { string(CharClass.TEXT) }
             unknownParams(Unknown.Drop)
             allowFragment()
+            // Step 6: "k" is allowed so a URI-only Sanitize leaves the extras parcelled (IntentCopyParcelTest, N5).
+            extras { allow("k", ExtraType.STRING) }
         }
         entryPoint("browse") {
             allowSchemes("https")

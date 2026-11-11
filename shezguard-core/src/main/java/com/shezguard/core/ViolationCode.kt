@@ -188,8 +188,15 @@ public enum class ViolationCode(
     /** Reading the extras threw (malformed or hostile Bundle). The intent cannot be inspected safely. */
     EXTRAS_UNPARCEL_FAILED("EXTRAS_UNPARCEL_FAILED", Tier.HARD, Severity.CRITICAL),
 
-    /** The intent carries more extras than the entry point allows. */
+    /** The intent carries more extras than the entry point allows. No extra value is read. */
     EXTRAS_TOO_MANY("EXTRAS_TOO_MANY", Tier.HARD, Severity.MEDIUM),
+
+    /**
+     * Containers in the extras (Bundle, array, List, Map, SparseArray) are nested more than
+     * `ExtrasRule.MAX_NESTING_DEPTH` deep. The deeper contents are not read, so ShezGuard
+     * cannot show that they hold no nested intent, and fails closed.
+     */
+    EXTRAS_TOO_DEEP("EXTRAS_TOO_DEEP", Tier.HARD, Severity.HIGH),
 
     /** An extra whose key the policy does not allow; removed by Sanitize. */
     EXTRA_NOT_ALLOWED("EXTRA_NOT_ALLOWED", Tier.REMOVABLE, Severity.LOW),
@@ -203,10 +210,20 @@ public enum class ViolationCode(
     /** An allowed string or array extra exceeds its size limit. */
     EXTRA_TOO_LARGE("EXTRA_TOO_LARGE", Tier.HARD, Severity.HIGH),
 
-    /** A nested Intent was found and the policy denies nested intents. */
+    /**
+     * A nested `Intent`, `PendingIntent` or `IntentSender` was found in the extras and cannot
+     * be made safe by removal: the policy denies nested intents, or it is under a key that
+     * `Nested.AllowSanitized` does not list, or it is not a single `Intent`, or `IntentSanitizer`
+     * would have to rewrite its component, threw, or left another nested intent in its output.
+     */
     NESTED_INTENT_DENIED("NESTED_INTENT_DENIED", Tier.HARD, Severity.CRITICAL),
 
-    /** A nested Intent was reduced by `IntentSanitizer` under `Nested.AllowSanitized`. */
+    /**
+     * A nested Intent under a `Nested.AllowSanitized` key was passed through `IntentSanitizer`.
+     * Reported for every such intent, even when the sanitizer removed nothing, so the decision
+     * is Sanitize and the app forwards the sanitizer's output from
+     * `Decision.Sanitize.sanitizedIntent`, never the original nested object.
+     */
     NESTED_INTENT_SANITIZED("NESTED_INTENT_SANITIZED", Tier.REMOVABLE, Severity.MEDIUM),
 
     // ---- Caller signals (SPEC section 8, advisory unless noted) ------------------

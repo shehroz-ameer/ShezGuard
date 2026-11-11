@@ -101,6 +101,8 @@ decision is Block.
 3. Parameter checks against rules.
 4. Extras and nested intent checks (wrap `IntentSanitizer` where relevant). Reading extras
    can throw on unparcelling failure: catch, record `EXTRAS_UNPARCEL_FAILED`, never crash.
+   **[DECIDED]** (step 6) This stage always runs, even when the URI stages already block
+   (section 5.4).
 5. Caller signals collected (best effort, see limitations).
 6. Risk score from weighted signals (weights configurable, defaults documented).
 7. Produce `Decision` with a list of `Violation(code, entryPoint, field, severity)`.
@@ -134,7 +136,8 @@ decision is Block.
 ### 5.3 Evaluator, URI and parameter stages (step 5b) [DECIDED]
 - **Entry.** `ShezGuard.evaluate(intent, policy, entryPointName)`. The pipeline is pure Kotlin
   (`com.shezguard.core.eval`); only a thin adapter in `com.shezguard.core.android` touches
-  `Intent` and `Uri`. In step 5b only `intent.getData()` / `getDataString()` are read, never extras.
+  `Intent` and `Uri`. In step 5b only `intent.getData()` / `getDataString()` are read, never
+  extras; step 6 adds the extras stage (section 5.4).
 - **Unknown entry point.** Block with a single `ENTRY_POINT_UNKNOWN` (HARD); the intent is not read.
 - **Data rule.** No data URI: `Required` gives `DATA_MISSING`; `Optional` and `Forbidden`
   skip the URI stages. A data URI on a `Forbidden` entry point gives `DATA_FORBIDDEN` only:
@@ -166,6 +169,50 @@ decision is Block.
   `EVALUATION_FAILED` (HARD, CRITICAL) violation, with no exception message and no other
   violations. `Error`s are not caught. A fixed-seed fuzz test asserts `EVALUATION_FAILED`
   never occurs on its corpus, so the safety net cannot hide library bugs.
+
+### 5.4 Extras and nested intents (step 6) [DECIDED]
+Author approval of the step 6 proposal, 2026-11-11 (`docs/RESPONSE.md`).
+- **Reading.** `intent.getExtras()` once (a copy of the parcelled bytes on API 24–34, so the
+  caller's Bundle is never unparcelled), then `keySet()` once, then the deprecated
+  `Bundle.get(key)` for every key, the only accessor that shows the real type. Nested Bundles
+  are read the same way. Each read catches `RuntimeException` only: a failed `keySet()` gives
+  one `EXTRAS_UNPARCEL_FAILED` on `Field.Extras` and ends the stage; a failed value gives
+  `EXTRAS_UNPARCEL_FAILED` on that key. A failed Bundle is never re-read (`docs/PAPER_NOTES.md`
+  N6). An extras failure does not discard the URI violations. No restrictive class loader in
+  v1 (revisit in step 14).
+- **Order.** The stage always runs, even when the URI stages already block (author decision 1),
+  so the violation list is complete. `ENTRY_POINT_UNKNOWN` still reads nothing.
+- **Key count.** More than `maxKeys` (default 16) gives `EXTRAS_TOO_MANY` and ends the stage
+  before any value is read.
+- **Key rule**, per top-level key:
+  - allowed key: the value must have exactly the declared `ExtraType` (`STRING_ARRAY` means a
+    `String[]`, not an `Object[]` or `CharSequence[]`), else `EXTRA_WRONG_TYPE` (HARD). A
+    `null` value counts as absent (author decision 5). Strings longer than `maxStringLength`
+    (default 256, `String.length`), arrays longer than `maxArrayLength` (default 64), or any
+    `String[]` element longer than `maxStringLength` give one `EXTRA_TOO_LARGE` (HARD) per key.
+    String content is not checked;
+  - `Nested.AllowSanitized` key: see below;
+  - any other key, including a `null` key (reported as `""`): `EXTRA_NOT_ALLOWED` (REMOVABLE).
+- **Nested-intent rule**, independent of the key rule: an `Intent`, `PendingIntent` or
+  `IntentSender` anywhere in a value (directly, in an object array, `List`, `Map` key or value,
+  `SparseArray`, or nested `Bundle`) gives `NESTED_INTENT_DENIED` (HARD), except a single `Intent`
+  directly under an `AllowSanitized` key. Search does not descend into an Intent.
+- **Depth.** At most `ExtrasRule.MAX_NESTING_DEPTH` = 4 containers inside one extra. A deeper
+  container is not read and gives `EXTRAS_TOO_DEEP` (HARD, HIGH; author decision 2).
+- **`Nested.AllowSanitized(keys, sanitizer)`.** A single `Intent` under a listed key is passed to
+  `IntentSanitizer.sanitize(intent, penalty)`; the penalty messages hold raw values and are
+  discarded unread. The result is `NESTED_INTENT_SANITIZED` (REMOVABLE) for **every** such
+  intent, even with no penalty, so the app forwards the sanitizer's output (author decision 3),
+  unless one of these gives `NESTED_INTENT_DENIED` (HARD): the output's component differs from
+  the input's (IntentSanitizer replaced it with `android/java.lang.Void`, a rewrite; author
+  decision 4); the sanitizer threw; or the output still holds an `Intent`, `PendingIntent` or
+  `IntentSender`. A `PendingIntent`, `IntentSender` or array under a listed key is denied; any
+  other non-null value there is `EXTRA_WRONG_TYPE`.
+- **Sanitize.** The copy is `Intent(original)` (with the URI change of section 5.3 if any), then
+  `replaceExtras(rebuilt)`, where `rebuilt` holds only the values ShezGuard read and checked for
+  allowed keys (arrays copied) and the sanitizer's output for nested keys. The rebuilt key set
+  is checked after `replaceExtras`; a mismatch gives `EVALUATION_FAILED`. Extras are rebuilt only
+  when an extras violation is REMOVABLE; otherwise the copy's extras stay parcelled (N5).
 
 ## 6. Canonicalisation (internal, heavily tested)
 - Lowercase scheme and host. Reject empty or non-ASCII hosts unless explicitly allowed.

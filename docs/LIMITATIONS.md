@@ -295,3 +295,121 @@ reliable or a signature-level permission protects the component.
   platform code can contain raw input.
 - **Source:** step 5b, author decision 1. The fuzz test asserts the code never occurs on its
   corpus, so it does not hide library bugs there.
+
+## L23. A failed unparcel leaves the Bundle silently truncated (platform behaviour)
+- **What:** on API 24–34, when unparcelling a Bundle throws, the platform keeps the entries
+  read so far and discards the rest of the parcel. Every later read of **that** Bundle
+  succeeds silently with only some keys (`docs/PAPER_NOTES.md` N6).
+- **What ShezGuard does:** reads extras only from `intent.getExtras()`, a copy whose parcelled
+  bytes are duplicated, so a failure truncates ShezGuard's copy, never the caller's Bundle. The
+  first failure is final: it records `EXTRAS_UNPARCEL_FAILED` (HARD) and never re-reads that
+  Bundle.
+- **What it does not do:** protect an app that reads the same intent's extras itself, catches
+  the exception and carries on. Such an app sees a truncated Bundle. Apps must treat a Block
+  as final and not read the intent.
+- **Source:** step 6, AOSP source read (N6). Not run on a device.
+
+## L24. `IntentSanitizer` rejections are counted, not explained
+- **What:** `IntentSanitizer.sanitize(intent, penalty)` reports each rejection as a message
+  that contains raw values from the nested intent (extra values, data URI, ClipData text;
+  `docs/PAPER_NOTES.md` N9). ShezGuard must not log or keep raw intent data, so its penalty
+  consumer discards every message unread. A `NESTED_INTENT_SANITIZED` or
+  `NESTED_INTENT_DENIED` violation therefore names the extra key that held the nested intent,
+  but not which part of the nested intent was removed.
+- **Why:** parsing the message text to recover the category would depend on an undocumented
+  message format and still carry attacker-controlled text.
+- **Source:** step 6, androidx.core 1.16.0 source read.
+
+## L25. A nested intent whose component `IntentSanitizer` rejects cannot be sanitized
+- **What:** `IntentSanitizer` does not remove a rejected component; it **replaces** it with
+  `android/java.lang.Void`. SPEC 4.1 allows Sanitize only to remove, so ShezGuard treats a
+  changed component as `NESTED_INTENT_DENIED` (HARD) and blocks. This includes implicit nested
+  intents (no component) unless the sanitizer was built with `allowAnyComponent()`.
+- **Consequence:** an entry point that forwards implicit nested intents must use
+  `allowAnyComponent()`, which also allows any explicit component. There is no "implicit only"
+  setting in `IntentSanitizer`.
+- **Source:** step 6, androidx.core 1.16.0 source read (N9).
+
+## L26. Not covered in v1: nested intents outside extras, opaque objects, and grant flags
+ShezGuard's nested-intent check looks only at extras values that are, or contain, an `Intent`,
+`PendingIntent` or `IntentSender` inside framework containers (arrays, `List`, `Map`,
+`SparseArray`, nested `Bundle`). Not covered in v1:
+- **Custom `Parcelable` or `Serializable` objects that hold an Intent.** Their fields are
+  opaque; ShezGuard sees the object, not what it contains. (They are never an allowed
+  `ExtraType`, so they are removed under an unknown key, but an Intent inside one is not
+  reported as a nested intent.)
+- **`ClipData`** of the incoming intent, including `ClipData.Item` intents and URIs.
+  (`IntentSanitizer` does check the ClipData of a *nested* intent under `AllowSanitized`.)
+- **The selector** of the incoming intent (`Intent.getSelector()`).
+- **URI-permission grant flags** (`FLAG_GRANT_READ_URI_PERMISSION`,
+  `FLAG_GRANT_WRITE_URI_PERMISSION`, `FLAG_GRANT_PERSISTABLE_URI_PERMISSION`,
+  `FLAG_GRANT_PREFIX_URI_PERMISSION`) on the incoming intent. On a nested intent under
+  `AllowSanitized` they are kept only if the developer's `IntentSanitizer` allows them.
+- **Source:** step 6 (author condition 3). Listed as "not covered" in `docs/ATTACK_MATRIX.md`.
+
+## L27. Inspecting extras adds deserialisation the app might not have done
+- **What:** to find nested intents anywhere in the extras, ShezGuard reads every value with
+  `Bundle.get(key)`. On API 24–32 the first read of any extra deserialises every value anyway.
+  On API 33–34 values of Parcelable, Serializable, List, Map, SparseArray and object-array
+  types are lazy (`docs/PAPER_NOTES.md` N7), and ShezGuard deserialises all of them, including
+  ones the app would never read. ShezGuard also does this for intents it then blocks, which the
+  app would not have read at all. Any side effect of a hostile `CREATOR` or Serializable gadget
+  therefore runs in more cases with ShezGuard than without it (see also L1).
+- **Why the extras stage always runs** (author decision, step 6): skipping it after a URI
+  violation gives no protection against an attacker who controls both the URI and the extras,
+  because a valid URI is trivial to produce. It would only save work on non-adversarial
+  malformed traffic, at the cost of an incomplete violation list.
+- **Evaluated, not adopted:** a restrictive class loader on ShezGuard's copy of the extras
+  would make app-defined Parcelable classes fail before their `CREATOR` runs, as the platform
+  already does for nested-intent extras (N8). It is not adopted in v1 because the production
+  configuration cannot be tested under Robolectric. Revisit in step 14.
+- **Source:** step 6 proposal (d) and (a).
+
+## L28. What the extras stage protects, and what it does not (step 6 summary)
+Every "protected" item below is shown by the named test under Robolectric SDK 24, 29 and 34
+(Robolectric-only, device check pending, step 14). Nothing else is claimed.
+
+**Shown by tests:**
+- An `Intent`, `PendingIntent` or `IntentSender` in an extra, explicit or implicit, directly,
+  in a `Parcelable[]`, `ArrayList`, `Map` value, `SparseArray`, nested `Bundle`, or inside another
+  nested Intent, blocks with `NESTED_INTENT_DENIED` (`NestedIntentTest.blocks*`; PendingIntent and
+  IntentSender in-process only, not after a Parcel round trip).
+- Wrong types, oversized strings, arrays and array elements under allowed keys, and more than 16
+  keys, block (`ExtrasEvaluateTest`, `ExtrasValidatorTest`).
+- Unknown keys, including a `null` key and custom Parcelables, are removed from a sanitized copy
+  that holds only checked values (`sanitizesUnknownExtraKeyByRemovingIt`,
+  `nullKeyIsReportedAsUndeclaredAndRemoved`, `customParcelableUnderUnknownKeyIsRemoved`).
+- More than four nested containers block with `EXTRAS_TOO_DEEP` (`blocksExtrasNestedBeyondDepthLimit`).
+- A Parcelable whose `CREATOR` throws, or that has no `CREATOR`, gives `EXTRAS_UNPARCEL_FAILED`
+  and never a crash, also when nested in a Bundle, and the URI violations are kept
+  (`ExtrasUnparcelTest`). The caller's Bundle stays parcelled (`callerBundleStaysParcelledAfterUnparcelFailure`).
+- Under `Nested.AllowSanitized`, the forwarded nested intent is `IntentSanitizer`'s output, not
+  the original object (`forwardedNestedIntentIsTheSanitizerOutputNotTheOriginal`); a rewritten
+  component, a sanitizer exception and an Intent left in the output all block.
+- The input intent's extras, including a nested intent's extras and categories, are unchanged
+  after evaluation (`inputIntentAndItsExtrasAreNeverModified`); no decision output contains extra
+  keys or values (`noDecisionOutputContainsExtraKeysOrValues`,
+  `intentSanitizerMessagesNeverReachDecisionOutput`).
+- On a 4000-case fixed-seed fuzz corpus with random extras, `EVALUATION_FAILED` never occurs and
+  every extras code is reached (`EvaluateInvariantsTest.evaluateNeverThrowsOnFuzzedIntents`).
+
+**Not protected or not shown:**
+- **Deserialisation side effects** of a hostile `Parcelable` or `Serializable` run before ShezGuard
+  sees the result (L1, L27). ShezGuard stops the crash, not the side effect.
+- **`Error`s are not caught.** A parcel that makes unparcelling throw `StackOverflowError` (deeply
+  nested lists, which the platform reads recursively and eagerly) or `OutOfMemoryError` crashes the
+  app as it would without ShezGuard. Not tested.
+- **String content of extras is not validated**: only type and length. A `STRING` extra may hold
+  control characters, bidi overrides or a URL; apply the app's own validation before using it.
+- **A `null` value under an allowed key is accepted** as absent (author decision 5): `hasExtra` is
+  true for it, but every typed getter returns `null` or the default.
+- **The size limits are approximations** (key count, `String.length`, element count), not a
+  measured Parcel size. A large `Bundle` or byte array under an unknown key is read before it is
+  removed.
+- **Shapes not searched** (L26): custom objects holding an Intent, `ClipData`, the selector, grant flags.
+- **A nested intent's own contents under `AllowSanitized` are only as safe as the developer's
+  `IntentSanitizer` configuration**; ShezGuard adds only the component, exception and
+  "no further nested intent" checks.
+- **Device behaviour.** Robolectric runs the AOSP Java code of `Bundle`, `Parcel` and `Intent` with
+  an emulated native `Parcel`. OEM builds and real IPC through `system_server` were not tested.
+- **Source:** step 6.

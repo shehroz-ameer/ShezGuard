@@ -27,6 +27,7 @@ import com.shezguard.core.validate.UriPolicyValidator
  * @property retainedQuery the canonical query minus parameters dropped under `Unknown.Drop`.
  * @property droppedNames names of the parameters dropped under `Unknown.Drop`.
  * @property dataString the raw data string that was canonicalised, if any.
+ * @property extrasRebuild the extras a Sanitize copy must carry, or `null` if they need no change.
  */
 internal class Evaluation(
     val entryPoint: String,
@@ -39,17 +40,22 @@ internal class Evaluation(
     val retainedQuery: List<Pair<String, String>> = emptyList(),
     val droppedNames: Set<String> = emptySet(),
     val dataString: String? = null,
+    val extrasRebuild: List<KeptExtra>? = null,
 )
 
 /**
- * SPEC section 5 for URI and parameter checks (step 5b). Pure Kotlin; the intent is seen
- * only through [UriInput]. Later steps add stages (extras, caller signals) and a real
- * [Scorer]; the outcome rule stays in [OutcomeRule].
+ * SPEC section 5 for URI, parameter (step 5b) and extras (step 6) checks. Pure Kotlin; the
+ * intent is seen only through [UriInput] and [ExtrasSource]. Later steps add caller signals
+ * and a real [Scorer]; the outcome rule stays in [OutcomeRule].
  *
- * Order: deny unknown entry points; apply the data rule; canonicalise; compare with the
- * platform parser; check the policy. All violations are collected, except that a URI that
- * fails canonicalisation cannot be compared or policy-checked (there is no canonical form),
- * and a URI on a `Data.Forbidden` entry point is not examined at all (author decision 2).
+ * Order: deny unknown entry points (nothing is read); apply the data rule; canonicalise;
+ * compare with the platform parser; check the policy; then the extras stage, which always
+ * runs, even when the URI stages already block (step 6, author decision 1). All violations
+ * are collected, except that a URI that fails canonicalisation cannot be compared or
+ * policy-checked (there is no canonical form), a URI on a `Data.Forbidden` entry point is not
+ * examined at all (author decision 2), and too many extras stop the extras stage.
+ * A failure to read extras is contained in that stage (`EXTRAS_UNPARCEL_FAILED`); the URI
+ * violations are kept.
  *
  * Fail closed: any `RuntimeException` (for example from a `Uri` accessor) gives a single
  * `EVALUATION_FAILED` violation. `Error`s propagate.
@@ -60,9 +66,10 @@ internal object Evaluator {
         policy: IntentPolicy,
         entryPoint: String,
         scorer: Scorer = Scorer.NONE,
+        extras: ExtrasSource = ExtrasSource.NONE,
         input: () -> UriInput?,
     ): Evaluation = try {
-        run(policy, entryPoint, scorer, input)
+        run(policy, entryPoint, scorer, extras, input)
     } catch (e: RuntimeException) {
         failed(entryPoint)
     }
@@ -75,7 +82,13 @@ internal object Evaluator {
         outcome = Outcome.BLOCK,
     )
 
-    private fun run(policy: IntentPolicy, entryPoint: String, scorer: Scorer, input: () -> UriInput?): Evaluation {
+    private fun run(
+        policy: IntentPolicy,
+        entryPoint: String,
+        scorer: Scorer,
+        extras: ExtrasSource,
+        input: () -> UriInput?,
+    ): Evaluation {
         // Deny by default, before the intent is read at all.
         val ep = policy[entryPoint] ?: return Evaluation(
             entryPoint = entryPoint,
@@ -114,6 +127,10 @@ internal object Evaluator {
             }
         }
 
+        // Extras and nested intents (SPEC 5.4).
+        val ex = ExtrasValidator.validate(extras.read(ep.extras.maxKeys), ep, extras)
+        out.addAll(ex.violations)
+
         val violations = out.toList()
         val score = scorer.score(violations.filter { it.tier == Tier.SOFT }, ep)
         return Evaluation(
@@ -127,6 +144,7 @@ internal object Evaluator {
             retainedQuery = retained,
             droppedNames = dropped,
             dataString = data?.dataString,
+            extrasRebuild = ex.rebuilt,
         )
     }
 

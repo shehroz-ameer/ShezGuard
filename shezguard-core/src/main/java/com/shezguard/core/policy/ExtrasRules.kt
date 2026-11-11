@@ -38,6 +38,13 @@ public data class ExtrasRule(
         /** Default maximum array length: 64. */
         public const val DEFAULT_MAX_ARRAY_LENGTH: Int = 64
 
+        /**
+         * How many containers (Bundle, array, List, Map, SparseArray) may be nested inside one
+         * extra before ShezGuard stops reading and reports `EXTRAS_TOO_DEEP`. Fixed in v1.
+         * A top-level Bundle extra holding three more nested Bundles is at the limit.
+         */
+        public const val MAX_NESTING_DEPTH: Int = 4
+
         /** No extras allowed. The default for every entry point. */
         public val NONE: ExtrasRule = ExtrasRule()
     }
