@@ -17,6 +17,22 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
+    // Step 11: a deliberately vulnerable demo for emulators only (app/README.md). Both flavors have
+    // the same applicationId, so every attack targets the same package; install one at a time.
+    // The only flavor-specific source is the EntryGuard shim (src/<flavor>/.../guard/EntryGuard.kt);
+    // everything else, including every vulnerable sink, is shared in src/main.
+    flavorDimensions += "variant"
+    productFlavors {
+        create("vulnerable") {
+            dimension = "variant"
+            versionNameSuffix = "-vulnerable"
+        }
+        create("protected") {
+            dimension = "variant"
+            versionNameSuffix = "-protected"
+        }
+    }
+
     buildTypes {
         release {
             isMinifyEnabled = false

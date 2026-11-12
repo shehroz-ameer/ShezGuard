@@ -1,9 +1,15 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!--
+  ShezGuard demo app (step 11). DELIBERATELY VULNERABLE. Emulator only; never publish (app/README.md).
+  No INTERNET permission. All data is fake and created on first start (DemoApp).
+  Threat numbers refer to docs/SPEC.md section 2.
+-->
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
 
     <application
-        android:allowBackup="true"
+        android:name=".DemoApp"
+        android:allowBackup="false"
         android:dataExtractionRules="@xml/data_extraction_rules"
         android:fullBackupContent="@xml/backup_rules"
         android:icon="@mipmap/ic_launcher"
@@ -11,6 +17,119 @@
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
         android:theme="@style/Theme.ShezGuard"
-        tools:targetApi="31" />
+        tools:targetApi="31">
+
+        <!-- Launcher: takes no attacker-controlled input (step 12 marks it exempt). -->
+        <activity
+            android:name=".MainActivity"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+
+        <!-- VULNERABLE (threat 1): exported, and launches whatever Intent it finds in the "next" extra. -->
+        <activity
+            android:name=".demo.ForwardActivity"
+            android:exported="true" />
+
+        <!-- Not exported: only this app may start it. Reachable by others only through threat 1. -->
+        <activity
+            android:name=".demo.InternalAdminActivity"
+            android:exported="false" />
+
+        <!-- VULNERABLE (threat 2): https deep link whose "q" is concatenated into SQL. singleTop, so a
+             second link arrives in onNewIntent. No autoVerify (threat 4 applies to every https filter here). -->
+        <activity
+            android:name=".demo.SearchActivity"
+            android:exported="true"
+            android:launchMode="singleTop">
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="https" android:host="shezguard.example" android:pathPrefix="/search" />
+            </intent-filter>
+        </activity>
+
+        <!-- VULNERABLE (threat 2): loads the "url" parameter into a WebView with JavaScript and file access. -->
+        <activity
+            android:name=".demo.PreviewActivity"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="https" android:host="shezguard.example" android:pathPrefix="/preview" />
+            </intent-filter>
+        </activity>
+
+        <!-- VULNERABLE (threat 2): builds a file path from the "name" parameter (path traversal). -->
+        <activity
+            android:name=".demo.FileViewerActivity"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="https" android:host="shezguard.example" android:pathPrefix="/file" />
+            </intent-filter>
+        </activity>
+
+        <!-- VULNERABLE (threat 2): exported, reads unbounded "note" / "copies" extras. -->
+        <activity
+            android:name=".demo.NoteActivity"
+            android:exported="true" />
+
+        <!-- VULNERABLE (threat 3): opens the URL in the "next" parameter (open redirect). -->
+        <activity
+            android:name=".demo.RedirectActivity"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="https" android:host="shezguard.example" android:pathPrefix="/redirect" />
+            </intent-filter>
+        </activity>
+
+        <!-- VULNERABLE (threat 4): a login link carrying a token, on a custom scheme that any app can also
+             declare, and on an https link without android:autoVerify (not an App Link). Another app can
+             register the same filters and receive the token. -->
+        <activity
+            android:name=".demo.LinkActivity"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="shezdemo" android:host="login" />
+            </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="https" android:host="shezguard.example" android:pathPrefix="/login" />
+            </intent-filter>
+        </activity>
+
+        <!-- VULNERABLE (threat 5): exported, deserialises the "profile" extra without any check. -->
+        <activity
+            android:name=".demo.ProfileActivity"
+            android:exported="true" />
+
+        <!-- VULNERABLE (threat 6): path sink behind a naive, hand-written denylist (manual validation baseline). -->
+        <activity
+            android:name=".demo.ManualCheckActivity"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="https" android:host="shezguard.example" android:pathPrefix="/manual" />
+            </intent-filter>
+        </activity>
+    </application>
 
 </manifest>

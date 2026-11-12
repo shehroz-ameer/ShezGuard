@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Vulnerable flavor only (step 11, author condition 5): marked test-only, so it cannot be installed
+  without `adb install -t` and Google Play rejects it. A safety net against publishing it by mistake.
+-->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <application android:testOnly="true" />
+</manifest>

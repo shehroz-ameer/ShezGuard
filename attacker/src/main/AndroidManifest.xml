@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  ShezGuard attacker app (step 11). Emulator only; never publish (attacker/README.md).
+  No INTERNET permission. It attacks only com.shezguard.router, the demo app.
+-->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!-- Lets this app see the demo app on API 30+ (package visibility). -->
+    <queries>
+        <package android:name="com.shezguard.router" />
+    </queries>
+
+    <application
+        android:allowBackup="false"
+        android:label="@string/app_name"
+        android:testOnly="true">
+
+        <!-- Driven from adb: am start -n com.shezguard.attacker/.AttackActivity -e attack <mode> -->
+        <activity
+            android:name=".AttackActivity"
+            android:exported="true"
+            android:theme="@android:style/Theme.Translucent.NoTitleBar" />
+
+        <!-- Threat 4: declares the demo app's login links (custom scheme, and https without autoVerify). -->
+        <activity
+            android:name=".HijackActivity"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="shezdemo" android:host="login" />
+            </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="https" android:host="shezguard.example" android:pathPrefix="/login" />
+            </intent-filter>
+        </activity>
+
+        <!-- Threat 3: where the open redirect lands (attacker.invalid never resolves on any network). -->
+        <activity
+            android:name=".LandingActivity"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="https" android:host="attacker.invalid" />
+            </intent-filter>
+        </activity>
+    </application>
+
+</manifest>

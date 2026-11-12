@@ -304,6 +304,14 @@ SDK 34. Point 1: `callerBundleStaysParcelledAfterUnparcelFailure` (SDK 24, 29, 3
 `IntentCopyParcelTest` (SDK 29, 34). Points 2, 4 (beyond the failure behaviour) and 6 were read
 in the source only.
 
+**Observed on emulators (step 11; not the step 14 device check).** Points 3 and 4, in the demo app
+without ShezGuard: a Serializable of a class the app does not have, sent by another app, made
+`Intent.getSerializableExtra` throw while unparcelling **the whole Bundle** on API 29
+(`BaseBundle.unparcel` → `initializeFromParcelLocked`, `RuntimeException`), and while unwrapping
+**one lazy value** on API 34 (`BaseBundle.unwrapLazyValueFromMapLocked`, `BadParcelableException`).
+Google Play emulator images: Pixel_4 AVD, Android 10, security patch 2019-09-05; Pixel_8 AVD,
+Android 14, security patch 2023-09-05 (`docs/ATTACK_MATRIX.md`, t5).
+
 **Design consequence.** ShezGuard reads `intent.getExtras()` once, then `keySet()` once, then
 `get(key)` for every key (the only accessor that reveals the real type, and the only one that
 can find an Intent inside a mixed List or Map). On API 33–34 this deserialises every lazy value,

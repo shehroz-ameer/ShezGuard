@@ -22,3 +22,4 @@ dependencyResolutionManagement {
 rootProject.name = "ShezGuard"
 include(":app")
 include(":shezguard-core")
+include(":attacker")
