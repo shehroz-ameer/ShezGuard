@@ -20,7 +20,7 @@ class ViolationModelTest {
     @Test
     fun violationCodeIdsAreStable() {
         val expected = listOf(
-            "ENTRY_POINT_UNKNOWN", "EVALUATION_FAILED",
+            "ENTRY_POINT_UNKNOWN", "ENTRY_POINT_NOT_ANNOTATED", "EVALUATION_FAILED",
             "URI_EMPTY", "URI_TOO_LONG", "URI_MALFORMED", "URI_OPAQUE", "URI_SCHEME_INVALID",
             "URI_HOST_EMPTY", "URI_HOST_NON_ASCII", "URI_HOST_INVALID", "URI_HOST_PERCENT_ENCODED",
             "URI_HOST_TRAILING_DOT", "URI_USERINFO", "URI_PORT_INVALID", "URI_PERCENT_MALFORMED",
@@ -39,6 +39,13 @@ class ViolationModelTest {
             "DOMAIN_NOT_VERIFIED", "DOMAIN_VERIFICATION_UNAVAILABLE",
         )
         assertEquals(expected, ViolationCode.entries.map { it.id })
+    }
+
+    /** Step 10, author decision 2: an activity without a usable `@GuardedEntryPoint` name is denied. */
+    @Test
+    fun entryPointNotAnnotatedIsHardAndCritical() {
+        assertEquals(Tier.HARD, ViolationCode.ENTRY_POINT_NOT_ANNOTATED.tier)
+        assertEquals(Severity.CRITICAL, ViolationCode.ENTRY_POINT_NOT_ANNOTATED.defaultSeverity)
     }
 
     /** Step 5b, author decision 1: the fail-closed safety net always blocks. */

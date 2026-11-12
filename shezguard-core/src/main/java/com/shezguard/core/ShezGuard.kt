@@ -126,6 +126,17 @@ public object ShezGuard {
     }
 
     /**
+     * The decision for an activity with no usable `@GuardedEntryPoint` name (step 10): Block with a
+     * single `ENTRY_POINT_NOT_ANNOTATED`, without reading the intent. Audited like every other path.
+     */
+    internal fun blockUnannotated(policy: IntentPolicy): Decision {
+        val name = ActivityGuard.UNANNOTATED
+        val decision = Decision.Block(name, listOf(Violation(ViolationCode.ENTRY_POINT_NOT_ANNOTATED, name, Field.EntryPoint)), RiskScore.ZERO)
+        audit(policy.auditSink, decision)
+        return decision
+    }
+
+    /**
      * Sends the redacted event to [sink] (step 9). Runs synchronously on the caller's thread. A
      * `RuntimeException` from building the event or from the sink is deliberately swallowed without
      * logging: the decision is already final and is returned unchanged, and the exception's message

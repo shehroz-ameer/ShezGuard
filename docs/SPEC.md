@@ -344,7 +344,7 @@ Package: `com.shezguard.core`.
   `path { anyPath() }` each fail with "cannot be called in this context with an implicit
   receiver".
 
-Also provide an Activity helper (`guardedOnCreate` or lifecycle callback) and an
+Also provide an Activity helper (`ActivityGuard`, section 7.2) and an
 `AuditSink` interface (default: no-op; optional redacted logcat sink).
 
 ### 7.1 Audit sink (step 9) [DECIDED]
@@ -353,7 +353,8 @@ Author approval of the step 9 proposal, 2026-11-11 (`docs/RESPONSE.md`).
   an error, DSL rule 16). Default `AuditSink.NONE`, which does nothing. No global state; the
   `evaluate` signatures are unchanged.
 - **Event:** `AuditEvent` is immutable (unmodifiable lists, no Android types): `entryPoint`
-  (replaced by `<invalid>` unless it is a valid entry point name), `outcome`, `violations` as
+  (replaced by `<invalid>` unless it is a valid entry point name or, from step 10, the library
+  constant `<unannotated>` used for `ENTRY_POINT_NOT_ANNOTATED`), `outcome`, `violations` as
   `AuditViolation(code, field, tier, severity)` where `field` is the redacted `Field.toString()`,
   `scoreTotal`, `threshold` (`null` when no entry point policy applied), `contributions` as
   `AuditContribution(code, weight, occurrences)`, and `callerIdentitySource`. It never carries the
@@ -376,6 +377,45 @@ Author approval of the step 9 proposal, 2026-11-11 (`docs/RESPONSE.md`).
   `outcome=BLOCK ep=product score=0/70 caller=- violations=[URI_PATH_TRAVERSAL@uri.path, PARAM_UNKNOWN@param:<undeclared>x7]`
   (identical violations grouped as `xN`). At most `maxLinesPerMinute` (default 30) lines per
   60-second window; the rest are counted and reported in one `suppressed=N` line.
+
+### 7.2 Activity helper (step 10) [DECIDED]
+Author approval of the step 10 proposal (decisions 1–6, sections (a)–(f)) with six conditions,
+2026-11-12 (`docs/RESPONSE.md`). Source evidence in `docs/PAPER_NOTES.md` N14.
+- **Form.** An explicit, optional `ActivityGuard(policy)` object; no lifecycle callbacks, no base
+  class. `onActivityCreated` runs inside `super.onCreate`, after fragment restore, and cannot stop
+  app code; there is no `onNewIntent` callback (N14). The core API does not need the helper.
+- **Call sites.** `guard.onCreate(activity)` first in `onCreate`, **before** `super.onCreate`; the
+  app passes `checked?.let { savedInstanceState }` to `super.onCreate` and returns on `null`.
+  `guard.onNewIntent(activity, intent)` first in `onNewIntent`; on `null` the app returns without
+  calling `super.onNewIntent`, otherwise it calls `super.onNewIntent(checked.intent)`.
+- **Result.** `CheckedIntent(intent, data, decision)` or `null` on Block, annotated `@CheckResult`.
+  That is a Lint warning only; the compiler does not force the app to handle `null` (author
+  condition 1; the step 13 Lint rule should flag an ignored result).
+- **Entry point name.** `@GuardedEntryPoint(name, exempt = false)`: `RUNTIME` retention, target
+  `CLASS`, not `@Inherited`, read from the activity's exact class. Missing, empty, or `exempt = true`
+  gives Block with `ENTRY_POINT_NOT_ANNOTATED` (HARD, CRITICAL); the intent is not read, the decision
+  and audit event use the entry point `<unannotated>` (`ActivityGuard.UNANNOTATED`). A name missing
+  from the policy gives `ENTRY_POINT_UNKNOWN`. Consumer R8 rules keep the annotation; a stripped
+  annotation blocks (checked on a minified build in step 12).
+- **Delivery.** `onCreate` evaluates `getIntent()` (an empty `Intent()` if `null`) with
+  `Delivery.LAUNCH`; `onNewIntent` evaluates its argument with `Delivery.NEW_INTENT` and never reads
+  `getIntent()`. The app never passes a `Delivery`.
+- **Outcomes.**
+
+  | | Allow | Sanitize | Block |
+  |---|---|---|---|
+  | `onCreate` | `getIntent()` unchanged | `setIntent(sanitizedIntent)` | `setResult(RESULT_CANCELED, null)`, `setIntent(Intent())`, `finish()`; `null` |
+  | `onNewIntent` | `setIntent(intent)` | `setIntent(sanitizedIntent)` | nothing changed, **not finished**; `null` |
+
+  The blocked intent is never passed to `setIntent`. Ignoring a blocked `onNewIntent` (instead of
+  finishing) keeps any app from ending a running session with one bad intent; the cost is no
+  visible response to a rejected link (`docs/LIMITATIONS.md` L34).
+- **Recreation.** `onCreate` evaluates on every creation, whatever `savedInstanceState` is; no
+  decision is cached in saved state. After process death `getIntent()` is the raw launch intent
+  again (N14), so re-evaluation is required. A recreation can block where the first launch was
+  allowed (policy change, domain verification change, lost reliable identity); accepted, fail closed.
+- **State.** The guard holds only the policy; no global state. One audit event per call, through
+  the policy's sink, including `ENTRY_POINT_NOT_ANNOTATED`.
 
 ## 8. Caller identity (be honest)
 `getCallingPackage()` only works for `startActivityForResult`. `getReferrer()` can be

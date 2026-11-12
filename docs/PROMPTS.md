@@ -99,6 +99,16 @@ or script proves it, and list any that remain uncovered.
 Implement the check from SPEC section 9 (annotation + Lint rule in `:shezguard-lint`; registry-file Gradle task only as the agreed fallback) that fails when an exported
 or BROWSABLE component has no registered policy. Test it against a sample manifest that
 passes and one that fails. Explain the trade-offs of the approach you chose.
+Required by step 10 (author condition 1): `ActivityGuard.onCreate` / `onNewIntent` return
+`CheckedIntent?` with `@CheckResult`, which is only a Lint warning; nothing in the compiler forces
+the app to handle `null` (Block). The Lint rule should also flag:
+- an ignored guard result (the call's value is not used, or is not checked for `null` before the
+  method continues);
+- a guard call that is not the first statement of `onCreate`, i.e. after `super.onCreate` or after
+  any read of `getIntent()`; and an `onNewIntent` that calls `super.onNewIntent` before the guard;
+- `@GuardedEntryPoint` with both a non-empty name and `exempt = true` (the guard blocks it), and an
+  empty name without `exempt = true`.
+See `docs/LIMITATIONS.md` L34 and L35.
 
 ## 14. Benchmark
 Add a micro-benchmark (Jetpack Microbenchmark or a simple timed loop if Microbenchmark is

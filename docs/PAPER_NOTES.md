@@ -254,7 +254,10 @@ the first failure as final and never re-reads the same Bundle. See `docs/LIMITAT
 [N6] sdk=24 first keySet() threw IllegalStateException; second keySet()=[a]
 [N6] sdk=29 first keySet() threw IllegalStateException; second keySet()=[a]
 ```
-The test is skipped on SDK 34: the hostile value is lazy there (N7), so `keySet()` succeeds.
+The behaviour does not occur on SDK 34: the hostile value is lazy there (N7), so `keySet()`
+succeeds. The test is **skipped** on SDK 34 by `assumeTrue(!lazyValues)` and JUnit reports it as
+skipped. (Until 2026-11-12 it returned early instead, and was reported as passed on SDK 34 while
+checking nothing; the earlier text here called that "skipped", which was wrong.)
 ShezGuard's mitigation is shown by `callerBundleStaysParcelledAfterUnparcelFailure` and
 `repeatedEvaluationGivesTheSameDecision` (SDK 24, 29, 34; Robolectric-only, device check
 pending (step 14)).
@@ -521,3 +524,111 @@ visibility grants (Robolectric does not enforce visibility), the API 34 shared-i
 real domain verification state (fakes only).
 
 **Not read:** server-side code for 25, 27 and 32; OEM changes.
+
+## Source index for step 10 (Activity integration)
+
+Same repository and tags as the step 6 and step 8 indexes (fetched 2026-11-12). Files and levels
+read for this step:
+- `core/java/android/app/Activity.java` and `core/java/android/app/ActivityThread.java`: 24, 28, 29,
+  31, 34.
+- `core/java/android/app/Application.java`: 24, 34.
+- Server side: `am/ActivityRecord.java` and `am/ActivityStackSupervisor.java` (24);
+  `wm/ActivityRecord.java` and `wm/ActivityTaskSupervisor.java` (31, 34);
+  `wm/ActivityClientController.java` (34).
+- Robolectric 4.14.1 `ActivityController.java` and `ComponentController.java`
+  (`shadows-framework-4.14.1-sources.jar`), to know what the tests can and cannot show.
+
+**Not read:** API 25–27, 30, 32 and 33 at all; the server side at 28 and 29; the restart path
+through `attachApplication` line by line; any androidx source (`ComponentActivity`,
+`FragmentActivity`, `SavedStateRegistry`, Navigation, Hilt); OEM changes.
+
+## N14. Where an Activity helper can run, and what recreation re-delivers
+
+Every claim is source-read or Robolectric-only, and **unconfirmed on device** (step 14).
+
+**1. Lifecycle callbacks cannot guard an Activity (source).**
+- `ActivityLifecycleCallbacks.onActivityCreated` is dispatched from the **base**
+  `Activity.onCreate`, after fragment state has been restored (`mFragments.restoreAllState`,
+  `Activity.java` 957 (24), 1716 (34)): dispatch at line 961 (24), 1048 (28), 1475 (29), 1607 (31),
+  1720 (34). It therefore runs when the app calls `super.onCreate`, after restored fragments were
+  created, and before whatever the app does after `super.onCreate`. `finish()` there does not stop
+  that code.
+- `onActivityPreCreated` (API 29+) is dispatched from `performCreate` before `onCreate`
+  (`Activity.java` 7796 (29), 8040 (31), 8587 (34)); it does not exist at 24–28
+  (`Application.java` 57–64 (24) lists only `onActivityCreated` … `onActivityDestroyed`).
+  `onActivityPostCreated` runs after `onCreate` returns (7811 (29), 8061 (31), 8611 (34)).
+- `Application.ActivityLifecycleCallbacks` has no `onNewIntent` method at 24 or 34
+  (`Application.java` 57 (24), 70–214 (34)).
+
+**2. An activity finished in `onCreate` skips start and restore (source).**
+- API 24: `performLaunchActivity` calls `performStart`, `callActivityOnRestoreInstanceState` and
+  `onPostCreate` only `if (!r.activity.mFinished)` (`ActivityThread.java` 2608–2622).
+- API 28–34: `handleStartActivity` returns early when `r.activity.mFinished`
+  (`ActivityThread.java` 2931 (28), 3288 (29), 3649 (31), 3796 (34)), before
+  `performStart` and before `callActivityOnRestoreInstanceState` / `callActivityOnPostCreate`
+  (2949 / 2961 (28); 3819 / 3832 (34)).
+- Robolectric's `ActivityController.setup(Bundle)` and `recreate()` call `start()` and
+  `restoreInstanceState()` unconditionally, so this cannot be shown under Robolectric.
+
+**3. The base `onCreate` restores framework fragments only from the Bundle it is given (source and
+test).** `Activity.onCreate` reads `FRAGMENTS_TAG` from `savedInstanceState` only when it is
+non-null (`Activity.java` 955–958 (24), 1712–1717 (34)). Passing `null` to `super.onCreate` on Block
+therefore prevents the restore. `performCreate` still passes the original Bundle to two
+framework-internal readers, `restoreHasCurrentPermissionRequest` and
+`mActivityTransitionState.readState` (`Activity.java` 8595, 8605 (34)); no app code runs there.
+Shown (SDK 24, 29, 31, 34) by `blockedRecreationDoesNotRestoreFrameworkFragments`, with an allowed
+recreation as control. androidx base classes were not read (see the index).
+
+**4. Rotation keeps the current intent; process death re-delivers the original one (source).**
+- **Relaunch in the same process** (configuration change): `handleRelaunchActivityInner` saves
+  `r.activity.mIntent` as `customIntent` ("Preserve last used intent, it may be set from
+  Activity#setIntent()", `ActivityThread.java` 5913–5914 (34); `handleRelaunchActivity` 4427 (24)),
+  and `performLaunchActivity` puts it back (`activity.mIntent = customIntent`, 2586 (24), 3740 (34)).
+  After a Sanitize, the new instance's `getIntent()` is the sanitized copy.
+- **New process** (after process death): the launch transaction carries `new Intent(r.intent)`
+  (`ActivityStackSupervisor.realStartActivityLocked`, 1296 (24);
+  `ActivityTaskSupervisor.realStartActivityLocked`, 845 (31), 923 (34)), and `ActivityRecord.intent`
+  is `final`, "the original intent that generated us" (`ActivityRecord.java` 116 (24), 445 (31),
+  484 (34)). `getIntent()` is the **raw launch intent** again: a Sanitize replacement and any
+  `setIntent` from `onNewIntent` are lost.
+- **Identity across both:** `resultTo`, `launchedFromUid`/`launchedFromPackage` (N12) and, on 34,
+  `mShareIdentity` (`ActivityRecord.java` 2089) live on the server-side record, which outlives the
+  app process. `getCallingPackage()` reads `r.resultTo` (`ActivityClientController.java` 688–690
+  (34)); `getLaunchedFromPackage()` checks `r.mShareIdentity` (744 (34)). The launch transaction
+  passes `launchedFromPackage` as the referrer (1298 (24), 851 (31); filtered on 34, 929). So the
+  identity seen at recreation is the identity of the original launch.
+
+**5. A task restored after reboot loses reliable identity (source).** `ActivityRecord.restoreFromXml`
+(1423 (24), 8412 (31), 10066 (34)) restores `launchedFromUid` and `launchedFromPackage`; on 34 the
+record is built with no result-to activity and no `ActivityOptions` (builder chain, 10115–10126), so
+`resultTo` is null and `mShareIdentity` is false. `getCallingPackage()` and
+`getLaunchedFromPackage()` then report nothing, and an enforcing allow-list
+(`requireReliableIdentity = true`) blocks a legitimate recreation. When the OS persists a task
+across reboot was **not** checked.
+
+**6. Consequences for the helper (design, tests).**
+- The guard runs before `super.onCreate` and evaluates on every creation; re-evaluation after process
+  death is required by point 4. `processDeathRedeliversTheRawIntentAndItIsSanitizedAgain` uses
+  Robolectric's `recreate()`, which re-attaches the controller's original intent (process-death
+  behaviour); rotation is simulated by building the new instance with the old instance's
+  `getIntent()` (`rotationReevaluatesSanitizedIntentAsAllowWithIdenticalCanonicalData`: the sanitized
+  intent re-evaluates to Allow with equal `GuardedUri`).
+- **Identity attribution after `onNewIntent` plus rotation.** After an allowed `onNewIntent`,
+  `getIntent()` is the new intent; rotation keeps it (point 4); the guard re-evaluates it as
+  `LAUNCH`, and the record's original identity is attributed to it
+  (`rotationAfterNewIntentAttributesLauncherIdentityToTheLatestIntent`, simulated: Robolectric's
+  calling package is set on the new instance by hand).
+- **Enforcing caller rules ignore every `onNewIntent`**, because `NEW_INTENT` has no reliable source
+  (N12; `requireReliableIdentityIgnoresEveryNewIntent`).
+- **Skipping `super.onNewIntent`** on `android.app.Activity` does not throw and leaves the activity
+  usable (`skippingSuperOnNewIntentDoesNotThrowAndActivityStaysUsable`); `setResult`, `setIntent`
+  and `finish()` before `super.onCreate` do not throw
+  (`finishSetResultAndSetIntentBeforeSuperOnCreateDoNotThrow`). Both SDK 24, 29, 31, 34, Robolectric
+  only.
+
+**Not verified.** API 25–27, 30, 32, 33 (not read); server-side behaviour at 28 and 29; when the OS
+persists a task across reboot; whether extras survive `Intent.restoreFromXml`; the restart path
+through `attachApplication`; androidx `ComponentActivity` / `FragmentActivity` / `SavedStateRegistry`
+behaviour with a `null` `savedInstanceState`, and whether `ComponentActivity.onNewIntent` dispatches
+to `addOnNewIntentListener` listeners (`docs/LIMITATIONS.md` L35); Hilt's injection point; anything
+on a device or emulator.

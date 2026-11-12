@@ -1,5 +1,6 @@
 package com.shezguard.core.audit
 
+import com.shezguard.core.ActivityGuard
 import com.shezguard.core.IdentitySource
 import com.shezguard.core.Outcome
 import com.shezguard.core.RiskScore
@@ -51,7 +52,9 @@ public fun interface AuditSink {
  * `extra:<undeclared>`.
  *
  * @property entryPoint the entry point name passed to `evaluate`, or `<invalid>` if it is not a
- * valid entry point name (1 to 64 characters from `A-Z a-z 0-9 _ . -`).
+ * valid entry point name (1 to 64 characters from `A-Z a-z 0-9 _ . -`), or
+ * `ActivityGuard.UNANNOTATED` (`<unannotated>`) when the Activity helper found no usable
+ * `@GuardedEntryPoint` name.
  * @property outcome the decision's outcome.
  * @property violations every violation, in evaluation order, redacted.
  * @property scoreTotal the soft-signal score, `0..100`.
@@ -92,7 +95,11 @@ public class AuditEvent private constructor(
             score: RiskScore,
             callerIdentitySource: IdentitySource?,
         ): AuditEvent = AuditEvent(
-            entryPoint = if (ENTRY_POINT_NAME.matches(entryPoint)) entryPoint else INVALID_ENTRY_POINT,
+            entryPoint = when {
+                ENTRY_POINT_NAME.matches(entryPoint) -> entryPoint
+                entryPoint == ActivityGuard.UNANNOTATED -> entryPoint // a library constant, not input
+                else -> INVALID_ENTRY_POINT
+            },
             outcome = outcome,
             violations = frozen(violations.map { AuditViolation(it.code, it.field.toString(), it.tier, it.severity) }),
             scoreTotal = score.total,

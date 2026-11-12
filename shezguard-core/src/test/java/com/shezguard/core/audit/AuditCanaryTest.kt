@@ -7,10 +7,18 @@ import android.net.Uri
 import android.os.Bundle
 import android.os.Parcelable
 import androidx.core.content.IntentSanitizer
+import com.shezguard.core.ActivityGuard
 import com.shezguard.core.Decision
 import com.shezguard.core.Delivery
 import com.shezguard.core.Outcome
 import com.shezguard.core.ShezGuard
+import com.shezguard.core.activity.GuardHarness
+import com.shezguard.core.activity.HarnessActivity
+import com.shezguard.core.activity.PartnerActivity
+import com.shezguard.core.activity.PlainActivity
+import com.shezguard.core.activity.ProductActivity
+import com.shezguard.core.activity.UnannotatedActivity
+import com.shezguard.core.activity.UnregisteredActivity
 import com.shezguard.core.android.NestedIntentSanitizer
 import com.shezguard.core.eval.CallerInfo
 import com.shezguard.core.eval.CallerSource
@@ -160,6 +168,57 @@ class AuditCanaryTest {
             text.forEach { assertTrue("canary in event: $it", !it.contains(CANARY, ignoreCase = true)) }
         }
         for (l in logs) {
+            assertTrue("canary in logcat: ${l.tag} ${l.msg}", !l.msg.contains(CANARY, ignoreCase = true) && !l.tag.contains(CANARY))
+            assertTrue("a throwable was logged", l.throwable == null)
+        }
+    }
+
+    /**
+     * Step 10: the same property through `ActivityGuard`, for launches and `onNewIntent` deliveries,
+     * including the unannotated and unregistered paths. Robolectric, SDK 34.
+     */
+    @Test
+    fun canaryNeverReachesAnAuditEventOrLogcatThroughTheActivityGuard() {
+        val r = Random(SEED + 10)
+        GuardHarness.guard = ActivityGuard(
+            intentPolicy {
+                auditSink(fanOut)
+                entryPoint("product") { web(Unknown.Drop) }
+                entryPoint("plain") { extras { allow("title", ExtraType.STRING) } }
+                entryPoint("partner") { allowedPackages { pkg("com.partner.app", "ab".repeat(32)) } }
+            },
+        )
+        val classes = listOf(
+            ProductActivity::class.java, PlainActivity::class.java, PartnerActivity::class.java,
+            UnannotatedActivity::class.java, UnregisteredActivity::class.java,
+        )
+        fun randomIntent(): Intent {
+            val base = if (r.nextInt(4) == 0) Intent() else Intent(Intent.ACTION_VIEW, Uri.parse(uris[r.nextInt(uris.size)]))
+            return if (r.nextBoolean()) randomExtras(r, base) else base
+        }
+        var canaryReachedCheckedData = false
+        repeat(300) {
+            @Suppress("UNCHECKED_CAST")
+            val cls = classes[r.nextInt(classes.size)] as Class<HarnessActivity>
+            val c = Robolectric.buildActivity(cls, randomIntent())
+            if (r.nextBoolean()) shadowOf(c.get()).setCallingPackage("com.$CANARY.app")
+            c.create()
+            if (!c.get().isFinishing) repeat(r.nextInt(3)) { c.newIntent(randomIntent()) }
+            if (c.get().checked?.data?.param("q") == CANARY) canaryReachedCheckedData = true
+            c.destroy() // keep no activity alive: 300 live activities exhaust the default test heap
+        }
+
+        // Not vacuous: every outcome occurred through the guard, and the canary reached the app's checked data.
+        assertEquals(Outcome.entries.toSet(), events.map { it.outcome }.toSet())
+        assertTrue(events.any { e -> e.violations.any { it.code.id == "ENTRY_POINT_NOT_ANNOTATED" } })
+        assertTrue("canary never reached checked data", canaryReachedCheckedData)
+        assertTrue(events.size >= 300)
+
+        for (e in events) {
+            val text = listOf(e.toString(), e.entryPoint) + e.violations.map { it.field + it } + e.contributions.map { it.toString() }
+            text.forEach { assertTrue("canary in event: $it", !it.contains(CANARY, ignoreCase = true)) }
+        }
+        for (l in ShadowLog.getLogs()) {
             assertTrue("canary in logcat: ${l.tag} ${l.msg}", !l.msg.contains(CANARY, ignoreCase = true) && !l.tag.contains(CANARY))
             assertTrue("a throwable was logged", l.throwable == null)
         }

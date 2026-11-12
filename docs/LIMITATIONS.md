@@ -553,3 +553,97 @@ pending (step 14)):
 - **`LogcatAuditSink` in a release build** advertises validation decisions to anyone with `adb`
   access or a bug report. It is meant for debug builds only.
 - **Source:** step 9.
+
+## L34. The Activity helper: what it does and does not protect (step 10)
+**Shown by tests** (Robolectric SDK 24, 29, 31, 34; Robolectric-only, device check pending (step 14);
+`ActivityGuardTest`):
+- Block in `onCreate` finishes the activity with `RESULT_CANCELED` and no result data, even when
+  the activity set `RESULT_OK` with data before the guard ran
+  (`blockResetsAResultSetBeforeTheGuardToCanceledWithoutData`; a new Activity already starts with
+  `RESULT_CANCELED`, so only this case shows the guard sets it). It replaces `getIntent()` with an
+  empty intent, and app code after the guard does not run when the app uses the result as
+  documented. Calling `setResult`, `setIntent` and `finish()` before `super.onCreate` does not throw.
+- Mutation checks: all ten step 10 mutants are caught on SDK 24, 29, 31, 34
+  (`docs/MUTATION_CHECKS.md`). Mutant (e), a missing `setResult`, survived until the test above
+  was added.
+- Allow leaves `getIntent()` as the same object; Sanitize replaces it with the sanitized copy.
+- `onNewIntent`: Allow and Sanitize replace `getIntent()` with the checked intent; Block changes
+  nothing, does not finish, and skipping `super.onNewIntent` does not throw. The guard evaluates the
+  delivered intent, never `getIntent()`.
+- A missing, empty or `exempt` annotation, and an unannotated subclass of an annotated activity,
+  are blocked (`ENTRY_POINT_NOT_ANNOTATED`); a name missing from the policy is `ENTRY_POINT_UNKNOWN`.
+- A `null` or data-less intent does not crash.
+- Re-evaluating a sanitized intent (as after rotation) gives Allow with identical canonical data.
+- On a blocked recreation, framework fragments are not restored (the `null` passed to
+  `super.onCreate`); an allowed recreation restores them (control).
+- No canary reaches an audit event or logcat through the guard (`AuditCanaryTest`).
+
+**Not protected, or trade-offs:**
+- **The app must use the result.** `@CheckResult` is a Lint warning, not a compiler error. Code
+  that ignores the result, or reads `getIntent()` before the guard, still compiles and runs. The
+  step 13 Lint rule should flag it (`docs/PROMPTS.md`, step 13).
+- **The launch itself is not prevented.** ShezGuard runs inside the app, after the OS has created
+  the activity and brought its task to the front. It controls only whether the app uses the data.
+  For a blocked launch the OS has still started the app process, created the activity and possibly
+  created or foregrounded its task (what the user sees on a device was not checked); a blocked
+  `onNewIntent` still brings the existing activity to the front.
+- **Blocked `onNewIntent` is ignored, not finished.** The user taps a link and nothing visible
+  happens, unless the app adds its own message. Finishing instead would let any app that can reach
+  the activity end the user's running session with one bad intent.
+- **Recreation re-evaluates and can block.** No decision is cached, so a recreation can block where
+  the first launch was allowed: after a policy change (for example an app update between process
+  death and restore), a change of domain verification state, or a lost reliable identity. In
+  particular, under `allowedPackages(requireReliableIdentity = true)`, a task restored after a
+  reboot has no `resultTo` and no shared identity (N14), so a legitimate recreation is blocked
+  (`recreationWithoutReliableIdentityIsBlockedUnderEnforcingPolicy`, simulated).
+- **Identity is attributed to the latest intent after `onNewIntent` plus rotation.** After an
+  allowed `onNewIntent`, `getIntent()` is the new intent; on rotation the platform keeps it and the
+  guard re-evaluates it as `LAUNCH`, so the reliable identity of the **original** launcher (kept on
+  the activity record) is attributed to the later intent (N12, N14;
+  `rotationAfterNewIntentAttributesLauncherIdentityToTheLatestIntent`, simulated). Under the default
+  advisory caller rule this can only lower the score of an intent that was already allowed. Under
+  `requireReliableIdentity = true` the later intent was blocked and never became `getIntent()`.
+- **Under `requireReliableIdentity = true`, every `onNewIntent` is ignored**, because no reliable
+  identity exists for that delivery (`requireReliableIdentityIgnoresEveryNewIntent`). Such an entry
+  point should not rely on `singleTop` / `singleTask` re-delivery.
+- **After process death, the latest `onNewIntent` is lost.** The OS re-delivers the original launch
+  intent (N14), which the guard evaluates again; apps must not assume `getIntent()` survives as the
+  last checked intent.
+- **The guard must exist before `super.onCreate`.** It cannot come from fields injected by a DI
+  framework that injects during `super.onCreate` (for example Hilt).
+- **`onRestoreInstanceState` after a Block** is skipped by the platform (source-read, N14), not by
+  ShezGuard; Robolectric's controller calls it unconditionally, so no test shows it. Saved state
+  handled by androidx base classes (`ComponentActivity`, `FragmentActivity`, `SavedStateRegistry`)
+  with a `null` `savedInstanceState` was not read or tested: no androidx.activity or
+  androidx.fragment dependency in this module.
+- **Source:** step 10.
+
+## L35. Deep link consumers (Navigation, Compose, listeners) must run after the guard
+- **What:** ShezGuard cannot control the order in which other code reads the intent. Anything that
+  consumes deep links or reads `getIntent()` before the guard sees the raw intent, for example:
+  Jetpack Navigation's `NavController.handleDeepLink` (called by `NavHostFragment` when its graph is
+  set, and by apps from `onNewIntent`), a Compose `NavHost` with deep links, listeners registered
+  with `ComponentActivity.addOnNewIntentListener`, another library's
+  `ActivityLifecycleCallbacks.onActivityPreCreated` (API 29+, runs before the app's `onCreate`), or a
+  base class that reads the intent in its own `onCreate`.
+- **What ShezGuard does:** runs first when called first, replaces `getIntent()` with the checked
+  intent (Sanitize, and Allow in `onNewIntent`) so later consumers see only checked data, and
+  documents that on Block the app must return before `super.onNewIntent`, so base-class listeners
+  never see the blocked intent. Pass `checked.intent` explicitly to `handleDeepLink`.
+- **Not verified:** that `ComponentActivity.onNewIntent` dispatches to `addOnNewIntentListener`
+  listeners from `super.onNewIntent`, and where Navigation reads the intent; neither androidx
+  source was read for this step. Checked in the sample app (steps 11–12) at the earliest.
+- **Source:** step 10.
+
+## L36. `@GuardedEntryPoint` is read by reflection at runtime
+- **What:** `ActivityGuard` reads the annotation from the activity's class. R8 or ProGuard can
+  remove annotations or rename annotation members. The library ships consumer rules
+  (`shezguard-core/consumer-rules.pro`) that keep the attribute, the annotation type and its
+  members, and the annotations of every annotated class that survives shrinking.
+- **Failure mode:** if a build strips the annotation anyway, every guarded activity is blocked
+  (`ENTRY_POINT_NOT_ANNOTATED`): a loud failure, never a bypass.
+- **Not verified:** the rules have not yet been checked on a minified build. That check is part of
+  step 12 (protected sample app, release build).
+- **Not inherited:** a subclass of an annotated activity must carry its own annotation; otherwise it
+  is blocked. This is deliberate, so a subclass never silently uses its parent's policy.
+- **Source:** step 10 (author condition 6).

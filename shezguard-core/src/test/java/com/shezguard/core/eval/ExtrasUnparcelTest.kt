@@ -18,6 +18,7 @@ import com.shezguard.core.eval.ExtrasFixtures.received
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
+import org.junit.Assume.assumeTrue
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
@@ -99,7 +100,7 @@ class ExtrasUnparcelTest {
      */
     @Test
     fun characterisesPartialMapAfterFailedUnparcel() {
-        if (lazyValues) return
+        assumeTrue("from API 33 the hostile value is lazy and keySet() succeeds (N7)", !lazyValues)
         val p = Parcel.obtain()
         val b = try {
             // ArrayMap orders by key hash: "a" (97) is written before "zzzz".

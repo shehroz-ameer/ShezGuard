@@ -27,6 +27,13 @@ public enum class ViolationCode(
     ENTRY_POINT_UNKNOWN("ENTRY_POINT_UNKNOWN", Tier.HARD, Severity.CRITICAL),
 
     /**
+     * `ActivityGuard` found no usable `@GuardedEntryPoint` name on the activity's own class: the
+     * annotation is missing (or was stripped by a minified build), its name is empty, or it is
+     * marked `exempt` (deny by default, step 10). The intent is not read.
+     */
+    ENTRY_POINT_NOT_ANNOTATED("ENTRY_POINT_NOT_ANNOTATED", Tier.HARD, Severity.CRITICAL),
+
+    /**
      * Evaluation could not be completed because a `RuntimeException` was thrown, for
      * example by an `android.net.Uri` accessor on a malformed or crafted object. Fails
      * closed instead of crashing. The violation carries no exception message, and no other
