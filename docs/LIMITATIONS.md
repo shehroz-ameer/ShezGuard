@@ -642,8 +642,89 @@ pending (step 14)):
   members, and the annotations of every annotated class that survives shrinking.
 - **Failure mode:** if a build strips the annotation anyway, every guarded activity is blocked
   (`ENTRY_POINT_NOT_ANNOTATED`): a loud failure, never a bypass.
-- **Not verified:** the rules have not yet been checked on a minified build. That check is part of
-  step 12 (protected sample app, release build).
+- **Verified on one minified build (step 12, 2026-11-13).** The protected demo app built with R8
+  (`protectedMinified`: `proguard-android-optimize.txt`, the consumer rules, AGP's default R8), API 34
+  emulator. `apkanalyzer dex code` shows `.annotation runtime Lcom/shezguard/core/GuardedEntryPoint;`
+  with its `name` (or `exempt = true`) on all ten annotated activities. The annotation type keeps its
+  name in `mapping.txt`. All 21 attack and benign script runs gave the same RESULT as the unminified
+  build, and none of the 26 audit lines was `ENTRY_POINT_NOT_ANNOTATED` / `<unannotated>`
+  (`docs/ATTACK_MATRIX.md`, R8 section). Only one R8 version and configuration was checked; full-mode
+  or other shrinkers were not.
 - **Not inherited:** a subclass of an annotated activity must carry its own annotation; otherwise it
   is blocked. This is deliberate, so a subclass never silently uses its parent's policy.
 - **Source:** step 10 (author condition 6).
+
+## L37. No parameter type admits a file name but rejects `..`
+- **What:** `CharClass.SLUG` (the default) rejects `.`, so it rejects ordinary file names such as
+  `readme.txt`. The next class that admits `.`, `PRINTABLE_ASCII`, also admits `/` and so `../secret.txt`.
+  There is no free regex. The `..` and `.` checks of the canonicaliser apply to **path segments**
+  only, not to query parameter values, and a single percent-encoding such as `%2e%2e%2f` in a query
+  value is decoded once and raises no signal (needless-escape detection is path-only).
+- **Consequence, shown in the demo (step 12):** with the policy a developer would write for a
+  help-file viewer (`name` as `string(PRINTABLE_ASCII, 64)`), path traversal through `?name=` is **not
+  prevented** (`t2c`, and the single-encoded payload of `t6`). Only the double-encoded payload is
+  blocked (`URI_DOUBLE_ENCODING`). Tests: `printableAsciiFileNameAcceptsTraversalValues` (the
+  limitation) and `DemoPolicyTest.notPreventedAttackLinksAreAllowed` (the demo policy).
+- **Mitigation, for a fixed set of files:** `oneOf(...)` with the allowed names. Shown by
+  `UriPolicyValidatorTest.blocksPathTraversalInOneOfFileName` (`../secret.txt`, `%2e%2e%2fsecret.txt`,
+  `readme.txt/../../secret.txt`, `./readme.txt` give `PARAM_INVALID_FORMAT`). It does not help when
+  the set of files is open-ended; the sink must then resolve the path and check that it stays inside
+  the intended directory. ShezGuard validates input shape; it does not make a value safe for a path
+  sink.
+- **Possible v2 change (not made; library changes are out of scope for step 12):** a file-name class,
+  for example `[A-Za-z0-9_-]+(\.[A-Za-z0-9_-]+)*`, which admits `readme.txt` and rejects `..`, `/`, `\`.
+- **Source:** step 12 (author decision 1).
+
+## L38. Numeric extras cannot be range-limited
+- **What:** `ExtraType.INT`, `LONG`, `FLOAT` and `DOUBLE` check the type only. The size limits
+  (`maxStringLength`, `maxArrayLength`) apply to strings and arrays. A value such as `copies=2000000`
+  is accepted.
+- **Consequence, shown in the demo (step 12):** `NoteActivity` builds `note.repeat(copies)`. A short
+  note (1000 characters, within `maxStringLength(2000)`) with `copies=2000000` is Allowed and crashes
+  the app with `OutOfMemoryError` (`t2d_oversized_extra.sh copies`, API 34; JVM:
+  `DemoPolicyTest.noteExtras`). **Not prevented.**
+- **Comparison:** `IntentSanitizer.allowExtra(key, predicate)` can express a value bound, and with
+  `copies in 1..100` it removes the extra (`IntentSanitizerBaselineTest.hugeCopiesPassesATypeRuleAndIsRemovedOnlyByAValuePredicate`).
+  Here the baseline is more expressive than ShezGuard.
+- **Workaround:** bound the value in the app, or carry it as a URI parameter with `digitsOnly(maxLength)`
+  (which bounds digits, not the numeric value).
+- **Source:** step 12 (author condition 4).
+
+## L39. An entry point's schemes and hosts are a cross-product
+- **What:** `allowSchemes` and `allowHosts` are independent sets. An entry point that accepts
+  `https://shezguard.example/login` and `shezdemo://login` must allow both schemes and both hosts, so it
+  also accepts `shezdemo://shezguard.example/...` and `https://login?...`. The policy cannot bind a host
+  to a scheme, and path patterns are shared too (here `anyPath()`, because the custom-scheme link has
+  an empty path and `anyPath()` cannot be combined with patterns).
+- **Shown by:** `DemoPolicyTest.loginAcceptsEverySchemeWithEveryHost` (the demo's `login` policy).
+- **Effect:** the entry point accepts more URI shapes than the app's intent filters. It does not affect
+  parameter rules. A link must still reach the activity: the manifest filters decide that, but an
+  explicit intent bypasses the filters.
+- **Workaround:** one activity (and entry point) per scheme, or check `checked.data.scheme` / `host` in
+  the app.
+- **Source:** step 12 (author condition 1).
+
+## L40. A native crash during extras inspection cannot be caught (R8 and never-constructed Serializables)
+- **What (observed, step 12):** the demo's `LegacyProfile` is a `Serializable` that the app never
+  constructs; only deserialisation creates it. With the usual Serializable keep rules
+  (`-keepnames` plus `-keepclassmembers { serialVersionUID; readObject; <fields>; }`), R8 still made the
+  class **abstract** and removed `readObject` and its instance fields (`apkanalyzer`: `.class public
+  abstract`). Sending it (`t5 gadget`) to the minified protected app crashed the process with a native
+  `SIGSEGV` (SEGV_ACCERR) in ART, inside ShezGuard's extras inspection (`retrace` of the tombstone:
+  `AndroidExtras` value classification, called from `ActivityGuard.onCreate`). In the minified
+  **vulnerable** build the app's own `"profile=$profile"` printed raw memory to logcat instead. So the
+  fault is not specific to ShezGuard: any code touching the deserialised instance of the abstract class
+  misbehaves.
+- **Why ShezGuard cannot help:** it catches `RuntimeException` (`EXTRAS_UNPARCEL_FAILED`), but a native
+  signal kills the process. ShezGuard must read every extra to find nested intents (L27), so it is the
+  first code to touch such an object.
+- **Fix in the app:** keep the whole class, constructor included (`-keep class ... { *; }`), so R8 keeps
+  it concrete. With that rule the minified build behaves like the debug build (`docs/ATTACK_MATRIX.md`,
+  R8 section). This is an app keep-rule issue, not a ShezGuard bug.
+- **Not verified:** the ART-level cause (why allocating and touching an instance of an abstract class
+  after deserialisation faults) was not investigated; one emulator image (API 34, `UE1A.230829.036.A4`),
+  one R8 version (AGP default for this project). API 29 was not run with the weak rule.
+- **Also found:** before step 12 the attack scripts did not detect native crashes and reported this as
+  `NOT_EXPLOITED`. Fixed in `scripts/attacks/_common.sh`.
+- **Source:** step 12, `docs/PAPER_NOTES.md` N15.
+

@@ -3,6 +3,7 @@ package com.shezguard.attacker
 import android.app.Activity
 import android.content.ComponentName
 import android.content.Intent
+import android.net.Uri
 import android.os.Bundle
 import android.util.Log
 import com.shezguard.router.demo.LegacyProfile
@@ -14,6 +15,12 @@ import java.io.Serializable
  * - `nested`: threat 1, an Intent for the demo's non-exported InternalAdminActivity inside "next".
  * - `serializable_unknown`: threat 5, a Serializable whose class the demo app does not have.
  * - `gadget`: threat 5b, a LegacyProfile, a class the demo app does have (same name and serialVersionUID).
+ *
+ * Benign controls (step 12): legitimate requests a partner app would send, which must work. Same transport,
+ * so the only difference from the attacks above is the content.
+ * - `benign_forward`: "next" is a search link for the demo's own SearchActivity.
+ * - `benign_profile`: "profile" is LegacyProfile("alice"). The same class as `gadget`: the legitimate
+ *   object runs the same readObject (its "migration"), which is exactly why 5b cannot be told apart.
  *
  * Step 14 will add caller-identity modes (startActivityForResult, FLAG_ACTIVITY_FORWARD_RESULT,
  * ActivityOptions.setShareIdentityEnabled, referrer variants).
@@ -29,6 +36,12 @@ class AttackActivity : Activity() {
             )
             "serializable_unknown" -> target("ProfileActivity").putExtra("profile", UnknownPayload("x"))
             "gadget" -> target("ProfileActivity").putExtra("profile", LegacyProfile("attacker"))
+            "benign_forward" -> target("ForwardActivity").putExtra(
+                "next",
+                Intent(Intent.ACTION_VIEW, Uri.parse("https://shezguard.example/search?q=mug"))
+                    .setComponent(ComponentName(VICTIM, "$VICTIM.demo.SearchActivity")),
+            )
+            "benign_profile" -> target("ProfileActivity").putExtra("profile", LegacyProfile("alice"))
             else -> null
         }
         if (sent == null) {

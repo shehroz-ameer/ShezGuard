@@ -1,10 +1,12 @@
 package com.shezguard.router.demo
 
+import com.shezguard.core.GuardedEntryPoint
 import android.content.Intent
 import android.net.Uri
 import com.shezguard.router.guard.Incoming
 
 /** Threat 3 (open redirect): https://shezguard.example/redirect?next=... "continues to the next page". */
+@GuardedEntryPoint("redirect")
 class RedirectActivity : DemoActivity() {
     override fun handle(incoming: Incoming) {
         val next = incoming.param("next") ?: return show("no next page")

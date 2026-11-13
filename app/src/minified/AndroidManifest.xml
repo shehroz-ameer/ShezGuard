@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  "minified" build type only (step 12, author condition 6): TEST-ONLY, never to be shipped. An R8 build
+  signed with the debug key and with audit logging on, used only to check the consumer keep rules
+  (docs/LIMITATIONS.md L36). Marked test-only, so it installs only with `adb install -t` and Google Play
+  rejects it.
+-->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <application android:testOnly="true" />
+</manifest>

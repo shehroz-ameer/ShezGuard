@@ -8,8 +8,8 @@ import android.content.Intent
  *
  * Pass-through: no check at all, and parameters are read the naive way, with
  * `Uri.getQueryParameter` on the raw intent. Never returns `null` (never blocks).
- * In step 11 the `vulnerable` and `protected` copies are identical; step 12 replaces the
- * `protected` copy with `ShezGuard`'s `ActivityGuard`.
+ * The library is on this flavor's classpath and the shared activities carry `@GuardedEntryPoint`, but
+ * this flavor never calls it. The `protected` copy runs `ShezGuard`'s `ActivityGuard` (step 12).
  */
 object EntryGuard {
     /** Called first in `onCreate`, before `super.onCreate`. `null` would mean: stop. */

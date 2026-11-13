@@ -1,8 +1,10 @@
 package com.shezguard.router.demo
 
+import com.shezguard.core.GuardedEntryPoint
 import com.shezguard.router.guard.Incoming
 
 /** Threat 2 (injection): https://shezguard.example/search?q=... searches visible products. */
+@GuardedEntryPoint("search")
 class SearchActivity : DemoActivity() {
     override fun handle(incoming: Incoming) {
         val q = incoming.param("q") ?: ""

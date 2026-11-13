@@ -290,6 +290,25 @@ class UriPolicyValidatorTest {
         }
     }
 
+    // Step 12, docs/LIMITATIONS.md L37: no character class admits the "." of a file name but rejects "..".
+    private val fileOneOf = policy(params = listOf(param("name", ParamType.OneOf(setOf("readme.txt")))))
+    private val filePrintable = policy(params = listOf(param("name", ParamType.BoundedString(CharClass.PRINTABLE_ASCII))))
+
+    /** A fixed list of public file names (`oneOf`) rejects the traversal values of the demo's t2c and t6. */
+    @Test
+    fun blocksPathTraversalInOneOfFileName() {
+        assertClean("$base/p?name=readme.txt", fileOneOf)
+        for (v in listOf("../secret.txt", "%2e%2e%2fsecret.txt", "readme.txt/../../secret.txt", "./readme.txt", "README.TXT")) {
+            assertEquals("value <$v>", listOf(PARAM_INVALID_FORMAT), codes("$base/p?name=$v", fileOneOf))
+        }
+    }
+
+    /** Control, and the L37 limitation itself: the same traversal values are clean under PRINTABLE_ASCII. */
+    @Test
+    fun printableAsciiFileNameAcceptsTraversalValues() {
+        for (v in listOf("readme.txt", "../secret.txt", "%2e%2e%2fsecret.txt")) assertClean("$base/p?name=$v", filePrintable)
+    }
+
     // ---- Uuid ------------------------------------------------------------------------
 
     private val tokenUuid = policy(params = listOf(param("t", ParamType.Uuid)))
@@ -418,6 +437,18 @@ class UriPolicyValidatorTest {
     @Test
     fun blocksJavascriptAndDataUrls() {
         for (v in listOf("javascript:alert(1)", "JAVASCRIPT:alert(1)", "data:text/html,%3Cscript%3E")) {
+            assertEquals("value <$v>", listOf(PARAM_URL_NOT_ALLOWED), codes("$base/p?next=$v", nextUrl))
+        }
+    }
+
+    /** Step 12, demo t2b: the app's own private file loaded into a WebView through a URL parameter. */
+    @Test
+    fun blocksFileUrlInWebViewParam() {
+        for (v in listOf(
+            "file:///data/user/0/com.shezguard.router/files/secret.txt",
+            "file%3A%2F%2F%2Fdata%2Fuser%2F0%2Fcom.shezguard.router%2Ffiles%2Fsecret.txt", // as t2b sends it
+            "FILE:///etc/hosts",
+        )) {
             assertEquals("value <$v>", listOf(PARAM_URL_NOT_ALLOWED), codes("$base/p?next=$v", nextUrl))
         }
     }

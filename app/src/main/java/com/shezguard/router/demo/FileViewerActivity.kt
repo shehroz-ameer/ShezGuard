@@ -1,8 +1,10 @@
 package com.shezguard.router.demo
 
+import com.shezguard.core.GuardedEntryPoint
 import com.shezguard.router.guard.Incoming
 
 /** Threat 2 (path traversal): https://shezguard.example/file?name=readme.txt shows a public help file. */
+@GuardedEntryPoint("file")
 class FileViewerActivity : DemoActivity() {
     override fun handle(incoming: Incoming) {
         val name = incoming.param("name") ?: return show("no file name")

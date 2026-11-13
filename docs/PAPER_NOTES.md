@@ -640,3 +640,44 @@ through `attachApplication`; androidx `ComponentActivity` / `FragmentActivity` /
 behaviour with a `null` `savedInstanceState`, and whether `ComponentActivity.onNewIntent` dispatches
 to `addOnNewIntentListener` listeners (`docs/LIMITATIONS.md` L35); Hilt's injection point; anything
 on a device or emulator.
+
+## N15. R8 makes a never-constructed Serializable abstract; deserialising it then faults natively
+
+**Observation (step 12, 2026-11-13; API 34 emulator `UE1A.230829.036.A4`, AGP's default R8).**
+The demo's `LegacyProfile` (a `Serializable` with a `readObject`) is never constructed by the app;
+only Java deserialisation creates it. With the usual Serializable keep rules
+```
+-keepnames class com.shezguard.router.demo.LegacyProfile
+-keepclassmembers class com.shezguard.router.demo.LegacyProfile implements java.io.Serializable {
+    static final long serialVersionUID; private void readObject(java.io.ObjectInputStream); <fields>; }
+```
+R8 emitted `.class public abstract Lcom/shezguard/router/demo/LegacyProfile;` with no `readObject`
+and no instance fields (only the static members and `<clinit>`). `-keepclassmembers` keeps members
+only of classes R8 considers instantiated.
+
+Sending a `LegacyProfile` (`t5_malformed_bundle.sh gadget`):
+- **protected minified build:** the app process died with `signal 11 (SIGSEGV), code 2 (SEGV_ACCERR)`,
+  pc in `boot.art`, during `DemoActivity.onCreate`. `retrace` places the Java frames in ShezGuard's
+  extras value classification (`AndroidExtras` → `ShezGuard.decide` → `ActivityGuard.onCreate`). The
+  tombstone gives dex pcs, not line numbers, so the innermost frame is approximate;
+- **vulnerable minified build:** no crash, but `ProfileActivity`'s `"profile=$profile"` logged several
+  lines of raw binary memory under the `ShezDemo` tag.
+
+With `-keep class com.shezguard.router.demo.LegacyProfile { *; }` the class stays concrete and keeps
+`readObject`. The minified build then behaves exactly like the debug build (5b side effect, Sanitize).
+
+**Interpretation (not verified).** Deserialisation allocated an instance of an abstract class whose
+instance layout R8 had removed. Touching it, through `instanceof` checks in ShezGuard or a virtual call
+in the app, then read invalid memory. The ART code path was not read.
+
+**Why it matters for the paper.**
+1. A runtime guard that inspects extras is the first code to touch an attacker-chosen object (L27). Any
+   native fault there kills the process, and catching exceptions does not help (L1, L40).
+2. The standard keep rules for Serializable are not enough for classes that exist only for backward
+   compatibility, so the minified build differs from the tested debug build. Release builds need their
+   own attack runs.
+3. A script that detects only Java crashes reports a native crash as "not exploited". The step 11
+   scripts had this gap, fixed in step 12.
+
+**Evidence.** `docs/ATTACK_MATRIX.md` (R8 section, runs R7a, R7b); `docs/LIMITATIONS.md` L40;
+`app/proguard-rules.pro`.

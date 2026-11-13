@@ -89,7 +89,10 @@ send() {
 }
 
 app_log() { logs -s 'ShezDemo:*' 'ShezAttacker:*' 'ShezGuard:*'; }
-crash_log() { logs -b crash | grep -A6 "Process: $VICTIM"; }
+# A Java crash ("Process: <pkg>") or a native crash (tombstone line ">>> <pkg> <<<", plus its signal line).
+# Native crashes were missed before step 12: a minified build crashed with SIGSEGV and the verdict said
+# NOT_EXPLOITED (docs/ATTACK_MATRIX.md, R8 section).
+crash_log() { logs -b crash | grep -E -A6 "Process: $VICTIM|>>> $VICTIM <<<"; }
 
 # verdict <canary ERE or ""> <delivered ERE>
 #   EXPLOITED if the canary appears in logcat or the demo app crashed; NOT_EXPLOITED if the attack
@@ -120,4 +123,40 @@ verdict() {
         finish NOT_EXPLOITED
     fi
     inconclusive "no evidence that the attack reached $VICTIM (no START of $delivered in logcat)"
+}
+
+# ---- Benign controls (step 12) ----
+# works_verdict <delivered ERE> <expected ERE>...
+#   For the b*.sh scripts. Ends with one line:
+#   RESULT: WORKS         every expected ERE matched this run's logs within TIMEOUT, and the app did not crash
+#   RESULT: BROKEN        the request reached the app (START of <delivered ERE>), but an expected line is
+#                         missing within TIMEOUT, or the demo app crashed
+#   RESULT: INCONCLUSIVE  no evidence the request reached the app
+works_verdict() {
+    local delivered="$1" i=0 crash="" missing="" e
+    shift
+    while [ "$i" -lt "$TIMEOUT" ]; do
+        crash=$(crash_log)
+        missing=""
+        for e in "$@"; do logs | grep -E "$e" >/dev/null || missing="$missing [$e]"; done
+        if [ -n "$crash" ] || [ -z "$missing" ]; then break; fi
+        sleep 1; i=$((i + 1))
+    done
+    echo "---- app log (ShezDemo / ShezAttacker / ShezGuard) ----"
+    app_log
+    if [ -n "$crash" ]; then
+        echo "---- crash buffer: $VICTIM crashed ----"
+        echo "$crash"
+        finish BROKEN
+    fi
+    if [ -z "$missing" ]; then
+        echo "---- every expected line found ----"
+        for e in "$@"; do logs | grep -E -m1 "$e"; done
+        finish WORKS
+    fi
+    if logs | grep -E "START u0 .*cmp=($delivered)" >/dev/null; then
+        echo "---- delivered, but missing within ${TIMEOUT}s:$missing ----"
+        finish BROKEN
+    fi
+    inconclusive "no evidence that the request reached $VICTIM (no START of $delivered in logcat)"
 }

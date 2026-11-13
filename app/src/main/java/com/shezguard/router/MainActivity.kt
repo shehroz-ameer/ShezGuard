@@ -3,8 +3,11 @@ package com.shezguard.router
 import android.os.Bundle
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
+import com.shezguard.core.GuardedEntryPoint
 
 /** Launcher. Takes no input from the intent; it only lists the demo entry points. */
+// Exempt (step 12): takes no input from the intent and does not call the guard. For the step 13 coverage check.
+@GuardedEntryPoint(exempt = true)
 class MainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)

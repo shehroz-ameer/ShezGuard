@@ -1,5 +1,6 @@
 package com.shezguard.router.demo
 
+import com.shezguard.core.GuardedEntryPoint
 import com.shezguard.router.guard.Incoming
 
 /**
@@ -7,6 +8,7 @@ import com.shezguard.router.guard.Incoming
  * The vulnerability is in the manifest (a custom scheme, and https without autoVerify): another app can
  * declare the same filters and receive the token instead of this app. Nothing in this code can prevent it.
  */
+@GuardedEntryPoint("login")
 class LinkActivity : DemoActivity() {
     override fun handle(incoming: Incoming) {
         val token = incoming.param("token")

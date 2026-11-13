@@ -1,8 +1,10 @@
 package com.shezguard.router.demo
 
+import com.shezguard.core.GuardedEntryPoint
 import com.shezguard.router.guard.Incoming
 
 /** Threat 2 (oversized values): shows a "note" extra repeated "copies" times. */
+@GuardedEntryPoint("note")
 class NoteActivity : DemoActivity() {
     override fun handle(incoming: Incoming) {
         val note = incoming.intent.getStringExtra("note") ?: ""

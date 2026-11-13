@@ -25,7 +25,7 @@ class LegacyProfile(val name: String) : Serializable {
     companion object {
         private const val serialVersionUID: Long = 1L
 
-        /** Set by ProfileActivity; a static so readObject can find the app's files directory. */
+        /** Set by DemoApp.onCreate; a static so readObject can find the app's files directory. */
         @JvmStatic
         var appFilesDir: File? = null
     }

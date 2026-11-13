@@ -1,5 +1,6 @@
 package com.shezguard.router.demo
 
+import com.shezguard.core.GuardedEntryPoint
 import android.annotation.SuppressLint
 import android.util.Log
 import android.webkit.ConsoleMessage
@@ -9,6 +10,7 @@ import android.webkit.WebViewClient
 import com.shezguard.router.guard.Incoming
 
 /** Threat 2 (attacker URL in a WebView): https://shezguard.example/preview?url=... */
+@GuardedEntryPoint("preview")
 class PreviewActivity : DemoActivity() {
     @SuppressLint("SetJavaScriptEnabled")
     override fun handle(incoming: Incoming) {
