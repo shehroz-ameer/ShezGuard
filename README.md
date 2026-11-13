@@ -108,7 +108,15 @@ class ProductActivity : AppCompatActivity() {
   A missing or empty annotation, or `@GuardedEntryPoint(exempt = true)`, is blocked
   (`ENTRY_POINT_NOT_ANNOTATED`); a name your policy does not define is `ENTRY_POINT_UNKNOWN`. The
   library's consumer R8 rules keep the annotation; if a build strips it, the activity is blocked,
-  never let through. A check on a minified build is still to come (step 12).
+  never let through. Checked in step 12 on one R8-minified build of the demo app, on an API 34
+  emulator: the annotation survived and no activity was blocked for a missing one (`docs/LIMITATIONS.md` L36).
+- **Serializable extras and R8.** If your app accepts `Serializable` extras, keep those classes
+  **completely** in your own R8 rules (`-keep class com.example.YourClass { *; }`). The usual
+  Serializable rules, which keep only members such as `readObject` and `serialVersionUID`, were not
+  enough in step 12. The demo app never constructed its Serializable class itself, so R8 made the
+  class abstract and removed `readObject`. Deserialising an instance then crashed the app natively
+  (SIGSEGV) while ShezGuard inspected the extras, and ShezGuard cannot catch a native crash. See
+  `docs/LIMITATIONS.md` L40.
 
 See `docs/SPEC.md` (section 7.2) and `docs/LIMITATIONS.md` (L34–L36).
 

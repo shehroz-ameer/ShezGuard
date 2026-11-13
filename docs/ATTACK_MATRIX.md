@@ -59,7 +59,9 @@ Notes:
   the heap; ShezGuard's extras rule bounds strings and arrays, not int values. Run in step 12 as
   `t2d copies` (EXPLOITED in both flavors; L38).
 - Release builds: R1 and R2 used debug builds. A minified vulnerable release built and installed
-  with `adb install -t` on API 34, but no attack was run against it.
+  with `adb install -t` on API 34, but no attack was run against it. Step 12 ran every script against
+  a minified **protected** build (R7, R7a) and sent one gadget by hand to a minified vulnerable build
+  (R7b); see the R8 section below.
 
 ## Step 12: predictions (written before any protected-flavor run)
 

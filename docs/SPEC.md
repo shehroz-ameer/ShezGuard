@@ -396,7 +396,9 @@ Author approval of the step 10 proposal (decisions 1–6, sections (a)–(f)) wi
   gives Block with `ENTRY_POINT_NOT_ANNOTATED` (HARD, CRITICAL); the intent is not read, the decision
   and audit event use the entry point `<unannotated>` (`ActivityGuard.UNANNOTATED`). A name missing
   from the policy gives `ENTRY_POINT_UNKNOWN`. Consumer R8 rules keep the annotation; a stripped
-  annotation blocks (checked on a minified build in step 12).
+  annotation blocks. Checked in step 12 on one R8-minified build of the demo app (API 34 emulator):
+  the annotation survived, and no `ENTRY_POINT_NOT_ANNOTATED` occurred (`docs/LIMITATIONS.md` L36; app
+  keep rules for Serializable extras: L40, `docs/PAPER_NOTES.md` N15).
 - **Delivery.** `onCreate` evaluates `getIntent()` (an empty `Intent()` if `null`) with
   `Delivery.LAUNCH`; `onNewIntent` evaluates its argument with `Delivery.NEW_INTENT` and never reads
   `getIntent()`. The app never passes a `Delivery`.
