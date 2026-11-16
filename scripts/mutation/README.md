@@ -46,6 +46,10 @@ MUTANTS = [
 ]
 ```
 
+Optional: `MODULE` (default `"shezguard-core"`) and `TASK` (default `test<Variant>UnitTest`) select
+another module's tests. Step 13 uses `MODULE = "shezguard-lint"`, `TASK = "test"`
+(`step13_coverage.py`, `step13_guard_calls.py`, `step13_deep_link.py`).
+
 Each edit is an exact `(old, new)` text pair. `old` must occur exactly once in the file at that
 point, otherwise the runner stops before changing anything; include enough surrounding lines to
 make it unique. Mutants of one file are applied to a fresh copy of the original, never on top of
@@ -56,4 +60,9 @@ each other.
 - One target file per definitions file.
 - The tests selected in `TESTS` are the only ones run. A mutant that survives them might be caught
   elsewhere in the suite; say so if you rely on that.
-- Each mutant costs one Gradle test run (about 20–30 s here).
+- Each mutant costs one Gradle test run (about 20–30 s here; 25–50 s for `:shezguard-lint`).
+- Gradle runs with `--no-watch-fs`. In the first step 13 run, without it, three mutants (c7, c8, c10)
+  were reported SURVIVED although they are caught: the test run used the unmutated classes, apparently
+  because file-system watching missed a write that followed a restore within seconds. This failure
+  can only produce false survivors, never a false "caught". All step 10 mutants were reported
+  caught, so step 10's results are unaffected.

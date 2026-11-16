@@ -52,14 +52,25 @@ reliable or a signature-level permission protects the component.
 - **Source:** orientation items 22 and 23; SPEC section 8.
 
 ## L4. The build-time check proves a policy is declared, not that it is enforced
-- **What:** the Lint rule checks that every exported or `BROWSABLE` component carries a
-  `@GuardedEntryPoint` annotation (or an explicit exemption), and a test helper checks that
-  the annotated name exists in the policy. Neither proves that the component actually calls
-  `ShezGuard.evaluate()` (or the Activity helper), nor that the app acts on the returned
-  decision instead of reading `getIntent()` directly.
+- **What:** the Lint rule (step 13) checks that every exported or `BROWSABLE` activity in the merged
+  manifest carries a valid `@GuardedEntryPoint` (or an explicit exemption), and that each annotated
+  name is declared by an `entryPoint("...")` in an `intentPolicy {}`. It does **not** prove that the
+  activity calls `ShezGuard.evaluate()` or `ActivityGuard`, nor that the app acts on the result
+  instead of reading `getIntent()` directly.
+- **The one exception:** for a **direct** `ActivityGuard.onCreate` / `onNewIntent` call, the rule
+  checks the call order (`ShezGuardGuardCallOrder`) and whether a stored result is null-checked
+  (`ShezGuardUncheckedGuardResult`). Both are intra-method heuristics (L41). A call through a wrapper
+  hides them. The demo app's `EntryGuard` shim is such a wrapper, so in the demo these two issues, and
+  the "guard called inside an exempt activity" part of `ShezGuardInvalidAnnotation`, are evidenced
+  **only by lint-tests**, never by the demo.
+- **Consequence:** the vulnerable demo flavor carries every annotation and never calls the guard, and
+  its activities pass issue 1. With `checkDependencies = true` (set in `:app`), `lintVulnerableDebug`
+  fails, but only because that flavor has **no policy** (9 × `ShezGuardUnknownEntryPointName`). It does
+  not fail because the guard is never called. By the rule's logic (not run), a flavor that declared the
+  policy but never called the guard would pass.
 - **Why:** proving that a call happens on every path is a data-flow problem that Lint does
   not solve reliably.
-- **Source:** orientation item 28; SPEC section 9.
+- **Source:** orientation item 28; SPEC section 9; step 13.
 
 ## L5. `subdomainsOf` cannot detect public suffixes
 - **What:** `HostPattern.SubdomainsOf` rejects a single-label domain such as `com`, but it
@@ -580,8 +591,10 @@ pending (step 14)):
 
 **Not protected, or trade-offs:**
 - **The app must use the result.** `@CheckResult` is a Lint warning, not a compiler error. Code
-  that ignores the result, or reads `getIntent()` before the guard, still compiles and runs. The
-  step 13 Lint rule should flag it (`docs/PROMPTS.md`, step 13).
+  that ignores the result, or reads `getIntent()` before the guard, still compiles and runs. Step 13:
+  the built-in `CheckResult` check (Warning) flags an ignored result. The ShezGuard Lint rule flags a
+  stored result that is never null-checked (Warning) and a guard called after `super.onCreate` or a
+  `getIntent()` read (Error). Both cover direct `ActivityGuard` calls only, and they are heuristics (L41).
 - **The launch itself is not prevented.** ShezGuard runs inside the app, after the OS has created
   the activity and brought its task to the front. It controls only whether the app uses the data.
   For a blocked launch the OS has still started the app process, created the activity and possibly
@@ -728,3 +741,58 @@ pending (step 14)):
   `NOT_EXPLOITED`. Fixed in `scripts/attacks/_common.sh`.
 - **Source:** step 12, `docs/PAPER_NOTES.md` N15.
 
+## L41. The build-time Lint rule: version coupling, heuristics and blind spots (step 13)
+- **Older AGP: the rule is silently skipped.** `lint.jar` is compiled against Lint 31.10.1 (AGP 8.10.1)
+  with `minApi = api = 16`. A consumer whose AGP bundles an older Lint skips the whole registry and
+  reports only an `ObsoleteLintCustomCheck` warning, so the coverage check stops failing builds without
+  an error. The runtime guard cannot compensate: an activity that is unannotated or never calls the
+  guard is simply never evaluated. With a newer AGP, an incompatible Lint API change is reported as
+  `LintError`; only AGP 8.10.1 was tested.
+- **Issues 4 and 5 are intra-method heuristics.**
+  - `ShezGuardGuardCallOrder` compares **source positions** inside one method. It does not follow
+    branches, loops, helper methods or base classes. By design (not tested), a `super.onCreate` in an
+    `if` before the guard is flagged, and one reached through a helper is not.
+  - `ShezGuardUncheckedGuardResult` accepts any `== null` / `!= null` comparison, `?.` or `?:` on the
+    variable anywhere in the method, even after the intent was used. By design (not tested), it flags a
+    `when (x) { null -> }` that is in fact safe, and it does not follow a result passed to another
+    function.
+- **Only direct `ActivityGuard` calls are seen** by issues 3 (exempt call), 4 and 5 (L4). The checks
+  match `com.shezguard.core.ActivityGuard` by name; `ShezGuard.evaluate` is not checked at all.
+- **Policy names across modules.** A name is reported as an Error only when the analysed code proves
+  it is missing: every `entryPoint(...)` argument is a constant, and an `entryPoint` call was found, or
+  `checkDependencies` is on. A non-constant argument, or no call found with `checkDependencies` off,
+  gives a Warning (`ShezGuardEntryPointNameUnverifiable`). Residual false Error: the policy is split
+  across modules, some `entryPoint` calls are in the app and the missing one is in a library, and
+  `checkDependencies` is off.
+- **Dependencies are told apart by source.** An activity whose class is not among the analysed
+  sources is reported as a dependency (`ShezGuardDependencyEntryPoint`, Warning), not as unguarded.
+  This includes a library module that was not analysed (`checkDependencies` off), and an activity
+  declared in the manifest whose class does not exist. The built-in `MissingClass` check reports the
+  latter.
+- **The source-mapping fallback is covered only by a demo run, not by a lint-test.** In lint-tests,
+  Lint maps each merged-manifest element back to its source manifest
+  (`findManifestSourceNode` / `findManifestSourceLocation`). In a real Gradle build (AGP 8.10.1) that
+  mapping returned `null`. The rule then looks the element up by tag and class name in the analysed
+  modules' own manifests.
+  - Because lint-tests always provide the mapping, **no lint-test reaches the fallback**, and no mutant
+    targets it.
+  - Its only evidence is the demo negative control: `SearchActivity` unannotated, reported at
+    `src/main/AndroidManifest.xml:44`. It was run twice on 2026-11-16, without and with
+    `checkDependencies`. The exact procedure is in `docs/MUTATION_CHECKS.md` (step 13, "Demo negative
+    control").
+  - The fallback also decides, in real builds, whether a service, receiver or provider belongs to the
+    app (`ShezGuardUncoveredComponent`) or to a dependency (skipped). That use has **no** evidence at
+    all, because the demo has no exported non-activity component of its own.
+  - If the lookup fails, the issue is still reported and still fails the build, but it points at the
+    module directory with no line. That happened before the fallback existed.
+- **Services, receivers and providers** are only listed (`ShezGuardUncoveredComponent`, Informational),
+  and only when no `android:permission` is set. The permission's protection level is not checked: a
+  `normal` permission silences the report as well as a `signature` one.
+- **Threat 4 is advice only.** `ShezGuardUnverifiableDeepLink` cannot know whether a link carries a
+  secret. `android:autoVerify="true"` does not prove verification succeeds (that needs a valid Digital
+  Asset Links file, not checked). An https filter without `autoVerify` is left to the built-in
+  `AppLinkWarning`, which helps only where that check is enabled.
+- **Suppression.** Lint baselines, `lint.xml`, `disable`/`ignore` options and `@SuppressLint` hide
+  findings. `check` lints only the default variant, and `lintVital` on release builds enforces only
+  Fatal issues, which the rule does not use by default (README).
+- **Source:** step 13.

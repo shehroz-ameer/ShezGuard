@@ -85,7 +85,8 @@ class ProductActivity : AppCompatActivity() {
 
 - **You must use the result.** `null` means Block: return immediately. `@CheckResult` makes Android
   Lint warn when the result is ignored, but that is a warning, not a compiler error: code that
-  ignores the result, or reads `getIntent()` before the guard, still compiles.
+  ignores the result, or reads `getIntent()` before the guard, still compiles. The ShezGuard Lint
+  rule flags the common forms of both (see "Build-time coverage check").
 - **Order: the guard runs before `super.onCreate`**, because `super.onCreate` restores fragments
   and saved state that may read `getIntent()`, and after process death `getIntent()` is the raw
   launch intent again. So the guard (and its policy) **must not come from DI-injected fields of the
@@ -119,6 +120,73 @@ class ProductActivity : AppCompatActivity() {
   `docs/LIMITATIONS.md` L40.
 
 See `docs/SPEC.md` (section 7.2) and `docs/LIMITATIONS.md` (L34–L36).
+
+## Build-time coverage check (Android Lint)
+
+The library's AAR contains a Lint rule (`lint.jar`, built from `:shezguard-lint` with `lintPublish`).
+Lint loads it in modules that depend on ShezGuard. This was verified for a Gradle project dependency
+(the demo app, step 13). For a published AAR it is AGP's standard `lintPublish` behaviour, but it was
+not tested here because nothing is published yet (step 17). It adds nothing to your runtime or compile
+classpath. Run it with
+`./gradlew :app:lint<Variant>`. `./gradlew check` runs Lint for the **default variant only**.
+
+| Issue ID | Default severity | Reports | Confidence |
+|---|---|---|---|
+| `ShezGuardUnguardedEntryPoint` | Error | An activity (or activity-alias) in the merged manifest that is exported, or has a `BROWSABLE` filter, and has no valid `@GuardedEntryPoint`. "Exported" means `android:exported="true"`, or no attribute plus an intent filter while targetSdkVersion < 31. | High. The manifest is read exactly, and the class is matched by name. |
+| `ShezGuardUnknownEntryPointName` | Error | An annotated name that no `entryPoint("...")` in an `intentPolicy {}` declares. Raised only when the analysed code proves it: every `entryPoint` argument is a constant, and an `entryPoint` call was found, or `checkDependencies` is on. | High within the analysed modules. |
+| `ShezGuardEntryPointNameUnverifiable` | Warning | Like the above, when it cannot be proved: a non-constant `entryPoint(...)` argument, or no `entryPoint` call found with `checkDependencies` off (the policy may be in another module). | Low: the name may well be declared. |
+| `ShezGuardInvalidAnnotation` | Error | `exempt = true` together with a name, an empty name without `exempt`, a name the DSL rejects, or a direct `ActivityGuard` call inside an exempt activity. The guard blocks all of these at runtime. | High. |
+| `ShezGuardGuardCallOrder` | Error | A direct `ActivityGuard.onCreate` call after `super.onCreate` or after a read of `getIntent()`/`intent` in the same `onCreate`, or `ActivityGuard.onNewIntent` after `super.onNewIntent`. | Medium: compares source order inside one method; branches and helper methods are not followed. |
+| `ShezGuardUncheckedGuardResult` | Warning | A guard result stored in a variable that the same method never compares with `null` or uses with `?.`/`?:`, and a result asserted with `!!`. A result ignored completely is left to the built-in `CheckResult` check (Warning). | Low: a syntactic heuristic. |
+| `ShezGuardUnverifiableDeepLink` | Warning | A `BROWSABLE` filter with a custom scheme, or an http(s) one with `android:autoVerify="false"` (threat 4). An http(s) filter with **no** `autoVerify` is reported by the built-in `AppLinkWarning` check, which is part of Android Lint, not of ShezGuard. | Advice: Lint cannot know whether a link carries a secret or whether the domain verifies. |
+| `ShezGuardDependencyEntryPoint` | Warning | An exported or `BROWSABLE` activity declared by a dependency's manifest. You cannot annotate it. | High that it is reachable; it may be harmless. |
+| `ShezGuardUncoveredComponent` | Informational ("Hint") | The app's own exported services, receivers and providers that no `android:permission` protects. ShezGuard v1 covers activities only. Never fails a build. | High that it is exported. |
+
+**When Lint fails your build:**
+- `lint<Variant>` (and `check`, which runs Lint for the default variant) fails on any **Error** or
+  **Fatal** issue while `abortOnError` is `true`, which is the default. Warnings fail it only with
+  `warningsAsErrors = true`.
+- `assembleRelease` runs `lintVital<Variant>`. That checks **Fatal** issues only, so by default
+  ShezGuard's Errors do **not** stop a release build.
+- **Set `checkDependencies = true` in the app module.** It is what makes policy names provable. With it,
+  Lint analyses your library modules together with the app, so a `@GuardedEntryPoint` name that no
+  `entryPoint("...")` declares is reported as an Error (`ShezGuardUnknownEntryPointName`). Without it,
+  the policy might be in a module Lint did not analyse. If no `entryPoint` call is found at all, the
+  name is then only a Warning (`ShezGuardEntryPointNameUnverifiable`), which does not fail the build. The demo
+  app uses this setting. Its vulnerable flavor has annotations but no policy, and `lintVulnerableDebug`
+  fails with 9 such Errors. Without the setting it passed with 9 Warnings (`app/README.md`, "Lint").
+- To also make missing coverage stop release builds:
+
+```kotlin
+// app/build.gradle.kts
+android {
+    lint {
+        abortOnError = true            // the default; do not turn it off
+        checkDependencies = true       // analyse library modules too: makes missing policy names provable Errors
+        fatal += setOf(                // also enforced by lintVital on assembleRelease
+            "ShezGuardUnguardedEntryPoint",
+            "ShezGuardUnknownEntryPointName",
+            "ShezGuardInvalidAnnotation",
+            "ShezGuardGuardCallOrder",
+        )
+        error += "CheckResult"         // the built-in check for an ignored guard result (Warning by default)
+    }
+}
+```
+
+- A Lint `baseline` file, `lint.xml`, `ignore`/`disable` or `@SuppressLint` hides findings silently.
+  Review any of them that mention a `ShezGuard*` ID.
+
+**What it does not prove.** The check proves that every reachable activity **names** an entry point
+your policy declares (or is explicitly exempt). It does not prove that the activity calls the guard,
+or `ShezGuard.evaluate`, or acts on the result. The only exception is the call-order and result checks
+on a **direct** `ActivityGuard` call inside the same method. A wrapper around the guard, like the demo
+app's `EntryGuard`, hides the call from those checks.
+
+**AGP versions.** The rule is compiled against Lint 31.10.1, which belongs to AGP 8.10.1 (Lint version
+= AGP version + 23). With an **older** AGP, Lint skips the whole rule and reports only an
+`ObsoleteLintCustomCheck` warning, so the coverage check silently stops failing builds. With a newer
+AGP, an incompatible API change shows up as a `LintError`. See `docs/LIMITATIONS.md` L41.
 
 ## Audit events
 

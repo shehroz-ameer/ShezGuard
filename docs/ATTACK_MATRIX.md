@@ -47,8 +47,8 @@ API level and build.
 Notes:
 - **Threat 4** is a property of the manifest, not of the code that handles the intent: the OS decides
   which app receives the link before any app code runs. ShezGuard cannot prevent it at runtime
-  (`requireVerifiedDomain` reports domain state as a signal only, L3, L32); the step 13 build-time
-  check flags custom schemes and `BROWSABLE` filters without `autoVerify`.
+  (`requireVerifiedDomain` reports domain state as a signal only, L3, L32). Step 13 adds build-time
+  **detection**, not prevention: see "Step 13: build-time detection of threat 4" below.
 - **Threat 5b** is expected to stay exploitable in the protected flavor: ShezGuard reads every extra
   to find nested intents, so the gadget's `readObject` runs inside ShezGuard before any decision
   (`docs/LIMITATIONS.md` L1, L27). Step 12 records the observed result. A minified build needs a
@@ -121,7 +121,7 @@ Column notes:
 | 2 | Oversized `note` (64 000 characters), `copies=20000` (`t2d_oversized_extra.sh`) | EXPLOITED (crash) | EXPLOITED (crash) | **blocked**, `EXTRA_TOO_LARGE` on `extra:note`. 64 000 > 2000. | NOT_EXPLOITED (R5): **blocked** | n/a | NOT_EXPLOITED (R7) | `BLOCK` `EXTRA_TOO_LARGE@extra:note`; no crash | `ExtrasEvaluateTest.blocksOversizedStringExtra`; `DemoPolicyTest.noteExtras` | |
 | 2 | Short `note` (1000 characters), `copies=2000000` (`t2d_oversized_extra.sh copies`, new mode) | EXPLOITED (R3), `OutOfMemoryError` (2 000 000 016-byte allocation) | not run | **not prevented** (Allow), crash with `OutOfMemoryError`. Both extras have the allowed type and size; an `INT` value cannot be range-limited. The vulnerable flavor is predicted EXPLOITED too (to be run on API 34). | EXPLOITED (R5): **not prevented** | n/a | EXPLOITED (R7) | `ALLOW`, no violation; then `OutOfMemoryError` in `NoteActivity` | none (not a block). `DemoPolicyTest.noteExtras` replays the Allow. | L38 (to be written). |
 | 3 | Open redirect `next=https://attacker.invalid/login` (`t3_open_redirect.sh`) | EXPLOITED | EXPLOITED | **blocked**, `PARAM_URL_NOT_ALLOWED` on `param:next`. The host is not allowed. | NOT_EXPLOITED (R5): **blocked** | n/a | NOT_EXPLOITED (R7) | `BLOCK` `PARAM_URL_NOT_ALLOWED@param:next`; no `CANARY-REDIRECT-LANDED` | `UriPolicyValidatorTest.blocksOpenRedirectToUnlistedHost`; `DemoPolicyTest.blockedAttackLinksGiveTheCodesSeenOnTheDevice` |  |
-| 4 | Link hijacking (`t4_link_hijack.sh`) | EXPLOITED | EXPLOITED | **not prevented**, on both APIs. The OS sends the link to `:attacker`, so `LinkActivity` (and ShezGuard) never run and no audit line is expected. | EXPLOITED (R5): **not prevented** | EXPLOITED (R6): **not prevented** | EXPLOITED (R7) | none: no `ShezGuard` line. `LinkActivity` was never started; `:attacker` logged `HIJACKED … token=CANARY-TOKEN-…` | none | Build-time check in step 13; L3, L32. |
+| 4 | Link hijacking (`t4_link_hijack.sh`) | EXPLOITED | EXPLOITED | **not prevented**, on both APIs. The OS sends the link to `:attacker`, so `LinkActivity` (and ShezGuard) never run and no audit line is expected. | EXPLOITED (R5): **not prevented** | EXPLOITED (R6): **not prevented** | EXPLOITED (R7) | none: no `ShezGuard` line. `LinkActivity` was never started; `:attacker` logged `HIJACKED … token=CANARY-TOKEN-…` | none (runtime). Build time: `DeepLinkDetectorTest.flagsHijackableCustomSchemeLink` | Detected at build time, not prevented (step 13 section): `ShezGuardUnverifiableDeepLink` (custom scheme) and the built-in `AppLinkWarning` (https, no `autoVerify`). L3, L32, L41. |
 | 5 | Serializable of an unknown class (`t5_malformed_bundle.sh`) | EXPLOITED (crash) | EXPLOITED (crash) | **blocked, no crash**, `EXTRAS_UNPARCEL_FAILED`. API 34: on `extra:profile` (one lazy value fails). API 29: on the whole extras (`keySet()` unparcels everything). The exception is caught inside ShezGuard. | NOT_EXPLOITED (R5): **blocked, no crash** | NOT_EXPLOITED (R6): **blocked, no crash** | NOT_EXPLOITED (R7) | API 34: `BLOCK` `EXTRAS_UNPARCEL_FAILED@extra:<undeclared>`, `EXTRA_NOT_ALLOWED@extra:<undeclared>`. API 29: `BLOCK` `EXTRAS_UNPARCEL_FAILED@extras`. No entry in the crash buffer. | `SerializableExtrasTest.blocksSerializableOfUnknownClassWithoutCrashing` (**added**; SDK 24, 29, 34) |  |
 | 5 (5b) | Gadget `LegacyProfile.readObject` (`t5_malformed_bundle.sh gadget`) | EXPLOITED | EXPLOITED | **not prevented**, on both APIs. ShezGuard reads every extra (to find nested intents), so `readObject` runs inside ShezGuard before any decision. The decision is then **Sanitize** with `EXTRA_NOT_ALLOWED` on `extra:profile`, and the app shows `profile=none`. | EXPLOITED (R5): **not prevented** | EXPLOITED (R6): **not prevented** | EXPLOITED (R7), with the final keep rule. With the first keep rule: native crash (R7a), see R8 section. | `SANITIZE` `EXTRA_NOT_ALLOWED@extra:<undeclared>`; `CANARY-GADGET-24` logged; the app showed `profile=none` | `SerializableExtrasTest.gadgetReadObjectRunsDuringExtrasInspection` (**added**; documents the limitation, not a block) | L1, L27. Needs `appFilesDir` set in `DemoApp` (decision 2) and R8 keep rules for `LegacyProfile` in the minified build. |
 | 6 | Manual check vs encoding (`t6_encoding_manual_check.sh`), 3 payloads | EXPLOITED | EXPLOITED | Raw `../secret.txt`: ShezGuard **allows** it, then the manual check rejects it. `%2e%2e%2fsecret.txt`: **not prevented** (Allow, decodes once to `../secret.txt`; needless-escape detection applies only to the path). `%252e%252e%252fsecret.txt`: **blocked**, `URI_DOUBLE_ENCODING` on `uri.query`. The script as a whole is predicted **EXPLOITED** (the second payload). | EXPLOITED (R5): as predicted, payload by payload | n/a | EXPLOITED (R7), same per payload | raw `../`: `ALLOW`, then `rejected by the manual check`; `%2e%2e%2f`: `ALLOW`, `CANARY-SECRET-7f3a`; `%252e…`: `BLOCK` `URI_DOUBLE_ENCODING@uri.query` | `UriCanonicalizerTest.blocksDoubleEncodingInQueryValue` (third payload only); `DemoPolicyTest.blockedAttackLinksGiveTheCodesSeenOnTheDevice`. Not prevented (second payload): `notPreventedAttackLinksAreAllowed`. |  |
@@ -294,6 +294,34 @@ Every RESULT line matched its prediction:
 
 No library change was made in step 12. The library *tests* added are listed in the rows above.
 
+## Step 13: build-time detection of threat 4
+
+Threat 4 stays **not prevented at runtime** (rows above: EXPLOITED on every run, protected flavor
+included). Step 13 adds **detection at build time**, as advice. Two checks report the demo's hijackable
+filters when Lint runs on `:app`. On 2026-11-16, `lintProtectedDebug` and `lintVulnerableDebug` were run
+first without and then with `lint { checkDependencies = true }` in `:app` (the documented enforcing
+configuration, now set). The threat 4 findings below were identical in all four runs: `ShezGuardUnverifiableDeepLink`
+×1, `AppLinkWarning` ×6.
+
+| Filter (`app/src/main/AndroidManifest.xml`) | Reported by | Part of ShezGuard? | Test |
+|---|---|---|---|
+| `LinkActivity`: `shezdemo://login` (custom scheme, line 103) | `ShezGuardUnverifiableDeepLink` (Warning) | yes, `:shezguard-lint` | `DeepLinkDetectorTest.flagsHijackableCustomSchemeLink` |
+| `LinkActivity`: `https://shezguard.example/login`, and the 5 other https filters without `autoVerify` (lines 48, 60, 72, 89, 109, 126) | `AppLinkWarning` (Warning) | **no**: a platform check built into Android Lint | `DeepLinkDetectorTest.leavesHttpsLinkWithoutAutoVerifyToBuiltInAppLinkWarning` (shows ShezGuard leaves this case to it) |
+| an https filter with `android:autoVerify="false"` (not in the demo) | `ShezGuardUnverifiableDeepLink` | yes | `DeepLinkDetectorTest.flagsHttpsLinkWithAutoVerifyFalse` |
+
+- **`AppLinkWarning` is not part of ShezGuard.** It helps only where the developer has it enabled; it
+  is on by default, and a `lint.xml`, `disable` option or baseline turns it off. ShezGuard does not
+  duplicate it.
+- **Neither check fails the build** (Warning, by design). Lint cannot know whether a link carries a
+  secret. `autoVerify="true"` does not prove the domain verifies; that needs a valid Digital Asset
+  Links file, which is not checked (L41).
+- **Detection, not mitigation.** The fix is in the app: use a verified https App Link and keep tokens
+  out of links. The demo is not changed, so `t4` remains EXPLOITED.
+- **Build results.** With `checkDependencies = true`, `lintProtectedDebug` passes: the threat 4
+  findings are Warnings. `lintVulnerableDebug` fails, but for a different reason: its 9 annotated names
+  have no policy in that flavor (`ShezGuardUnknownEntryPointName`, Error; `app/README.md`, "Lint").
+  Threat 4 alone never fails a build.
+
 ## Not covered in v1
 
 **Shown not prevented in step 12** (demo app, realistic policy; details in the rows above):
@@ -303,7 +331,7 @@ No library change was made in step 12. The library *tests* added are listed in t
 | SQL injection through a search term (`t2a`) | A search box must accept `'` and spaces; validation does not replace parameterised SQL | `CharClass` KDoc |
 | Path traversal through a file name (`t2c`, `t6` single-encoded) | No parameter type admits `readme.txt` but rejects `../`; `..` checks apply to path segments only | L37 |
 | Huge numeric extra (`t2d copies`) | `INT` extras are type-checked, not range-checked | L38 |
-| Deep link hijacking (`t4`) | The OS routes the link before any app code runs | L3, L32; build-time check in step 13 |
+| Deep link hijacking (`t4`) | The OS routes the link before any app code runs | L3, L32. Build-time detection only (`ShezGuardUnverifiableDeepLink`, built-in `AppLinkWarning`; step 13 section), L41 |
 | Deserialisation gadget (5b) | ShezGuard deserialises every extra to look for nested intents | L1, L27 |
 | A legitimate Serializable extra (`b5`, a benign control) | Cannot be allow-listed; the feature breaks under ShezGuard | L6 |
 | Native crash while inspecting an extra (R7a) | A signal cannot be caught | L40 |

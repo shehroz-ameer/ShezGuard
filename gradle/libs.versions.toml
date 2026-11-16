@@ -11,6 +11,8 @@ espressoCore = "3.6.1"
 appcompat = "1.7.1"
 material = "1.12.0"
 robolectric = "4.14.1"
+# :shezguard-lint only. Lint version = AGP version + 23.0.0 (AGP 8.10.1 -> Lint 31.10.1), step 13.
+lint = "31.10.1"
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
@@ -22,8 +24,14 @@ androidx-espresso-core = { group = "androidx.test.espresso", name = "espresso-co
 androidx-appcompat = { group = "androidx.appcompat", name = "appcompat", version.ref = "appcompat" }
 material = { group = "com.google.android.material", name = "material", version.ref = "material" }
 
+lint-api = { group = "com.android.tools.lint", name = "lint-api", version.ref = "lint" }
+lint-tests = { group = "com.android.tools.lint", name = "lint-tests", version.ref = "lint" }
+# Test-only: built-in detectors (CheckResult, AppLinkWarning) and LintCliFlags, used to show what ShezGuard does not duplicate.
+lint-checks = { group = "com.android.tools.lint", name = "lint-checks", version.ref = "lint" }
+lint-cli = { group = "com.android.tools.lint", name = "lint", version.ref = "lint" }
+
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
 kotlin-android = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
 android-library = { id = "com.android.library", version.ref = "agp" }
-
+kotlin-jvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }

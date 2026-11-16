@@ -76,6 +76,13 @@ android {
         // under Robolectric, which needs the merged manifest and resources.
         unitTests.isIncludeAndroidResources = true
     }
+    lint {
+        // Step 13 (author decision): the documented configuration for enforcing ShezGuard coverage. With
+        // dependencies analysed, a @GuardedEntryPoint name that no entryPoint("...") declares is provably
+        // missing, so it is an Error (ShezGuardUnknownEntryPointName), not a Warning. The vulnerable flavor
+        // has no policy, so lintVulnerable* is expected to fail (app/README.md, "Lint").
+        checkDependencies = true
+    }
 }
 
 dependencies {

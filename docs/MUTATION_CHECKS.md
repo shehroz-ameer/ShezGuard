@@ -8,8 +8,8 @@ coverage measure and does not claim the suites catch every bug.
 How to run them: `scripts/mutation/README.md`. All results are Robolectric-only (JVM), like the
 tests they exercise.
 
-**Provenance.** Step 10 was run with `scripts/mutation/run_mutants.py`, and the exact edits are in
-`scripts/mutation/step10_activity_guard.py`. Steps 8 and 9 were done by hand before the script
+**Provenance.** Steps 10 and 13 were run with `scripts/mutation/run_mutants.py`, and the exact edits are in
+`scripts/mutation/step10_activity_guard.py` and `scripts/mutation/step13_*.py`. Steps 8 and 9 were done by hand before the script
 existed; only the descriptions recorded in `docs/LIMITATIONS.md` and `docs/PAPER_NOTES.md`
 survive. The exact edits, the full list of tests that failed, and the number of SDKs are **not
 recorded** and cannot be reconstructed. For steps 1–7 no mutation checks are recorded.
@@ -87,3 +87,100 @@ Notes:
   about that leak than about test strength.
 - **Selection.** Only `ActivityGuardTest` was run. `AuditCanaryTest`'s guard test was not part of
   the selection.
+
+## Step 13: build-time coverage check (Lint rule)
+Targets in `:shezguard-lint`: `ShezGuardDetector.kt` (coverage), `GuardCallHeuristics.kt` (call order and
+result use), `DeepLinkDetector.kt` (threat 4 advice). Tests: lint-tests on the JVM (each test runs Lint in
+lint-tests' default modes, including partial analysis). Definitions:
+`scripts/mutation/step13_coverage.py`, `step13_guard_calls.py`, `step13_deep_link.py`. Every run started
+from a green baseline and restored the target byte for byte (SHA-256 verified).
+
+**Round 1** (2026-11-16, without `--no-watch-fs`): c7, c8 and c10 were reported **SURVIVED**. Each was
+caught when run again, both by hand (c10) and with the runner (`--only c7,c8,c10`). The test runs had
+used the unmutated classes: Gradle's file-system watching apparently missed a write that followed a
+restore within seconds. The runner now passes `--no-watch-fs` (`scripts/mutation/README.md`). This
+failure mode can only produce false survivors. g1 survived round 1 as well, for a real reason (see
+below).
+
+**Round 2** (2026-11-16, `--no-watch-fs`, after two tests were added:
+`flagsGuardAfterBareIntentPropertyRead` and `flagsGuardAfterGetIntentCallInJava`):
+
+| Mutant | Change | Result | Caught by |
+|---|---|---|---|
+| c1 | Implicit export (intent filter, targetSdk < 31) not detected | caught | `CoverageDetectorTest.flagsImplicitlyExportedActivityBelowApi31` |
+| c2 | `BROWSABLE` filters ignored | caught | `flagsBrowsableActivityEvenWhenNotExported`, `flagsExportedBrowsableActivityOnce` |
+| c3 | `exempt = true` treated as covered without checking for a name | caught | `flagsExemptAnnotationThatAlsoNamesAnEntryPoint` |
+| c4 | Empty name accepted | caught | `flagsEmptyNameWithoutExemption` |
+| c5 | Any annotated name treated as declared by the policy | caught | `flagsAnnotatedNameMissingFromPolicy`, `noPolicyFoundWithCheckDependenciesIsAnError`, `noPolicyFoundWithoutCheckDependenciesIsUnverifiable`, `nonConstantEntryPointNameMakesMissingNameUnverifiable` |
+| c6 | Non-constant `entryPoint` names do not downgrade a missing name (Error instead of Warning) | caught | `nonConstantEntryPointNameMakesMissingNameUnverifiable` |
+| c7 | `checkDependencies` ignored: no policy found is always a Warning | caught (round 1: false SURVIVED) | `noPolicyFoundWithCheckDependenciesIsAnError` |
+| c8 | Dependency activities treated as the app's own | caught (round 1: false SURVIVED) | `activityFromDependencyIsReportedOnlyAsDependencyEntryPoint` |
+| c9 | Unannotated activities not reported | caught | `flagsExplicitlyExportedActivityWithoutAnnotation`, `flagsImplicitlyExportedActivityBelowApi31`, `flagsBrowsableActivityEvenWhenNotExported`, `flagsExportedBrowsableActivityOnce`, `flagsExportedAliasOfUnannotatedActivity`, `flagsUnannotatedJavaActivity` |
+| c10 | `android:permission` no longer exempts a service/receiver/provider | caught (round 1: false SURVIVED) | `exportedServiceWithoutPermissionIsInformationalOnly` |
+| c11 | Guard call inside an exempt activity not reported | caught | `GuardCallDetectorTest.flagsGuardCallInsideExemptActivity` |
+| g1 | Kotlin `intent` property reads before the guard ignored | **SURVIVED** (both rounds) | none: see note |
+| g2 | `super.onCreate` / `super.onNewIntent` before the guard ignored | caught | `flagsGuardAfterSuperOnCreate`, `flagsGuardAfterSuperOnNewIntent` |
+| g3 | Order comparison inverted | caught | 7 tests, including `acceptsGuardFirstInOnCreateAndOnNewIntent` |
+| g4 | `!!` on the guard result counted as a null check | caught | `flagsNotNullAssertedGuardResult` |
+| g5 | Any use of the stored result counts as a null check | caught | `flagsStoredGuardResultNeverNullChecked` |
+| g6 | Explicit `getIntent()` calls before the guard ignored | caught | `flagsGuardAfterGetIntentCallInJava` |
+| g7 | Both `getIntent` branches removed | caught | `flagsGuardAfterGetIntentRead`, `flagsGuardAfterBareIntentPropertyRead`, `flagsGuardAfterGetIntentCallInJava` |
+| d1 | `BROWSABLE` not required | caught | `DeepLinkDetectorTest.ignoresCustomSchemeWithoutBrowsable` |
+| d2 | Custom schemes not reported | caught | `flagsHijackableCustomSchemeLink`, `flagsEachCustomSchemeOnceInMixedFilter` |
+| d3 | https without `autoVerify` also reported (duplicates the built-in `AppLinkWarning`) | caught | `leavesHttpsLinkWithoutAutoVerifyToBuiltInAppLinkWarning` |
+| d4 | `autoVerify="false"` accepted | caught | `flagsHttpsLinkWithAutoVerifyFalse` |
+
+Notes:
+- **g1 survives because the code is redundant, not because a test is missing.** In Kotlin, a read of
+  `intent` is detected by both branches: the `getIntent()` call branch and the `intent` property
+  branch. g6 removes the call branch, and only the Java test fails. g1 removes the property branch, and
+  nothing fails. g7 removes both, and both Kotlin tests fail. Both branches are kept, because how UAST
+  represents a synthetic property may differ between Lint versions. That reason is a precaution and
+  was not tested on another version.
+- **Names in the table** are `CoverageDetectorTest`, `GuardCallDetectorTest` or `DeepLinkDetectorTest`,
+  according to the mutant's letter (c, g or d), except c11, which is caught in `GuardCallDetectorTest`.
+- **Not mutated:**
+  - the source-manifest location fallback, which lint-tests never reach (L41);
+  - the alias and nested-class name handling;
+  - `ShezGuardIssueRegistry`, whose severities are pinned by `ShezGuardIssueRegistryTest`, not
+    mutated.
+
+### Demo negative control (real Gradle build; the only evidence for the source-mapping fallback)
+This mutates the rule's **input**, not the rule: one annotation is removed from the demo app, and Lint
+must fail the build at the activity's manifest line. In a real Gradle build, Lint does not map
+merged-manifest elements back to source, so this run is the only evidence for the rule's fallback
+lookup. No lint-test reaches it (`docs/LIMITATIONS.md` L41).
+
+Procedure, from the repository root, on macOS (`sed -i ''`; with GNU sed use `sed -i`). The working
+tree copy of the file must be unmodified, because `git checkout` restores it:
+
+```sh
+F=app/src/main/java/com/shezguard/router/demo/SearchActivity.kt
+git diff --quiet -- "$F" || { echo "$F has local changes; stop"; exit 1; }
+shasum -a 256 "$F"                                     # record the hash
+sed -i '' '/^@GuardedEntryPoint("search")$/d' "$F"     # remove the annotation line
+grep -c 'GuardedEntryPoint("search")' "$F"             # expect 0
+./gradlew :app:lintProtectedDebug --no-watch-fs; echo "exit=$?"   # expect exit=1, "aborting build"
+python3 -I -c "
+import xml.etree.ElementTree as E
+for i in E.parse('app/build/reports/lint-results-protectedDebug.xml').getroot().iter('issue'):
+    if i.get('id') == 'ShezGuardUnguardedEntryPoint':
+        l = i.find('location'); print(i.get('severity'), l.get('file'), l.get('line'))
+"                                                      # expect: Error .../app/src/main/AndroidManifest.xml 44
+git checkout -- "$F"                                   # restore
+shasum -a 256 "$F"                                     # expect the recorded hash
+git status --short -- "$F"                             # expect no output
+./gradlew :app:lintProtectedDebug --no-watch-fs        # expect success again (refreshes the report)
+```
+
+Expected and observed result (2026-11-16, AGP 8.10.1, run twice: before and after `checkDependencies =
+true` was set in `:app`): `exit=1`, "Lint found errors in the project; aborting build",
+`Error app/src/main/AndroidManifest.xml 44` (line 44 is `SearchActivity`'s `<activity` element), message
+"`SearchActivity` is exported (`android:exported="true"`) and has a BROWSABLE intent filter but has no
+`@GuardedEntryPoint`. …". The hash after restoring was the recorded
+`0ab519f616e03863ca17224ae64b2bff5d3b4618c510cc9a518c0786fd9e2920`, and `git status` was clean.
+
+- **First run:** the annotation line was blanked rather than deleted, and the file was restored from a
+  copy. Same result.
+- **Before the fallback existed:** the same run reported the issue at the `app` directory with no
+  line. That is how the missing mapping was found.

@@ -20,7 +20,7 @@ import xml.etree.ElementTree as ET
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[2]
-MODULE = "shezguard-core"
+DEFAULT_MODULE = "shezguard-core"  # definitions may set MODULE and TASK (step 13: shezguard-lint, "test")
 
 
 def load(definitions: Path):
@@ -39,11 +39,14 @@ def apply(text: str, mutant: dict) -> str:
     return text
 
 
-def run_tests(tests, variant: str):
+def run_tests(tests, module: str, task: str):
     """Runs the selected tests; returns (ran, {test name without [sdk]: failed count}, gradle exit)."""
-    results = REPO / MODULE / "build" / "test-results" / f"test{variant}UnitTest"
+    results = REPO / module / "build" / "test-results" / task
     shutil.rmtree(results, ignore_errors=True)
-    cmd = ["./gradlew", f":{MODULE}:test{variant}UnitTest", "-q"]
+    # --no-watch-fs (step 13): with file-system watching, a source written, restored and rewritten within
+    # seconds was sometimes treated as unchanged, so a mutant ran against the ORIGINAL classes and was
+    # reported as SURVIVED (c7, c8, c10 in the first step 13 run). This can only produce false survivors.
+    cmd = ["./gradlew", f":{module}:{task}", "-q", "--no-watch-fs"]
     for t in tests:
         cmd += ["--tests", t if t.endswith("*") else t + "*"]  # '*' also matches Robolectric's name[sdk]
     proc = subprocess.run(cmd, cwd=REPO, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
@@ -65,15 +68,17 @@ def main() -> int:
     args = ap.parse_args()
 
     mod = load(args.definitions.resolve())
+    module = getattr(mod, "MODULE", DEFAULT_MODULE)
+    task = getattr(mod, "TASK", f"test{args.variant}UnitTest")
     target = REPO / mod.FILE
     original = target.read_bytes()
     digest = hashlib.sha256(original).hexdigest()
-    backup = REPO / MODULE / "build" / "mutation" / (target.name + ".orig")
+    backup = REPO / module / "build" / "mutation" / (target.name + ".orig")
     backup.parent.mkdir(parents=True, exist_ok=True)
     backup.write_bytes(original)
     print(f"target {mod.FILE}\nsha256 {digest}\nbackup {backup.relative_to(REPO)}\n")
 
-    ran, failed, code, out = run_tests(mod.TESTS, args.variant)
+    ran, failed, code, out = run_tests(mod.TESTS, module, task)
     if code != 0 or failed or ran == 0:
         print(out[-3000:])
         raise SystemExit(f"baseline is not green (ran={ran}, failed={failed}); refusing to run mutants")
@@ -87,7 +92,7 @@ def main() -> int:
                 continue
             try:
                 target.write_text(apply(original.decode("utf-8"), m), encoding="utf-8")
-                ran, failed, code, out = run_tests(mod.TESTS, args.variant)
+                ran, failed, code, out = run_tests(mod.TESTS, module, task)
             finally:
                 target.write_bytes(original)
             if ran == 0:

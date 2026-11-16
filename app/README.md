@@ -66,6 +66,45 @@ not enough for a class the app never constructs (step 12; `docs/LIMITATIONS.md` 
 annotation names an entry point of the policy, and replays the URI and extras parts of the attacks
 and benign controls through `ShezGuard.evaluate`: `./gradlew :app:testProtectedDebugUnitTest`.
 
+## Lint (step 13 build-time coverage check)
+The ShezGuard Lint rule reaches `:app` through the project dependency on `:shezguard-core`, with no
+`lintChecks` line. `app/build.gradle.kts` sets `lint { checkDependencies = true }`, the documented
+configuration for enforcing coverage (README, "Build-time coverage check"). Everything else is default,
+including `abortOnError = true`. `./gradlew :app:check` runs Lint for the default variant only
+(`lintProtectedDebug`), verified with `--dry-run`. Observed on 2026-11-16 with that setting:
+
+| Task | Result | ShezGuard findings | Built-in findings relevant to ShezGuard |
+|---|---|---|---|
+| `lintProtectedDebug` | **passes** | `ShezGuardUnverifiableDeepLink` ×1 (`shezdemo://login`, LinkActivity) | `AppLinkWarning` ×6 (https filters without `autoVerify`) |
+| `lintVulnerableDebug` | **fails** ("Lint found 9 errors") | `ShezGuardUnknownEntryPointName` ×9 (Error, one per annotated name), plus the same `ShezGuardUnverifiableDeepLink` ×1 | the same 6 `AppLinkWarning` |
+
+- **`checkDependencies` is what makes the names provable.** With it, Lint analyses `:shezguard-core`
+  together with `:app`, so the rule has seen every module that could hold the policy. A name that no
+  `entryPoint("...")` declares is then provably missing: an Error. Without it, the rule cannot rule out
+  a policy in an unanalysed module. Before this setting (same day), `lintVulnerableDebug` passed and the
+  9 names were only `ShezGuardEntryPointNameUnverifiable` **warnings**.
+- **The vulnerable flavor is a negative control.** Its activities carry every annotation (shared
+  `src/main`), but no `intentPolicy {}` exists in that source set (`DemoPolicy` is in `src/protected`),
+  and its `EntryGuard` never calls the library. `lintVulnerable*` is **expected to fail**: that failure
+  shows the check notices a missing policy.
+  - Issue 1 (`ShezGuardUnguardedEntryPoint`) still passes there, because every exported activity is
+    annotated. This is `docs/LIMITATIONS.md` L4 in practice: annotations prove a name is declared, not
+    that the guard runs.
+  - By the rule's logic (not run), a vulnerable flavor whose policy declared the 9 names but never
+    called the guard would pass entirely.
+- **Not in the demo:** issues 3 (guard call inside an exempt activity), 4 (call order) and 5
+  (unchecked result). The demo calls `ActivityGuard` only through the `EntryGuard` shim, an `object`,
+  not an activity, so the rule never sees a direct call in an activity method. These issues are
+  evidenced only by lint-tests (`shezguard-lint/src/test/.../GuardCallDetectorTest.kt`).
+- **Negative control in a real build** (2026-11-16, run twice: without and with `checkDependencies`).
+  `@GuardedEntryPoint("search")` was removed from `SearchActivity` temporarily. `lintProtectedDebug`
+  then failed with `ShezGuardUnguardedEntryPoint` (Error) at `src/main/AndroidManifest.xml:44`
+  ("aborting build"), and the file was restored (SHA-256 checked). This is the only evidence for the
+  rule's merged-manifest-to-source location fallback (`docs/LIMITATIONS.md` L41). The exact procedure
+  is in `docs/MUTATION_CHECKS.md` (step 13).
+- **Not edited for Lint:** no baseline or `lint.xml` was added, only `checkDependencies`. The
+  hijackable filters stay as they are (threat 4).
+
 ## Install (emulator)
 ```sh
 ./gradlew :app:installVulnerableDebug   # or :app:installProtectedDebug

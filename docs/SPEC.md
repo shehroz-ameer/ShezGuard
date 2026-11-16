@@ -390,7 +390,8 @@ Author approval of the step 10 proposal (decisions 1–6, sections (a)–(f)) wi
   calling `super.onNewIntent`, otherwise it calls `super.onNewIntent(checked.intent)`.
 - **Result.** `CheckedIntent(intent, data, decision)` or `null` on Block, annotated `@CheckResult`.
   That is a Lint warning only; the compiler does not force the app to handle `null` (author
-  condition 1; the step 13 Lint rule should flag an ignored result).
+  condition 1). Step 13: an ignored result is the built-in `CheckResult` check; a stored result that is
+  never null-checked is `ShezGuardUncheckedGuardResult` (section 9).
 - **Entry point name.** `@GuardedEntryPoint(name, exempt = false)`: `RUNTIME` retention, target
   `CLASS`, not `@Inherited`, read from the activity's exact class. Missing, empty, or `exempt = true`
   gives Block with `ENTRY_POINT_NOT_ANNOTATED` (HARD, CRITICAL); the intent is not read, the decision
@@ -493,16 +494,62 @@ filter, has no registered ShezGuard policy.
 **[DECIDED]** Annotation-based: `@GuardedEntryPoint("product")` on the component class,
 checked by a custom Android Lint rule in a separate `:shezguard-lint` module (Lint API as
 `compileOnly`, so `:shezguard-core` keeps no third-party runtime dependencies).
-- Lint reads the merged manifest and the Kotlin source and matches exported components
-  (including pre-API 31 implicit export via intent filters) to annotations.
 - Explicit exemption is possible (`exempt = true`), e.g. for the launcher activity.
-- A unit-test helper checks that every annotated name exists in the `intentPolicy {}` DSL.
-- Lint is wired into `check` with `abortOnError` so it actually fails the build.
-- Fallback: if the Lint rule costs more than about a day, switch to a registry file checked
-  by a Gradle task against the merged manifest, and tell the author.
-- Limitation: the check proves a policy is declared, not that `evaluate()` is called.
+- Fallback (not needed): a registry file checked by a Gradle task. The Lint route fit the time-box.
+- KSP remains an optional stretch.
 
-KSP remains an optional stretch.
+**[IMPLEMENTED, step 13]**
+- **Packaging.** `:shezguard-lint` is a plain Kotlin/JVM module: `lint-api` 31.10.1 `compileOnly`,
+  `lint-tests` test-only. `:shezguard-core` ships it in its AAR with
+  `lintPublish(project(":shezguard-lint")) { isTransitive = false }`. The library's
+  `releaseRuntimeClasspath` was diffed before and after: identical. Lint 31.10.1 belongs to AGP 8.10.1
+  (Lint = AGP + 23.0.0). The registry sets `api = minApi = CURRENT_API` (16), so an older host Lint
+  skips the rule (`ObsoleteLintCustomCheck`; LIMITATIONS L41).
+- **How it reads the code.** Two phases, so it works under Lint's partial (per-module) analysis, which
+  is AGP's default.
+  1. Per module, from source (Kotlin and Java, through UAST): every `android.app.Activity` subclass
+     with its `@GuardedEntryPoint` values, and every constant `entryPoint(...)` name passed to
+     `IntentPolicyBuilder`.
+  2. In the app module's reporting phase: these are compared with the app's **merged** manifest
+     (`Project.mergedManifest`) and with each other.
+
+  A spike showed the merged manifest is non-null in both global and partial analysis, and that it
+  includes library components.
+- **Issues** (severity; README states each issue's confidence):
+
+  | ID | Severity | Reports |
+  |---|---|---|
+  | `ShezGuardUnguardedEntryPoint` | Error | Exported (explicitly, or implicitly below targetSdk 31 via an intent filter) or `BROWSABLE` activity / activity-alias of the app without a valid `@GuardedEntryPoint` |
+  | `ShezGuardUnknownEntryPointName` | Error | Annotated name not declared, proved within the analysed modules |
+  | `ShezGuardEntryPointNameUnverifiable` | Warning | Not found, but not provable: a non-constant `entryPoint` argument, or no `entryPoint` call found with `checkDependencies` off |
+  | `ShezGuardInvalidAnnotation` | Error | Name plus `exempt`, empty name without `exempt`, name the DSL rejects, direct guard call inside an exempt activity |
+  | `ShezGuardGuardCallOrder` | Error | Direct `ActivityGuard.onCreate` after `super.onCreate` or a `getIntent()` read; `onNewIntent` after `super.onNewIntent` (same method, source order) |
+  | `ShezGuardUncheckedGuardResult` | Warning | Stored guard result never null-checked in the method, or asserted with `!!` (heuristic). A completely ignored result is the built-in `CheckResult` (Warning) |
+  | `ShezGuardUnverifiableDeepLink` | Warning | Threat 4 advice: custom scheme in a `BROWSABLE` filter; http(s) with `autoVerify="false"`. Missing `autoVerify` is the built-in `AppLinkWarning` |
+  | `ShezGuardDependencyEntryPoint` | Warning | Exported or `BROWSABLE` activity from a dependency (class not in the analysed sources) |
+  | `ShezGuardUncoveredComponent` | Informational | The app's exported services, receivers, providers without `android:permission` (v1 covers activities only) |
+
+- **Build failure.** Error-severity issues fail `lint<Variant>` and therefore `check` (default variant
+  only), with `abortOnError` (default `true`). `lintVital` on release builds checks only Fatal
+  issues, so release blocking is opt-in with `lint { fatal += ... }` (README). The demo app sets
+  `lint { checkDependencies = true }`, the documented enforcing configuration. It is what makes a
+  missing policy name provable (an Error rather than a Warning). With it, `lintVulnerableDebug` fails
+  with 9 `ShezGuardUnknownEntryPointName` Errors (no policy in that flavor), and `lintProtectedDebug`
+  passes.
+- **The unit-test helper.** The protected demo's `DemoPolicyTest` builds the policy and checks the
+  annotated names at runtime. The Lint rule does the same statically.
+- **Limitation:** the check proves a policy name is declared, not that `evaluate()` or the guard is
+  called. The one exception is the call-order and result heuristics on a direct `ActivityGuard` call
+  in the same method (LIMITATIONS L4, L41).
+- **Trade-offs of the approach.** Annotations live next to the code, and the merged manifest gives the
+  real exported set, including implicit export and library components. Lint runs in the IDE and in CI
+  with no extra Gradle task. The costs:
+  - the rule is tied to the Lint API version (L41);
+  - cross-module proof needs `checkDependencies`;
+  - Lint findings can be suppressed or baselined.
+
+  A registry-file Gradle task would avoid the version coupling, but would duplicate the names in a
+  second file and could not see source.
 
 ## 10. Evaluation plan (not an empirical study)
 Show by construction and demonstration, not by large-scale measurement:
