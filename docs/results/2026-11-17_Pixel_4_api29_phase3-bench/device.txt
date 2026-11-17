@@ -20,5 +20,5 @@ compilation=cmd package compile -m speed -f: Success
 androidx_benchmark=1.5.0; suppressErrors=EMULATOR
 percall=warmup 2000 + 10000 timed calls per scenario per run; runs=5 (one process each)
 micro_runs=3 (one process each)
-commit=ca50ca004ac39d119afb859c7c3df49634806616 + uncommitted changes in shezguard-core or benchmark
+commit=8c806059da5458100d301fab69f50cc99a498123 + uncommitted changes in shezguard-core or benchmark
 date=2026-11-17T19:19:12Z

@@ -109,6 +109,9 @@ def method_b(folder: Path):
 
 def main() -> int:
     folder = Path(sys.argv[1])
+    dev = (folder / "device.txt").read_text() if (folder / "device.txt").exists() else ""
+    if "NOT RESULTS" in dev:
+        print("**SCRIPT CHECK ONLY: reduced runs and samples; these numbers are NOT RESULTS.**\n")
     print(f"Source: `{folder.name}`\n")
     method_a(folder)
     method_b(folder)

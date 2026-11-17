@@ -1,0 +1,96 @@
+ShezGuard footprint, 2026-11-17T20:07:58Z, commit 27861686fe80ea3bcba59a0acc5acf43e3587cee
+Tools: 36.0.0 d8/dexdump, apkanalyzer 
+
+1. Release AAR: shezguard-core/build/outputs/aar/shezguard-core-release.aar
+   file bytes: 340757
+   entries (uncompressed bytes, compressed bytes, name):
+            0        2  R.txt
+          200      148  AndroidManifest.xml
+       314977   294367  classes.jar
+         1407      719  proguard.txt
+        46730    44708  lint.jar
+          156      111  META-INF/com/android/build/gradle/aar-metadata.properties
+
+2. classes.jar as dex (d8 --release --min-api 24): 248192 bytes
+   field_ids_size      : 504
+   method_ids_size     : 1379
+   class_defs_size     : 211
+   methods defined per package (apkanalyzer; a package row includes its subpackages):
+    com.shezguard.core           defined methods   1126   dex bytes   111710
+    com.shezguard.core.policy    defined methods    430   dex bytes    41064
+    com.shezguard.core.eval      defined methods    211   dex bytes    20587
+    com.shezguard.core.canon     defined methods     79   dex bytes     9277
+    com.shezguard.core.android   defined methods     70   dex bytes     7868
+    com.shezguard.core.audit     defined methods     67   dex bytes     5925
+    com.shezguard.core.validate  defined methods     28   dex bytes     4784
+
+3. Demo app (:app), R8 effect
+  protected/release/app-protected-release-unsigned.apk
+    file bytes 4873019   download bytes 3947923   dex bytes 9450780   methods referenced 63759
+    androidx                     defined methods  26193   dex bytes  2643208
+    com.shezguard.core           defined methods   1127   dex bytes   114250
+    com.shezguard.core.policy    defined methods    430   dex bytes    42088
+    com.shezguard.core.eval      defined methods    211   dex bytes    20939
+    com.shezguard.core.canon     defined methods     79   dex bytes     9423
+    com.shezguard.core.android   defined methods     70   dex bytes     7974
+    com.shezguard.core.audit     defined methods     67   dex bytes     6107
+    com.shezguard.core.validate  defined methods     28   dex bytes     4955
+    com.shezguard.router         defined methods    189   dex bytes    16522
+    kotlin                       defined methods  10130   dex bytes   921820
+  vulnerable/release/app-vulnerable-release-unsigned.apk
+    file bytes 4867359   download bytes 3939782   dex bytes 9438024   methods referenced 63654
+    androidx                     defined methods  26193   dex bytes  2643199
+    com.shezguard.core           defined methods   1127   dex bytes   114250
+    com.shezguard.core.policy    defined methods    430   dex bytes    42088
+    com.shezguard.core.eval      defined methods    211   dex bytes    20939
+    com.shezguard.core.canon     defined methods     79   dex bytes     9423
+    com.shezguard.core.android   defined methods     70   dex bytes     7974
+    com.shezguard.core.audit     defined methods     67   dex bytes     6107
+    com.shezguard.core.validate  defined methods     28   dex bytes     4955
+    com.shezguard.router         defined methods     84   dex bytes     9294
+    kotlin                       defined methods  10130   dex bytes   921820
+  protected/minified/app-protected-minified.apk
+    file bytes 2079278   download bytes 1180592   dex bytes 1295048   methods referenced 10541
+    androidx                     defined methods   5251   dex bytes   729745
+    com.shezguard.core           defined methods    356   dex bytes    51067
+    com.shezguard.core.policy    defined methods    106   dex bytes    11474
+    com.shezguard.core.eval      defined methods     35   dex bytes     3962
+    com.shezguard.core.audit     defined methods     24   dex bytes     8049
+    com.shezguard.core.canon     defined methods     24   dex bytes     6405
+    com.shezguard.core.android   defined methods     23   dex bytes     1459
+    com.shezguard.core.validate  defined methods      6   dex bytes      889
+    com.shezguard.router         defined methods     47   dex bytes     7168
+    kotlin                       defined methods    335   dex bytes    34348
+    classes from com.shezguard.core in mapping.txt: 125
+  vulnerable/minified/app-vulnerable-minified.apk
+    file bytes 2038766   download bytes 1137523   dex bytes 1212384   methods referenced 10092
+    androidx                     defined methods   5356   dex bytes   730223
+    com.shezguard.router         defined methods     45   dex bytes     6633
+    com.shezguard.core           defined methods      2   dex bytes      107
+    kotlin                       defined methods    258   dex bytes    25723
+    classes from com.shezguard.core in mapping.txt: 1
+
+4. :shezguard-core releaseRuntimeClasspath
+   +--- androidx.core:core:1.9.0
+   |    +--- androidx.annotation:annotation:1.2.0
+   |    +--- androidx.annotation:annotation-experimental:1.3.0
+   |    |    \--- org.jetbrains.kotlin:kotlin-stdlib:1.7.10 -> 2.0.21
+   |    |         \--- org.jetbrains:annotations:13.0
+   |    +--- androidx.collection:collection:1.0.0
+   |    |    \--- androidx.annotation:annotation:1.0.0 -> 1.2.0
+   |    +--- androidx.concurrent:concurrent-futures:1.0.0
+   |    |    +--- com.google.guava:listenablefuture:1.0
+   |    |    \--- androidx.annotation:annotation:1.1.0 -> 1.2.0
+   |    +--- androidx.lifecycle:lifecycle-runtime:2.3.1
+   |    |    +--- androidx.arch.core:core-runtime:2.1.0
+   |    |    |    +--- androidx.annotation:annotation:1.1.0 -> 1.2.0
+   |    |    |    \--- androidx.arch.core:core-common:2.1.0
+   |    |    |         \--- androidx.annotation:annotation:1.1.0 -> 1.2.0
+   |    |    +--- androidx.lifecycle:lifecycle-common:2.3.1
+   |    |    |    \--- androidx.annotation:annotation:1.1.0 -> 1.2.0
+   |    |    +--- androidx.arch.core:core-common:2.1.0 (*)
+   |    |    \--- androidx.annotation:annotation:1.1.0 -> 1.2.0
+   |    \--- androidx.versionedparcelable:versionedparcelable:1.1.1
+   |         +--- androidx.annotation:annotation:1.1.0 -> 1.2.0
+   |         \--- androidx.collection:collection:1.0.0 (*)
+   \--- org.jetbrains.kotlin:kotlin-stdlib:2.0.21 (*)

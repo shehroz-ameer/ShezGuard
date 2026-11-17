@@ -129,7 +129,9 @@ caller, on API 24, 30, 31 and 34 where available:
 - `onNewIntent` delivery to a `singleTop` activity from a second caller (staleness, N12);
 - package visibility: certificate lookup of the caller without `<queries>` on API 30+;
 - domain verification state for a verified, a selected and an unverified host (API 31+).
-Until then every source-only caller claim is "unconfirmed on device" (`docs/LIMITATIONS.md` L30).
+Result (step 14 phase 2, 2026-11-17): each caller claim now carries a label in `docs/LIMITATIONS.md` L30
+and `docs/PAPER_NOTES.md` N11–N13 (confirmed (emulator, API N), not applicable (API < N),
+Robolectric-only, or source-read only (AOSP, not run)).
 
 ## 15. Hardening review
 Act as a security reviewer of `:shezguard-core`. List bypasses, edge cases and unsafe defaults

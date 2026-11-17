@@ -276,6 +276,24 @@ class CallerIdentityDeviceTest {
         assertEquals(reliableSourceForThisApp(), misuse.callerIdentitySource)
     }
 
+    /**
+     * N8: `ActivityThread` gives a delivered intent's extras the app's class loader, before `onCreate`
+     * (`performLaunchActivity`) and before `onNewIntent` (`deliverNewIntents`). Launch: an intent with an
+     * extra from another app; new intent: a second intent with an extra from the shell.
+     */
+    @Test
+    fun deliveredExtrasGetTheAppClassLoader() {
+        attacker("extras_only", ProbeActivity::class.java)
+        val launch = awaitProbe("extras_only launch")
+        launchSingleTopFromThisApp("deliveredExtrasGetTheAppClassLoader")
+        DeviceShell.run("am start -n ${Probe.SELF}/${ProbeSingleTopActivity::class.java.name} -f 0x30000000 --es k v")
+        val newIntent = awaitProbe("shell new intent with an extra")
+        println("[N8d] sdk=$sdk deliveredExtrasGetTheAppClassLoader launch=${launch.extrasLoader} newIntent=${newIntent.extrasLoader}")
+        assertEquals(Delivery.NEW_INTENT, newIntent.delivery)
+        assertEquals("onCreate", "app", launch.extrasLoader)
+        assertEquals("onNewIntent", "app", newIntent.extrasLoader)
+    }
+
     /** N12: a second intent from the shell to the singleTop probe; the OS keeps the launch's caller. */
     @Test
     fun newIntentFromTheShellKeepsTheLaunchIdentity() {

@@ -23,7 +23,8 @@
 #   XML and the Gradle output stay in a temporary folder that is deleted at the end. Before exiting, the
 #   results folder is scrubbed (scripts/device/scrub.py: API keys, tokens, private-key headers, email
 #   addresses, the device serial number, the debug certificate fingerprint) and the run fails if
-#   anything still matches.
+#   anything still matches (the folder is then deleted). SCRUB_SELFTEST=1 additionally proves, on a temp
+#   copy with an injected fake key, that the gate fails the run (exit 8).
 set -uo pipefail
 
 AVD="${1:?usage: run_shared_tests.sh <AVD> <run label> [port]}"
@@ -48,7 +49,6 @@ fi
 ATTACKER_APK_LOCAL="$REPO/attacker/build/outputs/apk/debug/attacker-debug.apk"
 ATTACKER_APK_DEVICE=/data/local/tmp/shezguard-attacker.apk
 ATTACKER_WAS_INSTALLED=""
-WORK="$(mktemp -d)"   # raw logcat, JUnit XML, Gradle output, scrub literals: never under docs/results
 
 "$EMU" -avd "$AVD" -port "$PORT" -no-snapshot-save -no-boot-anim -no-audio -no-window >/dev/null 2>&1 &
 EMU_PID=$!
@@ -89,10 +89,13 @@ cleanup() {
     [ -n "${OUT:-}" ] && { echo "attacker_installed_after=$att"; echo "test_apk_installed_after=$tst"; } >> "$OUT/device.txt"
   fi
   shutdown_emulator
-  rm -rf "$WORK"
+  if [ -n "${WORK:-}" ]; then rm -rf "$WORK"; echo "temp folder removed: $WORK (exists now: $([ -e "$WORK" ] && echo yes || echo no))"; fi
   exit $code
 }
 trap cleanup EXIT INT TERM
+# Created only after the trap is set, so every exit path, including failures and Ctrl-C, removes it.
+WORK="$(mktemp -d)"   # raw logcat, JUnit XML, Gradle output, scrub literals: never under docs/results
+echo "temp folder: $WORK"
 
 "$ADB" -s "$SERIAL" wait-for-device
 for _ in $(seq 1 300); do [ "$(prop sys.boot_completed)" = "1" ] && break; sleep 2; done
@@ -164,8 +167,29 @@ head -1 "$OUT/results.txt"
   "$SDK/build-tools/36.0.0/apksigner" verify --print-certs "$ATTACKER_APK_LOCAL" 2>/dev/null \
     | sed -nE 's/.*certificate SHA-(256|1) digest: ([0-9a-fA-F]+).*/\2/p'
 } > "$WORK/literals.txt"
-if ! python3 -I "$REPO/scripts/device/scrub.py" "$OUT" --literals "$WORK/literals.txt"; then
-  echo "SCRUB FAILED: a pattern remains in ${OUT#$REPO/}" >&2; exit 8
+# Gate: mask, then re-scan in check-only mode (every file, any suffix, including archive members). If
+# anything still matches, the results folder is deleted and the run fails.
+scrub_gate() { # <folder> [check-only]
+  if [ "${2:-}" != check-only ]; then
+    python3 -I "$REPO/scripts/device/scrub.py" "$1" --literals "$WORK/literals.txt" || return 1
+  fi
+  python3 -I "$REPO/scripts/device/scrub.py" "$1" --check --literals "$WORK/literals.txt"
+}
+if ! scrub_gate "$OUT"; then
+  rm -rf "$OUT"
+  echo "SCRUB FAILED: a pattern remained; ${OUT#$REPO/} was deleted" >&2; exit 8
+fi
+# SCRUB_SELFTEST=1 proves the gate fails a run: a copy of the (clean) results in the temp folder gets a
+# fake API-key-shaped string, built here at run time and never written under docs/results; the gate must
+# then fail. The run ends with exit 8 like a real failure; the clean results folder is kept.
+if [ "${SCRUB_SELFTEST:-0}" = 1 ]; then
+  cp -R "$OUT" "$WORK/selftest"
+  FAKE="AIza$(printf 'Z%.0s' $(seq 1 35))"
+  echo "selftest $FAKE" >> "$WORK/selftest/tagged.txt"
+  if scrub_gate "$WORK/selftest" check-only; then
+    echo "SELF-TEST BROKEN: the gate passed a folder containing a fake key" >&2; exit 9
+  fi
+  echo "SCRUB FAILED (self-test, as intended): the gate rejected the temp copy with the injected string" >&2; exit 8
 fi
 echo "gradle exit=$TEST_EXIT; results in ${OUT#$REPO/}"
 exit $TEST_EXIT

@@ -13,8 +13,8 @@ is not a physical device and does not cover OEM changes. No physical device was 
 **Run labels.** Every run folder ends in a label naming the phase, and `run_shared_tests.sh` refuses to
 write into an existing folder, so a later run never overwrites an earlier one. Phase 2 had overwritten
 the phase 1 folders (same date and name); they were renamed afterwards: `_phase1` folders are restored
-unchanged from commit 957da81 (phase 1 and its follow-ups, 67 or 66 tests per level), `_phase2` folders
-are the phase 2 runs from commit ca50ca0 (84 tests per level), and `_phase2-followup` folders (API 34 and
+unchanged from commit 6c63345 (phase 1 and its follow-ups, 67 tests per level), `_phase2` folders
+are the phase 2 runs from commit 8c80605 (84 tests per level), and `_phase2-followup` folders (API 34 and
 36 only) add the plain internal launch test for L43 (85 tests). The Robolectric folder
 `2026-11-17_robolectric_jvm/` is a reference, updated only by adding files (phase 2 added
 `CraftedUriParcelTest`).
@@ -24,6 +24,13 @@ Phase 3 (benchmark and footprint, `docs/BENCHMARK.md`): `2026-11-17_Pixel_8_api3
 `percall_lines.txt`, `percall_raw.tar.gz`, `micro_run<k>.json`, instrumentation output, `summary.md` from
 `scripts/bench/summarise.py`), and `2026-11-17_footprint_phase3/footprint.txt`
 (`scripts/bench/footprint.sh`). Both scripts also refuse to overwrite an existing folder.
+
+Script checks (not results): `2026-11-17_Pixel_8_api34_phase3-scripts-check/` (`run_shared_tests.sh`
+with `SCRUB_SELFTEST=1`; the tests themselves ran normally), `2026-11-17_Pixel_8_api34_phase3-scripts-check-bench/`
+(`run_bench.sh` with `BENCH_SCRIPT_CHECK=1` and `SCRUB_SELFTEST=1`: 1 process, 200 timed calls, dry-run
+microbenchmark; its numbers are marked NOT RESULTS and are not used anywhere), and
+`2026-11-17_footprint_phase3-scripts-check/` (a footprint re-run; differences in `docs/BENCHMARK.md`).
+`_phase4-followup/`: all five emulators after the N8 class-loader test was added.
 
 Emulators (all arm64-v8a): `ShezGuard_API_24` (google_apis, Android 7.0, patch 2017-10-05),
 `Pixel_4` (API 29, Play image), `ShezGuard_API_33` (google_apis, patch 2024-03-01), `Pixel_8` (API 34,
@@ -93,6 +100,20 @@ Results, 2026-11-17 (84 instrumented tests per level, 0 failed; skips are level 
 `tagged.txt`. `:attacker` was put back as found on each AVD (`attacker_installed_before/after` in
 `device.txt`); AGP uninstalls the test APK after the run (`test_apk_installed_after=0`), which also
 removes the domain states set via pm.
+
+## Instrumented test counts per emulator
+
+| Run | API 24 | API 29 | API 33 | API 34 | API 36 |
+|---|---|---|---|---|---|
+| `_phase1` (phase 1 and its follow-ups) | 67, 0 skipped | 67, 0 skipped | 67, 1 skipped | 67, 1 skipped | 67, 1 skipped |
+| `_phase2` | 84, 3 skipped | 84, 3 skipped | 84, 5 skipped | 84, 4 skipped | 84, 4 skipped |
+| `_phase2-followup` (+ plain internal launch, L43) | not run | not run | not run | 85, 4 skipped | 85, 4 skipped |
+| `_phase3-scripts-check` (script check, same tests) | – | – | – | 85, 4 skipped | – |
+| `_phase4-followup` (+ extras class loader, N8) | 86, 3 skipped | 86, 3 skipped | 86, 5 skipped | 86, 4 skipped | 86, 4 skipped |
+
+0 failures in every run. In `_phase1`, the 1 skip on API 33, 34 and 36 is
+`characterisesPartialMapAfterFailedUnparcel`. Skips in later runs are listed below; the two tests added
+after phase 2 skip on no level.
 
 ## Skipped tests per level (phase 2 and follow-up runs)
 Every skip is a JUnit assumption on the API level; none hides a failure. Phase 2 runs: 84 tests per level;
@@ -181,6 +202,5 @@ the emulator's `AdbDebuggingManager`, phase 1, API 29). So:
   `ro.boot.serialno`, read from the device, and the `EMULATOR…X…` form), the host's adb public key, and
   certificate fingerprints (colon hex, and the debug certificate's SHA-256 and SHA-1 digests read from the
   built APK's public certificate). It re-scans afterwards and the run fails if anything remains.
-- The removed logcats are still in the git history (commits 957da81 and ca50ca0, both pushed); history
-  was not rewritten.
+- The git history was rewritten on 2026-11-17 to remove the raw logcat files from every commit.
 

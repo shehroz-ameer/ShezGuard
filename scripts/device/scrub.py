@@ -96,9 +96,15 @@ def main() -> int:
                             remaining += c
                             print(f"REMAINS {f}:{m.name}: {n} x{c} (archive member, not rewritten)")
             continue
+        raw = f.read_bytes()
         if f.suffix not in TEXT_SUFFIXES:
+            # Not rewritten, but scanned (unless binary): a match here remains and fails the scrub.
+            if b"\0" not in raw[:4096]:
+                for n, c in scan_text(raw.decode(errors="replace"), pats).items():
+                    remaining += c
+                    print(f"REMAINS {f}: {n} x{c} (not a text type, not rewritten)")
             continue
-        text = f.read_text(errors="replace")
+        text = raw.decode(errors="replace")
         hits = scan_text(text, pats)
         if not hits:
             continue

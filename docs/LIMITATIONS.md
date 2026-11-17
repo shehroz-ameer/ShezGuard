@@ -48,7 +48,9 @@ reliable or a signature-level permission protects the component.
   with `https` data.
 - **Step 8 update:** `getLaunchedFromUid()` / `getLaunchedFromPackage()` are public only from
   API 34; on 31–33 they are `@hide` and not used. On API 34 they also require the launcher's
-  opt-in. All of this is from the AOSP source; unconfirmed on device (L30).
+  opt-in. That they are `@hide` on 31–33 is source-read only (AOSP, not run). The API 34 opt-in:
+  confirmed (emulator, API 34, 36); not applicable (API < 34). On API 34+ a launcher with the same uid
+  is reported without opt-in (L43).
 - **Source:** orientation items 22 and 23; SPEC section 8.
 
 ## L4. The build-time check proves a policy is declared, not that it is enforced
@@ -376,36 +378,41 @@ ShezGuard's nested-intent check looks only at extras values that are, or contain
 - **Evaluated, not adopted:** a restrictive class loader on ShezGuard's copy of the extras
   would make app-defined Parcelable classes fail before their `CREATOR` runs, as the platform
   already does for nested-intent extras (N8). It is not adopted in v1 because the production
-  configuration cannot be tested under Robolectric. Revisit in step 14.
+  configuration cannot be tested under Robolectric. Step 14: the framework-only loader for nested-intent
+  extras is confirmed (emulator, API 24, 29, 33, 34, 36) (N8). The restrictive loader is still not adopted; its effect on
+  nested intents is the step 16 decision in L42.
 - **Source:** step 6 proposal (d) and (a).
 
 ## L28. What the extras stage protects, and what it does not (step 6 summary)
-Every "protected" item below is shown by the named test under Robolectric SDK 24, 29 and 34
-(Robolectric-only, device check pending, step 14). Nothing else is claimed.
+Every "protected" item below is shown by the named test under Robolectric SDK 24, 29 and 34. Tests in
+`src/sharedTest` also ran on the emulators: those items are marked confirmed (emulator, API 24, 29, 33, 34, 36); the others
+are Robolectric-only. Nothing else is claimed.
 
 **Shown by tests:**
 - An `Intent`, `PendingIntent` or `IntentSender` in an extra, explicit or implicit, directly,
   in a `Parcelable[]`, `ArrayList`, `Map` value, `SparseArray`, nested `Bundle`, or inside another
   nested Intent, blocks with `NESTED_INTENT_DENIED` (`NestedIntentTest.blocks*`; PendingIntent and
-  IntentSender in-process only, not after a Parcel round trip).
+  IntentSender in-process only, not after a Parcel round trip): confirmed (emulator, API 24, 29, 33, 34, 36).
 - Wrong types, oversized strings, arrays and array elements under allowed keys, and more than 16
-  keys, block (`ExtrasEvaluateTest`, `ExtrasValidatorTest`).
+  keys, block (`ExtrasEvaluateTest`, `ExtrasValidatorTest`): Robolectric-only.
 - Unknown keys, including a `null` key and custom Parcelables, are removed from a sanitized copy
   that holds only checked values (`sanitizesUnknownExtraKeyByRemovingIt`,
-  `nullKeyIsReportedAsUndeclaredAndRemoved`, `customParcelableUnderUnknownKeyIsRemoved`).
-- More than four nested containers block with `EXTRAS_TOO_DEEP` (`blocksExtrasNestedBeyondDepthLimit`).
+  `nullKeyIsReportedAsUndeclaredAndRemoved`, `customParcelableUnderUnknownKeyIsRemoved`): Robolectric-only.
+- More than four nested containers block with `EXTRAS_TOO_DEEP` (`blocksExtrasNestedBeyondDepthLimit`): Robolectric-only.
 - A Parcelable whose `CREATOR` throws, or that has no `CREATOR`, gives `EXTRAS_UNPARCEL_FAILED`
   and never a crash, also when nested in a Bundle, and the URI violations are kept
-  (`ExtrasUnparcelTest`). The caller's Bundle stays parcelled (`callerBundleStaysParcelledAfterUnparcelFailure`).
+  (`ExtrasUnparcelTest`). The caller's Bundle stays parcelled (`callerBundleStaysParcelledAfterUnparcelFailure`):
+  confirmed (emulator, API 24, 29, 33, 34, 36), with the hostile `CREATOR` shown to run (`[N7s] ... ran 1x`).
 - Under `Nested.AllowSanitized`, the forwarded nested intent is `IntentSanitizer`'s output, not
   the original object (`forwardedNestedIntentIsTheSanitizerOutputNotTheOriginal`); a rewritten
-  component, a sanitizer exception and an Intent left in the output all block.
+  component, a sanitizer exception and an Intent left in the output all block: confirmed (emulator, API 24, 29, 33, 34, 36).
 - The input intent's extras, including a nested intent's extras and categories, are unchanged
   after evaluation (`inputIntentAndItsExtrasAreNeverModified`); no decision output contains extra
   keys or values (`noDecisionOutputContainsExtraKeysOrValues`,
-  `intentSanitizerMessagesNeverReachDecisionOutput`).
+  `intentSanitizerMessagesNeverReachDecisionOutput`): Robolectric-only, except
+  `intentSanitizerMessagesNeverReachDecisionOutput`, confirmed (emulator, API 24, 29, 33, 34, 36).
 - On a 4000-case fixed-seed fuzz corpus with random extras, `EVALUATION_FAILED` never occurs and
-  every extras code is reached (`EvaluateInvariantsTest.evaluateNeverThrowsOnFuzzedIntents`).
+  every extras code is reached (`EvaluateInvariantsTest.evaluateNeverThrowsOnFuzzedIntents`): Robolectric-only.
 
 **Not protected or not shown:**
 - **Deserialisation side effects** of a hostile `Parcelable` or `Serializable` run before ShezGuard
@@ -425,7 +432,9 @@ Every "protected" item below is shown by the named test under Robolectric SDK 24
   `IntentSanitizer` configuration**; ShezGuard adds only the component, exception and
   "no further nested intent" checks.
 - **Device behaviour.** Robolectric runs the AOSP Java code of `Bundle`, `Parcel` and `Intent` with
-  an emulated native `Parcel`. OEM builds and real IPC through `system_server` were not tested.
+  an emulated native `Parcel`. The shared tests above ran on emulators (API 24, 29, 33, 34, 36), in
+  process; OEM builds were not tested, and of the extras attacks only those in `docs/ATTACK_MATRIX.md`
+  (step 11/12) went through real IPC via `system_server`.
 - **Source:** step 6.
 
 ## L29. The risk score is a small, hand-tuned part of the design
@@ -459,37 +468,41 @@ Every "protected" item below is shown by the named test under Robolectric SDK 24
 - **Source:** step 7 (author approval 2026-11-11).
 
 ## L30. Caller signals: what is and is not established (step 8)
-Everything below the "shown by tests" list is from the AOSP source (`docs/PAPER_NOTES.md`
-N11–N13) and **unconfirmed on device**; the device check is step 14.
+Each item carries a label (as in `docs/PAPER_NOTES.md`): step 14 phase 2 ran the caller claims with a
+real second app on the emulators (`CallerIdentityDeviceTest`, `DomainVerificationDeviceTest`).
 
-**Shown by tests** (Robolectric SDK 24, 29, 31, 34, unless noted; Robolectric-only, device check
-pending (step 14)):
+**Shown by tests** (Robolectric SDK 24, 29, 31, 34, unless noted):
 - A reliable caller (`getCallingPackage()`, faked by Robolectric's `ShadowActivity`) that is not
   listed, is signed by an unlisted key, has any unlisted signer (multi-signer), cannot be read,
   or (SDK 29, 31, 34) is signed by a current key while only a rotated-out key is listed, is
-  blocked (`CallerAndroidTest`).
+  blocked (`CallerAndroidTest`). With a real app and certificate (unlisted package, wrong digest):
+  confirmed (emulator, API 24, 29, 33, 34, 36). Multi-signer and rotated keys: Robolectric-only.
 - A referrer extra naming an allowed package gives `CALLER_UNIDENTIFIED`; naming an unlisted one
-  gives `CALLER_NOT_ALLOWED`; a web referrer names no package.
+  gives `CALLER_NOT_ALLOWED`; a web referrer names no package. Spoofed `EXTRA_REFERRER` and
+  `EXTRA_REFERRER_NAME` from a real app: confirmed (emulator, API 24, 29, 33, 34, 36); the web referrer: Robolectric-only.
 - The system referrer is read only when neither intent has extras; with extras, `getReferrer()`
   is not called and the caller's Bundle stays parcelled
-  (`systemReferrerIsNotReadWhenItWouldUnparcelTheCallersExtras`).
-- `Delivery.NEW_INTENT` reports no reliable identity and ignores the system referrer.
-- `requireReliableIdentity = true` blocks a launch without a reliable identity.
+  (`systemReferrerIsNotReadWhenItWouldUnparcelTheCallersExtras`): confirmed (emulator, API 24, 29, 33, 34, 36).
+- `Delivery.NEW_INTENT` reports no reliable identity and ignores the system referrer: confirmed (emulator, API 24, 29, 33, 34, 36).
+- `requireReliableIdentity = true` blocks a launch without a reliable identity: confirmed (emulator, API 24, 29, 33, 34, 36).
 - The exclusive pairs never co-occur: a 20 000-case fixed-seed property test with fakes, and an
-  end-to-end grid under Robolectric.
-- No package name or digest appears in any decision output.
+  end-to-end grid under Robolectric: Robolectric-only.
+- No package name or digest appears in any decision output: Robolectric-only.
 
 **Not shown, or not protected:**
-- **`getLaunchedFromPackage()` (API 34)** is tested with fakes only; Robolectric has no shadow.
-- **Domain verification** VERIFIED / NOT_VERIFIED is tested with fakes only; under Robolectric
-  `DomainVerificationManager` is unavailable, so only the UNAVAILABLE path runs for real.
-- **Package visibility** (Android 11+) is not enforced by Robolectric. The claim that no
-  `<queries>` entry is needed for a reliable caller rests on the source only (N13).
+- **`getLaunchedFromPackage()` (API 34):** Robolectric has no shadow (fakes only there); on the
+  emulators: confirmed (emulator, API 34, 36); not applicable (API < 34). See also L43.
+- **Domain verification** (VERIFIED / NOT_VERIFIED with the state set via `pm set-app-links`, not real
+  Digital Asset Links verification): confirmed (emulator, API 33, 34, 36); not applicable (API < 31).
+  API 31 and 32 were not run.
+- **Package visibility** (Android 11+): no `<queries>` entry is needed for a reliable caller, because a
+  for-result or shared-identity launch makes the launcher visible: confirmed (emulator, API 33, 34, 36);
+  not applicable (API < 30). API 30–32 were not run. Robolectric does not enforce visibility.
 - **Forward-result caveat:** `getCallingPackage()` names the app that receives the result. An
   activity started for result by an allowed app can forward that result slot
   (`FLAG_ACTIVITY_FORWARD_RESULT`) when it launches this one, so the allowed app is reported
   although another app launched. ShezGuard cannot detect this from `getCallingPackage()` alone;
-  on API 34 a shared launcher identity is also checked when present.
+  on API 34 a shared launcher identity is also checked when present. Forwarding: confirmed (emulator, API 24, 29, 33, 34, 36).
 - **Key rotation:** only current signers are accepted. When an allowed caller rotates its signing
   key, it is blocked until the new key is added to the allow-list.
 - **Most launches are unidentified.** Plain `startActivity` and browser deep links carry no
@@ -566,8 +579,8 @@ pending (step 14)):
 - **Source:** step 9.
 
 ## L34. The Activity helper: what it does and does not protect (step 10)
-**Shown by tests** (Robolectric SDK 24, 29, 31, 34; Robolectric-only, device check pending (step 14);
-`ActivityGuardTest`):
+**Shown by tests** (Robolectric SDK 24, 29, 31, 34; Robolectric-only: the step 14 lifecycle device
+check was cut by author decision; `ActivityGuardTest`):
 - Block in `onCreate` finishes the activity with `RESULT_CANCELED` and no result data, even when
   the activity set `RESULT_OK` with data before the guard ran
   (`blockResetsAResultSetBeforeTheGuardToCanceledWithoutData`; a new Activity already starts with
@@ -847,8 +860,9 @@ pending (step 14)):
   activities starting the probe, no result, no flags; `plainInternalLaunchNamesThisAppFromApi34`, phase 2
   follow-up) gives `launchedFrom=com.shezguard.core.test` and "partner"
   `BLOCK(LAUNCHED_FROM_PACKAGE)[CALLER_NOT_ALLOWED_RELIABLE]`, while "self" is allowed: confirmed
-  (emulator, API 34, 36), `docs/results/2026-11-17_*_phase2-followup/`. The same test asserts the
-  below-34 case (no reliable source, soft code only) but has not yet been run on API 24, 29 or 33.
+  (emulator, API 34, 36), `docs/results/2026-11-17_*_phase2-followup/`. Below 34 the same launch has no
+  reliable source and is only scored: "partner" `ALLOW(REFERRER_SYSTEM)[CALLER_NOT_ALLOWED]`, confirmed
+  (emulator, API 24, 29, 33) (`docs/results/2026-11-17_*_phase4-followup/`).
 - **Workaround today:** list the app's own package and certificate in the allow-list of an entry point
   that the app itself also launches.
 - **Behaviour not changed in step 14.** Recorded only. **Step 16 decision (open):** whether a reliable

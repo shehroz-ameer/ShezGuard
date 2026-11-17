@@ -1,0 +1,11 @@
+[BENCH-PERCALL] run=1 sdk=34 scenario=simple_link outcome=ALLOW[] warmup=50 n=200 median_ns=15541 p95_ns=26584 p99_ns=32000 max_ns=36667 mean_ns=16449 gc_before=0 gc_after=0
+[BENCH-PERCALL] run=1 sdk=34 scenario=many_params outcome=SANITIZE[PARAM_UNKNOWN_DROPPED] warmup=50 n=200 median_ns=203334 p95_ns=424416 p99_ns=826792 max_ns=3931083 mean_ns=249683 gc_before=0 gc_after=0
+[BENCH-PERCALL] run=1 sdk=34 scenario=max_length outcome=ALLOW[] warmup=50 n=200 median_ns=111333 p95_ns=498458 p99_ns=4477708 max_ns=27510667 mean_ns=359908 gc_before=0 gc_after=0
+[BENCH-PERCALL] run=1 sdk=34 scenario=nested_depth1 outcome=SANITIZE[NESTED_INTENT_SANITIZED] warmup=50 n=200 median_ns=3250 p95_ns=10417 p99_ns=30000 max_ns=89042 mean_ns=5251 gc_before=0 gc_after=0
+[BENCH-PERCALL] run=1 sdk=34 scenario=nested_depth4 outcome=BLOCK[NESTED_INTENT_DENIED] warmup=50 n=200 median_ns=3541 p95_ns=10625 p99_ns=21333 max_ns=54042 mean_ns=4971 gc_before=0 gc_after=0
+[BENCH-PERCALL] run=1 sdk=34 scenario=large_bundle outcome=ALLOW[] warmup=50 n=200 median_ns=62042 p95_ns=664083 p99_ns=3221041 max_ns=9699041 mean_ns=227924 gc_before=0 gc_after=0
+[BENCH-PERCALL] run=1 sdk=34 scenario=early_block_unregistered outcome=BLOCK[ENTRY_POINT_UNKNOWN] warmup=50 n=200 median_ns=250 p95_ns=916 p99_ns=3250 max_ns=13583 mean_ns=503 gc_before=0 gc_after=0
+[BENCH-PERCALL] run=1 sdk=34 scenario=early_block_scheme outcome=BLOCK[SCHEME_NOT_ALLOWED] warmup=50 n=200 median_ns=28500 p95_ns=52125 p99_ns=465083 max_ns=593208 mean_ns=38894 gc_before=0 gc_after=0
+[BENCH-PERCALL] run=1 sdk=34 scenario=baseline_app_reads_link outcome=- warmup=50 n=200 median_ns=834 p95_ns=3166 p99_ns=14458 max_ns=22709 mean_ns=1534 gc_before=0 gc_after=0
+[BENCH-PERCALL] run=1 sdk=34 scenario=baseline_app_reads_bundle outcome=- warmup=50 n=200 median_ns=29833 p95_ns=60250 p99_ns=116209 max_ns=2847458 mean_ns=47262 gc_before=0 gc_after=0
+[BENCH-PERCALL] run=1 sdk=34 scenario=baseline_sanitizer_nested1 outcome=- warmup=50 n=200 median_ns=1250 p95_ns=7375 p99_ns=13209 max_ns=21666 mean_ns=2190 gc_before=0 gc_after=0

@@ -168,6 +168,14 @@ Raw files vs device lines: 0 mismatches.
 Measured by `scripts/bench/footprint.sh phase3`, output in `docs/results/2026-11-17_footprint_phase3/footprint.txt`
 (commit and tool versions in its first lines). Sizes do not depend on the emulator.
 
+**Re-run check (2026-11-17, `docs/results/2026-11-17_footprint_phase3-scripts-check/`).** The AAR, the
+library dex, every method count, every dex size and every referenced-method count are identical. Each
+demo APK is 72 bytes smaller in file size, and 52–103 bytes smaller in download size, than in the first
+run. In the rebuilt APKs, `META-INF/version-control-info.textproto` reads
+`generate_error_reason: NO_VALID_GIT_FOUND`; the first run's APKs were overwritten, so whether that
+entry differed was not checked. The protected-minus-vulnerable difference (40 512 bytes) is unchanged.
+The tables below are from the first run.
+
 **The library (release AAR).** 340 757 bytes. Entries: `classes.jar` 314 977 bytes uncompressed
 (294 367 compressed), `lint.jar` (the build-time Lint rule, not runtime code) 46 730, `proguard.txt` 1 407,
 `AndroidManifest.xml` 200, metadata 156, `R.txt` 0.

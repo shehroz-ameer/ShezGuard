@@ -2,8 +2,21 @@
 
 Findings from the implementation that the article can cite. Each entry says what was
 observed, what it means, and where the evidence lives. Unless noted, observations come from
-Robolectric running the AOSP `android.net.Uri` code for SDK 34 on the JVM. They are **not yet
-confirmed on a device or emulator**. That run is step 14 of `docs/PROMPTS.md`.
+Robolectric running the AOSP `android.net.Uri` code for SDK 34 on the JVM.
+
+**Status labels (step 14, 2026-11-17).** Test-backed claims carry one of: **confirmed (emulator, API N)**
+(the same test passed, or printed the same line, on the Android emulator at those levels; an emulator runs
+real framework code but is not a physical device and does not cover OEM changes), **not applicable
+(API < N)** (the platform feature does not exist below N), **not applicable (API >= N)** (the behaviour does not
+arise from N on), **Robolectric-only** (tested only under Robolectric), **source-read only (AOSP, not run)** (read in
+the AOSP source; no test exists), or **contradicted**. No claim was contradicted. Every
+"Observation (AOSP source)" paragraph, and every table of AOSP line numbers or per-level formats, is
+source-read only (AOSP, not run) unless a status line in the same note says otherwise.
+
+**Run scope.** Only API **24, 29, 33, 34 and 36** were run (arm64 emulators; images and patches in
+`docs/results/README.md`). **Not verified:** domain verification on API 31 and 32; package visibility on
+API 30, 31 and 32; the N13 claim that `getFilteredReferrer` is absent at API 31; and every claim at API
+25, 26, 27, 28 and 35.
 
 Recorded output is copied verbatim from the test logs (`<testcase>` `system-out` in
 `shezguard-core/build/test-results/testDebugUnitTest/TEST-com.shezguard.core.canon.UriCanonicalizerDifferentialTest.xml`),
@@ -23,9 +36,12 @@ data if they use different accessors. This is a parser differential *inside* one
 API, not only between two parsers. It supports the design rule that apps read validated
 values from the `Decision` rather than from `getIntent()` (SPEC section 6).
 
+**Status: confirmed (emulator, API 24, 29, 33, 34, 36).** Test 111 prints the same three lines on all five emulators as under Robolectric
+SDK 34 (`docs/results/2026-11-17_*_phase2/` (`tagged.txt`; per-test status in the JUnit XML)).
+
 **Evidence.**
 - Test 111 `characterisesAndroidQueryAccessorInconsistency`, in
-  `shezguard-core/src/test/java/com/shezguard/core/canon/UriCanonicalizerDifferentialTest.kt`.
+  `shezguard-core/src/sharedTest/java/com/shezguard/core/canon/UriCanonicalizerDifferentialTest.kt`.
 - Test 99 originally failed on this disagreement (step 3). It now compares values through
   `getQueryParameter` only (author decision).
 - `docs/LIMITATIONS.md` L11, L12.
@@ -148,9 +164,12 @@ character except `*`, where the accessors agree. `*` is still excluded, to keep 
 explainable set shared by `ParamRule.name`, entry point names and the canonicaliser. That is
 a design choice, not an Android inconsistency.
 
+**Status: confirmed (emulator, API 24, 29, 33, 34, 36).** Test 116 passes and test 117 prints the same nine lines on all five emulators as
+under Robolectric SDK 34 (`docs/results/2026-11-17_*_phase2/` (`tagged.txt`; per-test status in the JUnit XML)).
+
 **Evidence.**
 - Tests 116 and 117 in
-  `shezguard-core/src/test/java/com/shezguard/core/canon/UriCanonicalizerDifferentialTest.kt`.
+  `shezguard-core/src/sharedTest/java/com/shezguard/core/canon/UriCanonicalizerDifferentialTest.kt`.
 - `docs/LIMITATIONS.md` L16.
 
 **Recorded output (test 117, 2026-11-10):**
@@ -168,7 +187,7 @@ a design choice, not an Android inconsistency.
 
 ## N4. Up to API 29, a parcelled `Uri` can carry a decoded form that contradicts its string form
 
-**Observation (AOSP source).** `android.net.Uri.HierarchicalUri.readFrom(Parcel)` per API
+**Observation (AOSP source; source-read only (AOSP, not run)).** `android.net.Uri.HierarchicalUri.readFrom(Parcel)` per API
 level, read from `platform/frameworks/base` at the first release tag and the latest release
 or security tag of each branch (fetched 2026-11-10):
 
@@ -212,7 +231,7 @@ sends it as `ACTION_VIEW` data through `system_server`):
 |---|---|---|
 | 24, 29 | accepted; `getPath()` = `/admin/../../secret`, string form `https://example.com/product/1?id=1` | **the mismatch survives delivery**; the receiving app sees the same disagreeing forms; ShezGuard blocks with `URI_PARSER_MISMATCH` on the path |
 | 33 | **cannot be built**: `IllegalArgumentException: Unknown representation: 115` | the attacker cannot build it; nothing is sent |
-| 34, 36 | accepted, but read as a different object: the relative `Uri` `h` (no scheme, no authority), forms agree | `h` is delivered; ShezGuard blocks it as `URI_MALFORMED`, not as a mismatch |
+| 34, 36 | accepted, but read as a different object: the relative `Uri` `h` (no scheme, no authority), forms agree (observed, cause not investigated) | `h` is delivered; ShezGuard blocks it as `URI_MALFORMED`, not as a mismatch |
 
 So the **mismatch block (`URI_PARSER_MISMATCH`) is demonstrated only on API 24 and 29**, confirmed
 (emulator, API 24, 29). On 33, 34 and 36 the crafted mismatch does not arise, as the table above
@@ -240,6 +259,11 @@ every listed tag.
 **Demonstrated (Robolectric, SDK 29 and 34).** An intent received through
 `Intent.CREATOR` has parcelled extras. After a Sanitize decision, both the original and the
 sanitized copy still report `BaseBundle.isParcelled() == true` (`IntentCopyParcelTest`).
+
+**Status: confirmed (emulator, API 24, 29, 33, 34, 36).** `IntentCopyParcelTest` (no level guard)
+passes on all five; on API 28+ its reflection needs `hidden_api_policy=1`, which the run script sets
+and restores (`docs/results/README.md`). The source reading above covers API 24–34; API 36 was observed
+only.
 
 **Caveat.** From API 33 the copy constructor sets the internal flag `mOwnsLazyValues = false`
 on the **source** Bundle when its map is already unparcelled. That is a change to private
@@ -273,12 +297,12 @@ Line numbers below are for those tags. Other tags of the same branch, OEM builds
 without these patches were **not** read.
 
 Marking convention: a claim that has also been exercised by a test is marked with the test
-name. Tests run under Robolectric (AOSP Java code, JVM-emulated native `Parcel`), so every such
-claim is **Robolectric-only, device check pending (step 14)** unless stated otherwise.
+name. Tests run under Robolectric (AOSP Java code, JVM-emulated native `Parcel`); since step 14 each
+test-backed claim also carries its emulator result (labels in the header).
 
 ## N6. A failed unparcel leaves a Bundle silently truncated (API 24–34)
 
-**Observation (AOSP source).** The method that unparcels a Bundle catches
+**Observation (AOSP source; table source-read only (AOSP, not run)).** The method that unparcels a Bundle catches
 `BadParcelableException` only to rethrow it (unless the process-wide `sShouldDefuse` flag is
 set, which only `system_server` does), and in its `finally` block installs the map it was
 filling and drops the parcel. The map is filled entry by entry, so after an exception it holds
@@ -303,7 +327,8 @@ validator that unparcels the **caller's** Bundle and fails would leave the app w
 truncated Bundle. ShezGuard therefore (1) reads only a copy (N7, `getExtras()`), and (2) treats
 the first failure as final and never re-reads the same Bundle. See `docs/LIMITATIONS.md` L23.
 
-**Demonstrated (Robolectric SDK 24 and 29; Robolectric-only, device check pending (step 14)).**
+**Demonstrated (Robolectric SDK 24 and 29; confirmed (emulator, API 24, 29)).** The emulators print
+the same two lines as Robolectric.
 `ExtrasUnparcelTest.characterisesPartialMapAfterFailedUnparcel` writes a Bundle holding `"a"`
 (a String) and `"zzzz"` (a Parcelable whose `CREATOR` throws), reads it back, and calls
 `keySet()` twice. Recorded output (2026-11-11):
@@ -316,13 +341,13 @@ succeeds. The test is **skipped** on SDK 34 by `assumeTrue(!lazyValues)` and JUn
 skipped. (Until 2026-11-12 it returned early instead, and was reported as passed on SDK 34 while
 checking nothing; the earlier text here called that "skipped", which was wrong.)
 ShezGuard's mitigation is shown by `callerBundleStaysParcelledAfterUnparcelFailure` and
-`repeatedEvaluationGivesTheSameDecision` (SDK 24, 29, 34; Robolectric-only, device check
-pending (step 14)).
+`repeatedEvaluationGivesTheSameDecision` (SDK 24, 29, 34): confirmed (emulator, API 24, 29, 33, 34, 36).
 
-**Not verified.** Not run on a device. From API 33, lazy values (N7) make a failure in
-`initializeFromParcelLocked` rarer, because most attacker-chosen types are no longer
-deserialised there; it is still possible for eagerly read types. The partial map on API 33–34
-was read in the source but not demonstrated.
+**Not verified.** From API 33, lazy values (N7) make a failure in `initializeFromParcelLocked`
+rarer, because most attacker-chosen types are no longer deserialised there; it is still possible for
+eagerly read types. The partial map with this test's (lazy) hostile value: not applicable (API >= 33);
+the test is skipped on the API 33, 34 and 36 emulators by its assumption. A partial map caused by an
+eagerly read type on API 33–34: source-read only (AOSP, not run).
 
 ## N7. What triggers deserialisation, per API level
 
@@ -353,13 +378,15 @@ was read in the source but not demonstrated.
    wrong type from an absent key. The typed `get(String, Class)` of API 33+ also catches
    `BadTypeParcelableException` (`BaseBundle.java` 33, line 698).
 
-**Tested (Robolectric-only, device check pending (step 14)).** Points 3 and 5:
+**Tested (confirmed (emulator, API 24, 29, 33, 34, 36)).** Points 3 and 5:
 `ExtrasUnparcelTest.blocksBundleWhoseParcelableThrowsOnRead` and
 `blocksBundleWithParcelableMissingItsCreator` assert a whole-Bundle failure (`Field.Extras`)
 on SDK 24 and 29 and a per-key failure (`Field.Extra("evil")`, other key read normally) on
 SDK 34. Point 1: `callerBundleStaysParcelledAfterUnparcelFailure` (SDK 24, 29, 34) and
-`IntentCopyParcelTest` (SDK 29, 34). Points 2, 4 (beyond the failure behaviour) and 6 were read
-in the source only.
+`IntentCopyParcelTest` (SDK 29, 34). On the emulators the per-level assertions hold as written:
+whole-Bundle failure on API 24 and 29, per-key failure on API 33, 34 and 36, and the hostile `CREATOR`
+and the Serializable gadget each run once (`[N7s] ... ran 1x`, the same counts as Robolectric). Points 2,
+4 (beyond the failure behaviour) and 6: source-read only (AOSP, not run).
 
 **Observed on emulators (step 11; not the step 14 device check).** Points 3 and 4, in the demo app
 without ShezGuard: a Serializable of a class the app does not have, sent by another app, made
@@ -397,13 +424,21 @@ loader. A restrictive loader on ShezGuard's top-level copy would mirror that (ev
 step 6, not adopted: it cannot be tested under Robolectric, where one sandbox loader loads both
 framework and test classes; revisit in step 14).
 
-**Tested:** nothing in this note. Under Robolectric one sandbox class loader loads both
-framework and test classes, so the framework-only behaviour cannot be observed there.
+**Tested (confirmed (emulator, API 24, 29, 33, 34, 36)).** `NestedIntentClassLoaderTest` (device-only: under Robolectric one sandbox
+class loader loads both framework and test classes, so this cannot be observed there): the class loader
+of `Parcel` is the boot class loader; an app-defined Parcelable inside a nested intent fails with
+`BadParcelableException` (`ClassNotFoundException when unmarshalling`) and resolves once the app's loader
+is set; an app-defined Serializable inside a nested intent resolves. Consequence: `docs/LIMITATIONS.md`
+L42 (a false positive under `Nested.AllowSanitized`; a step 16 decision).
 
-**Not verified.** That the class loader of `Parcel` on ART is the boot class loader; what
-`ObjectInputStream.resolveClass` does with a null loader on ART (Serializables); whether
-`ActivityThread` sets the app's class loader on the extras of a delivered intent
-(`ActivityThread.java` was not read).
+**`ActivityThread` gives a delivered intent's extras the app's class loader** (source:
+`performLaunchActivity` and `deliverNewIntents`; AOSP `android-7.0.0_r36` line 2541,
+`android-security-14.0.0_r31` line 3679): confirmed (emulator, API 24, 29, 33, 34, 36), before `onCreate`
+(an intent with an extra from another app) and before `onNewIntent` (a second intent with an extra from
+the shell): `CallerIdentityDeviceTest.deliveredExtrasGetTheAppClassLoader`, `[N8d]` lines in
+`docs/results/2026-11-17_*_phase4-followup/`. The loader is read through `getExtras().getClassLoader()`,
+a copy that does not unparcel (N7 point 1). The restrictive loader for ShezGuard's own copy remains not
+adopted (L27).
 
 ## N9. `IntentSanitizer.sanitize(Intent, Consumer<String>)`: messages, component rewrite, versions
 
@@ -431,7 +466,7 @@ dead code under minSdk 24 (`diff` of the two source jars, 2026-11-11). AAR metad
 (`META-INF/com/android/build/gradle/aar-metadata.properties`): 1.16.0 requires
 `minCompileSdk=35`, `minAndroidGradlePluginVersion=8.6.0`; 1.9.0 requires `minCompileSdk=33`.
 
-**Tested (Robolectric-only, device check pending (step 14)), SDK 24, 29, 34, first against
+**Tested (confirmed (emulator, API 24, 29, 33, 34, 36); Robolectric SDK 24, 29, 34), first against
 androidx.core 1.16.0 (step 6) and again against 1.9.0 (2026-11-11, after the switch), with the
 same results (574 tests per variant, 0 failures).** Point 2: `NestedIntentTest.blocksNestedIntentWhoseComponentIntentSanitizerRewrites`,
 `blocksImplicitNestedIntentWithoutAllowAnyComponent`,
@@ -495,7 +530,9 @@ server side under `services/core/java/com/android/server/`: `am/ActivityManagerS
 `pm/AppsFilter.java` (30–31), `pm/AppsFilterImpl.java` / `pm/AppsFilterBase.java` (33–34).
 Not every file was read at every level; each claim names the levels read.
 
-**Every claim in N11–N13 is source-read or Robolectric-only and unconfirmed on device** (step 14).
+Step 14 phase 2 ran the caller claims with a real second app on the emulators
+(`CallerIdentityDeviceTest`, `DomainVerificationDeviceTest`; `docs/results/2026-11-17_*_phase2/` and
+`_phase2-followup/`). Each claim below carries its label; source readings stay unlabelled.
 
 ## N11. `Activity.getReferrer()` reads, and unparcels, the caller's extras
 
@@ -510,7 +547,13 @@ API 24–32 every value is deserialised (N7), any other exception from a hostile
 and a failure leaves the Bundle truncated (N6). The referrer also prefers caller-set extras over the
 system value.
 
-**Demonstrated (Robolectric SDK 24, 29, 31, 34; Robolectric-only, device check pending (step 14)).**
+**Status: confirmed (emulator, API 24, 29, 33, 34, 36)** for the platform behaviour and for ShezGuard's guard: with extras present and a
+real launch by another app, ShezGuard leaves both the delivered intent's and `activity.intent`'s
+Bundle parcelled, and `getReferrer()` called afterwards unparcels it
+(`systemReferrerIsNotReadWhenTheIntentHasExtras`, `spoofedReferrerExtraIsAdvisory`,
+`spoofedReferrerNameExtraIsAdvisory`).
+
+**Demonstrated (Robolectric SDK 24, 29, 31, 34; the mutation check below is Robolectric-only).**
 With the guard removed from `ActivityCallerSource`, the test
 `systemReferrerIsNotReadWhenItWouldUnparcelTheCallersExtras` fails on all four SDKs because the
 activity's parcelled Bundle is unparcelled; with the guard it passes.
@@ -544,10 +587,20 @@ the referrer extras from its own copy (`docs/LIMITATIONS.md` L31).
 earlier launch. ShezGuard takes the intent and a `Delivery` explicitly and reports no reliable
 identity, and no system referrer, for `Delivery.NEW_INTENT`.
 
-**Tested (Robolectric-only, device check pending (step 14)).**
+**Tested (Robolectric SDK 24, 29, 31, 34).**
 `newIntentDeliveryHasNoReliableIdentity`, `newIntentDeliveryIgnoresTheSystemReferrer`,
-`newIntentDeliveryStillReadsReferrerExtrasOfTheNewIntent` (SDK 24, 29, 31, 34). Robolectric does not
-run the server; the staleness itself is source-read only.
+`newIntentDeliveryStillReadsReferrerExtrasOfTheNewIntent`.
+
+**Status of the staleness: confirmed (emulator, API 24, 29, 33, 34, 36).** A `singleTop` activity started for result by its own app, then
+sent a second intent by another app or by the shell, still reports the first caller from
+`getCallingPackage()` in `onNewIntent` on all five levels, and from `getLaunchedFromPackage()` on API 34
+and 36 (`not applicable (API < 34)` for the latter). ShezGuard with `Delivery.NEW_INTENT` reports no
+reliable identity; the same intent evaluated as `LAUNCH` would have been allowed
+(`newIntentFromAnotherAppKeepsTheLaunchIdentity`, `newIntentFromTheShellKeepsTheLaunchIdentity`).
+Observed in passing: inside `onNewIntent`, `getReferrer()` returned the new sender where it was reported at all
+(the attacker on 24 and 29, `null` for the attacker on 33+ where it is not visible; the shell on 33+).
+For the shell on API 24 and 29, `getReferrer()` inside `onNewIntent` returned `null`: observed, cause not
+investigated.
 
 ## N13. Reliable sources, package visibility and signing certificates
 
@@ -583,10 +636,21 @@ run the server; the staleness itself is source-read only.
   `null` if the app declares no web domains; `DOMAIN_STATE_SELECTED` means chosen by the user, not
   verified; `isLinkHandlingAllowed()` (229) and `getHostToStateMap()` (237) are public.
 
-**Tested** (Robolectric-only, device check pending (step 14)): current-signer matching, multi-signer
-and rotated-key rejection through Robolectric's `ShadowSigningInfo`. **Not tested at all**:
-visibility grants (Robolectric does not enforce visibility), the API 34 shared-identity path and
-real domain verification state (fakes only).
+**Tested.**
+- **Current-signer matching with a real certificate:** confirmed (emulator, API 24, 29, 33, 34, 36) (a for-result launch by the attacker app
+  is allowed with its real digest and blocked with a wrong one). **Multi-signer and rotated-key
+  rejection:** Robolectric-only (`ShadowSigningInfo`; the emulator apps have one debug key).
+- **Visibility grants, no `<queries>`:** confirmed (emulator, API 33, 34, 36): a freshly installed app is
+  hidden, a plain launch grants nothing, a for-result launch grants visibility of the launcher;
+  not applicable (API < 30) (no filtering; the attacker was visible on the API 24 and 29 emulators).
+- **Shared identity:** confirmed (emulator, API 34, 36); not applicable (API < 34). Also observed:
+  same-uid launches report the app's own package (`docs/LIMITATIONS.md` L43).
+- **Forward result:** confirmed (emulator, API 24, 29, 33, 34, 36) (`getCallingPackage()` names the result recipient).
+- **System referrer filtered by visibility (`getFilteredReferrer`):** confirmed (emulator, API 33, 34,
+  36) (`docs/LIMITATIONS.md` L44).
+- **Domain verification state** (set with `pm set-app-links`, not real Digital Asset Links
+  verification): confirmed (emulator, API 33, 34, 36); not applicable (API < 31) (unavailable on the
+  API 24 and 29 emulators).
 
 **Not read:** server-side code for 25, 27 and 32; OEM changes.
 
@@ -609,7 +673,8 @@ through `attachApplication` line by line; any androidx source (`ComponentActivit
 
 ## N14. Where an Activity helper can run, and what recreation re-delivers
 
-Every claim is source-read or Robolectric-only, and **unconfirmed on device** (step 14).
+Every test-backed claim in this note is **Robolectric-only**: the step 14 lifecycle device check was
+cut (author decision, 2026-11-17). The rest is source-read.
 
 **1. Lifecycle callbacks cannot guard an Activity (source).**
 - `ActivityLifecycleCallbacks.onActivityCreated` is dispatched from the **base**
@@ -751,8 +816,7 @@ behaviour and not a docs claim; the tests were corrected after the first API 34 
    are accepted and read as a different object, the relative `HierarchicalUri` `h` (scheme `null`,
    authority `null`, path `h`), whose encoded and decoded forms agree. The attacker sends it; ShezGuard
    blocks it as `URI_MALFORMED`. On API 33 the prediction held (`IllegalArgumentException: Unknown
-   representation: 115`). Why API 34 reads these bytes as `h` was not traced in the source; it is
-   consistent with N4's "the whole URI is one string, re-parsed" for 34.
+   representation: 115`). That API 34 and 36 read these bytes as `h`: observed, cause not investigated.
 2. **Identity of the app's own for-result launch on API 34+.** *Predicted:* when this app's
    `RequesterActivity` starts the probe with `startActivityForResult`, ShezGuard reports
    `CALLING_PACKAGE`. *Observed (emulator, API 34, 36):* `getLaunchedFromPackage()` also names this app,
@@ -763,3 +827,14 @@ behaviour and not a docs claim; the tests were corrected after the first API 34 
    it can be printed as evidence. *Observed (emulator, API 34):* it also prints a `Signatures:` line, the
    SHA-256 fingerprint of the package's signing certificate. The test now drops that line; the run that
    printed it was deleted and not committed.
+
+### Observed, cause not investigated (step 14)
+1. **Crafted N4 bytes on API 34 and 36:** `Uri.CREATOR` accepts the hand-written `BOTH` parcel and returns
+   the relative `Uri` `h` (scheme `null`, authority `null`, path `h`), in process and after delivery
+   from another app (`CraftedUriDeviceTest`, `[N4d]` lines in `docs/results/2026-11-17_*_api34_phase2/`
+   and `*_api36_phase2/`). ShezGuard blocks it as `URI_MALFORMED`.
+2. **Shell referrer in `onNewIntent` on API 24 and 29:** when the shell sends the second intent to the
+   `singleTop` probe, `Activity.getReferrer()` read inside `onNewIntent` returns `null` on API 24 and 29,
+   and `android-app://com.android.shell` on API 33, 34 and 36
+   (`newIntentFromTheShellKeepsTheLaunchIdentity`, `[N12d]` lines in `docs/results/2026-11-17_*_phase2/`).
+   ShezGuard ignores the system referrer for `Delivery.NEW_INTENT`, so its decision is the same.

@@ -10,7 +10,13 @@
 #   micro_run<k>.json          androidx.benchmark output of each microbenchmark run (method B)
 #   instrument_status.txt      the pass/fail lines of every am instrument call
 # Raw logcat and the full am instrument output stay in a temporary folder, deleted at the end. Before
-# exiting, the results folder is scrubbed (scripts/device/scrub.py) and the run fails if a pattern remains.
+# exiting, the results folder is scrubbed (scripts/device/scrub.py), then re-scanned in check-only mode; if
+# anything remains the folder is deleted and the run fails (exit 8). SCRUB_SELFTEST=1 additionally proves,
+# on a temp copy with an injected fake key, that the gate fails the run.
+#
+# BENCH_SCRIPT_CHECK=1: checks the script only. 1 process per method, 50 warm-up + 200 timed calls,
+# microbenchmark in androidx.benchmark's dry-run mode, 10 s settle. The label must contain
+# "scripts-check"; device.txt and summarise.py mark the numbers as NOT RESULTS.
 #
 # Emulator only (the same check as scripts/device/run_shared_tests.sh). Changes no global device setting;
 # the test APK is AOT-compiled ("speed") and uninstalled at the end. Every figure from an emulator is "emulator, indicative only".
@@ -22,6 +28,12 @@ case "$LABEL" in *[!A-Za-z0-9._-]*) echo "run label: letters, digits, . _ - only
 PORT="${3:-5584}"
 PERCALL_RUNS="${PERCALL_RUNS:-5}"
 MICRO_RUNS="${MICRO_RUNS:-3}"
+WARMUP=2000; SAMPLES=10000; SETTLE=60; MICRO_EXTRA=()
+if [ "${BENCH_SCRIPT_CHECK:-0}" = 1 ]; then
+  case "$LABEL" in *scripts-check*) ;; *) echo "BENCH_SCRIPT_CHECK needs a label containing 'scripts-check'" >&2; exit 2 ;; esac
+  PERCALL_RUNS=1; MICRO_RUNS=1; WARMUP=50; SAMPLES=200; SETTLE=10
+  MICRO_EXTRA=(-e androidx.benchmark.dryRunMode.enable true)
+fi
 SERIAL="emulator-$PORT"
 REPO="$(cd "$(dirname "$0")/../.." && pwd)"
 SDK="${ANDROID_HOME:-$HOME/Library/Android/sdk}"
@@ -44,7 +56,6 @@ if "$ADB" devices | grep -q "^$SERIAL"; then echo "refusing: $SERIAL is already 
 "$EMU" -avd "$AVD" -port "$PORT" -no-snapshot-save -no-boot-anim -no-audio -no-window >/dev/null 2>&1 &
 EMU_PID=$!
 INSTALLED=0
-WORK="$(mktemp -d)"   # full am instrument output and scrub literals: never under docs/results
 
 cleanup() {
   local code=$?
@@ -58,10 +69,13 @@ cleanup() {
   for _ in $(seq 1 60); do kill -0 "$EMU_PID" 2>/dev/null || break; sleep 1; done
   kill -0 "$EMU_PID" 2>/dev/null && { a emu kill >/dev/null 2>&1 || kill "$EMU_PID" 2>/dev/null; }
   wait "$EMU_PID" 2>/dev/null
-  rm -rf "$WORK"
+  if [ -n "${WORK:-}" ]; then rm -rf "$WORK"; echo "temp folder removed: $WORK (exists now: $([ -e "$WORK" ] && echo yes || echo no))"; fi
   exit $code
 }
 trap cleanup EXIT INT TERM
+# Created only after the trap is set, so every exit path removes it.
+WORK="$(mktemp -d)"   # full am instrument output and scrub literals: never under docs/results
+echo "temp folder: $WORK"
 
 "$ADB" -s "$SERIAL" wait-for-device
 for _ in $(seq 1 300); do [ "$(prop sys.boot_completed)" = "1" ] && break; sleep 2; done
@@ -76,7 +90,7 @@ if [ -e "$OUT" ]; then echo "refusing: $OUT exists (use a new run label)" >&2; e
 mkdir -p "$OUT"
 
 # Let the system settle after boot before measuring.
-sleep 60
+sleep "$SETTLE"
 a install -r -t "$APK" >/dev/null || { echo "install failed" >&2; exit 7; }
 INSTALLED=1
 # Full AOT ("speed") compilation of the test APK, as androidx.benchmark requires (it refuses to measure
@@ -107,8 +121,9 @@ a shell input keyevent 82 >/dev/null 2>&1
   echo "build=:benchmark release test APK (testBuildType release: not debuggable, not minified), :shezguard-core release variant"
   echo "compilation=cmd package compile -m speed -f: $COMPILE_OUT"
   echo "androidx_benchmark=1.5.0; suppressErrors=$SUPPRESS"
-  echo "percall=warmup 2000 + 10000 timed calls per scenario per run; runs=$PERCALL_RUNS (one process each)"
-  echo "micro_runs=$MICRO_RUNS (one process each)"
+  [ "${BENCH_SCRIPT_CHECK:-0}" = 1 ] && echo "purpose=SCRIPT CHECK ONLY: reduced runs and samples, dry-run microbenchmark; these numbers are NOT RESULTS"
+  echo "percall=warmup $WARMUP + $SAMPLES timed calls per scenario per run; runs=$PERCALL_RUNS (one process each)"
+  echo "micro_runs=$MICRO_RUNS (one process each)${MICRO_EXTRA[*]:+; ${MICRO_EXTRA[*]}}"
   echo "commit=$(git -C "$REPO" rev-parse HEAD)$(git -C "$REPO" diff --quiet HEAD -- shezguard-core benchmark || echo ' + uncommitted changes in shezguard-core or benchmark')"
   echo "date=$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 } > "$OUT/device.txt"
@@ -118,7 +133,7 @@ a logcat -G 16M >/dev/null 2>&1
 : > "$OUT/percall_lines.txt"
 for k in $(seq 1 "$PERCALL_RUNS"); do
   a logcat -c
-  a shell am instrument -w -r -e class com.shezguard.benchmark.PerCallBenchmark -e run "$k" \
+  a shell am instrument -w -r -e class com.shezguard.benchmark.PerCallBenchmark -e run "$k" -e warmup "$WARMUP" -e samples "$SAMPLES" \
     -e androidx.benchmark.suppressErrors "$SUPPRESS" "$RUNNER" > "$WORK/percall_run${k}_instrument.txt" 2>&1
   echo "percall run $k: $(grep -E '^(OK \(|FAILURES|Tests run|INSTRUMENTATION_CODE)' "$WORK/percall_run${k}_instrument.txt" | tr '\n' ' ')" >> "$OUT/instrument_status.txt"
   a logcat -d -v raw -s System.out:I | tr -d '\r' | grep '^\[BENCH-PERCALL\]' >> "$OUT/percall_lines.txt"
@@ -132,7 +147,7 @@ rm -rf "$RAW"
 for k in $(seq 1 "$MICRO_RUNS"); do
   a shell rm -rf "$MEDIA/additional_test_output"
   a shell am instrument -w -r -e class com.shezguard.benchmark.MicroBenchmark \
-    -e androidx.benchmark.suppressErrors "$SUPPRESS" \
+    -e androidx.benchmark.suppressErrors "$SUPPRESS" ${MICRO_EXTRA[@]+"${MICRO_EXTRA[@]}"} \
     -e additionalTestOutputDir "$MEDIA/additional_test_output" "$RUNNER" > "$WORK/micro_run${k}_instrument.txt" 2>&1
   echo "micro run $k: $(grep -E '^(OK \(|FAILURES|Tests run|INSTRUMENTATION_CODE)' "$WORK/micro_run${k}_instrument.txt" | tr '\n' ' ')" >> "$OUT/instrument_status.txt"
   a pull "$MEDIA/additional_test_output/$PKG-benchmarkData.json" "$OUT/micro_run${k}.json" >/dev/null 2>&1 \
@@ -145,7 +160,25 @@ done
   "$SDK/build-tools/36.0.0/apksigner" verify --print-certs "$APK" 2>/dev/null \
     | sed -nE 's/.*certificate SHA-(256|1) digest: ([0-9a-fA-F]+).*/\2/p'
 } > "$WORK/literals.txt"
-if ! python3 -I "$REPO/scripts/device/scrub.py" "$OUT" --literals "$WORK/literals.txt"; then
-  echo "SCRUB FAILED: a pattern remains in ${OUT#$REPO/}" >&2; exit 8
+scrub_gate() { # <folder> [check-only]: mask, then re-scan every file in check-only mode
+  if [ "${2:-}" != check-only ]; then
+    python3 -I "$REPO/scripts/device/scrub.py" "$1" --literals "$WORK/literals.txt" || return 1
+  fi
+  python3 -I "$REPO/scripts/device/scrub.py" "$1" --check --literals "$WORK/literals.txt"
+}
+if ! scrub_gate "$OUT"; then
+  rm -rf "$OUT"
+  echo "SCRUB FAILED: a pattern remained; ${OUT#$REPO/} was deleted" >&2; exit 8
+fi
+# SCRUB_SELFTEST=1: a copy of the clean results in the temp folder gets a fake API-key-shaped string,
+# built here at run time and never written under docs/results; the gate must fail, and the run exits 8.
+if [ "${SCRUB_SELFTEST:-0}" = 1 ]; then
+  cp -R "$OUT" "$WORK/selftest"
+  FAKE="AIza$(printf 'Z%.0s' $(seq 1 35))"
+  echo "selftest $FAKE" >> "$WORK/selftest/percall_lines.txt"
+  if scrub_gate "$WORK/selftest" check-only; then
+    echo "SELF-TEST BROKEN: the gate passed a folder containing a fake key" >&2; exit 9
+  fi
+  echo "SCRUB FAILED (self-test, as intended): the gate rejected the temp copy with the injected string" >&2; exit 8
 fi
 echo "results in ${OUT#$REPO/}"

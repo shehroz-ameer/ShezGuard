@@ -1,4 +1,4 @@
-ShezGuard footprint, 2026-11-17T19:34:36Z, commit ca50ca004ac39d119afb859c7c3df49634806616 + uncommitted changes
+ShezGuard footprint, 2026-11-17T19:34:36Z, commit 8c806059da5458100d301fab69f50cc99a498123 + uncommitted changes
 Tools: 36.0.0 d8/dexdump, apkanalyzer 
 
 1. Release AAR: shezguard-core/build/outputs/aar/shezguard-core-release.aar

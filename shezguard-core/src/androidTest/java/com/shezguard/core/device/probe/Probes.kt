@@ -87,6 +87,16 @@ internal object Probe {
             decisions["product"] = ShezGuard.evaluate(activity, intent, delivery, EvalFixtures.policy, "product")
         }
         val afterGuard = parcelled(intent)
+        // N8: the class loader ActivityThread gave the delivered intent's extras. getExtras() returns a copy
+        // that carries the loader (Bundle copy constructor) without unparcelling (N7 point 1).
+        val extrasLoader = intent.extras?.let { b ->
+            val cl = b.classLoader
+            when {
+                cl === activity.classLoader -> "app"
+                cl == null -> "null"
+                else -> cl.javaClass.simpleName
+            }
+        } ?: "no-extras"
         val activityIntentAfterGuard = parcelled(activity.intent)
         val calling = activity.callingPackage
         val launchedFrom = if (Build.VERSION.SDK_INT >= 34) activity.launchedFromPackage else null
@@ -102,6 +112,7 @@ internal object Probe {
         ProbeLog.records.add(
             ProbeRecord(
                 activity = activity.javaClass.simpleName,
+                extrasLoader = extrasLoader,
                 delivery = delivery,
                 callingPackage = calling,
                 launchedFromPackage = launchedFrom,
@@ -123,6 +134,8 @@ internal object Probe {
 
 internal data class ProbeRecord(
     val activity: String,
+    /** "app" if the delivered intent's extras carry the activity's class loader, else its class or "null"; "no-extras". */
+    val extrasLoader: String,
     val delivery: Delivery,
     val callingPackage: String?,
     /** API 34+ only; `null` below. */
@@ -148,7 +161,7 @@ internal data class ProbeRecord(
     }
 
     fun line(): String = buildString {
-        append("activity=$activity delivery=$delivery calling=$callingPackage launchedFrom=$launchedFromPackage ")
+        append("activity=$activity delivery=$delivery extrasLoader=$extrasLoader calling=$callingPackage launchedFrom=$launchedFromPackage ")
         append("attackerVisible=$attackerVisible referrer=$referrer ")
         append("parcelled[before=$extrasParcelledBefore afterGuard=$extrasParcelledAfterGuard ")
         append("activityIntentAfterGuard=$activityIntentParcelledAfterGuard afterGetReferrer=$activityIntentParcelledAfterGetReferrer]")

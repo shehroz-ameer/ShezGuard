@@ -221,7 +221,10 @@ API 34 and API 29, and on `protectedMinified` on API 34.
 | 5b | not prevented: reading the extra runs `readObject` | |
 
 **Results** (`shezguard-core/.../comparison/IntentSanitizerBaselineTest`, Robolectric SDK 29 and 34, both
-SDKs identical unless stated): **as predicted for every row.** Each allow-list also lets the matching
+SDKs identical unless stated): **as predicted for every row.** Status: confirmed (emulator, API 24, 29,
+33, 34, 36): the test (now in `src/sharedTest`) passes on all five emulators, and its `[baseline]` lines
+are identical to Robolectric's at API 29 and 34 (no Robolectric run exists at 24, 33, 36;
+`docs/results/2026-11-17_*_phase2/`). Each allow-list also lets the matching
 benign request through unchanged, so none is tighter than the feature needs.
 
 The allow-lists, in full (`PKG` = `com.shezguard.router`, `HOST` = `shezguard.example`):
@@ -268,7 +271,8 @@ Reading the comparison:
   - unparcelling failures without a crash (t5).
 - **Neither prevents** SQL injection through a printable value (t2a), traversal through a printable
   file name (t2c, t6 single-encoded), the deserialisation gadget (5b) or link hijacking (t4).
-- **Limits of this comparison:** the IntentSanitizer column is Robolectric only, not a device run; the
+- **Limits of this comparison:** the IntentSanitizer column comes from a test, not from attack runs
+  against an app (confirmed (emulator, API 24, 29, 33, 34, 36), see Results above); the
   allow-lists are the author of this step's best reading of "tightest"; manual validation exists for
   one entry point only.
 
