@@ -50,17 +50,57 @@ containing `+` or `%` are now `PARAM_NAME_INVALID` (tests 17, 113). Values keep 
 Note the second line: the `+` name is listed as `a+b`. `getQueryParameters` finds it only
 as `a b`, and `getQueryParameter` finds it under neither spelling.
 
-## N2. Android ends the authority at a backslash; a lenient reading treats it as userinfo
+## N2. Android ends the authority at a backslash (not on every build); a lenient reading treats it as userinfo
+
+**Status: confirmed (emulator, API 29, 33, 34, 36). Not true on the API 24 emulator image
+(security patch 2017-10-05) or under Robolectric SDK 24; see "Older build" below.**
 
 **Observation.** For `https://example.com\@evil.com`, `android.net.Uri` stops the authority
-at `\`. The result is host `example.com` and path `\@evil.com`. An RFC 3986 reading, where
+at `\` on Robolectric SDK 34 and on the API 29, 33, 34 and 36 emulators. The result is host
+`example.com` and path `\@evil.com`. An RFC 3986 reading, where
 `\` is not a delimiter, takes the authority as `example.com\@evil.com`. That gives userinfo
 `example.com\` and host `evil.com`. WHATWG URL parsers treat `\` as `/` for special schemes.
 Two parsers can therefore disagree about the host of the same string. ShezGuard rejects any
 backslash in the authority or path (`URI_BACKSLASH`, plus `URI_USERINFO` here), so the
 disagreement cannot reach the policy stage.
 
-Other results from the same test:
+**Older build: a cross-version parser differential (step 14, 2026-11-17).** On the API 24 emulator
+(`ShezGuard_API_24` AVD, `google/sdk_google_phone_arm64/generic_arm64:7.0/NYC/8695085`, security patch
+2017-10-05), `android.net.Uri` does **not** stop at the backslash:
+```
+[103] <https://example.com\@evil.com> android: opaque=false scheme=https authority=example.com\@evil.com userInfo=example.com\ host=evil.com port=-1 path= fragment=null | shezguard: Rejected [URI_BACKSLASH, URI_USERINFO]
+```
+That is the RFC 3986-style reading above: host `evil.com`. So the same string gives host
+`example.com` on newer builds and `evil.com` on this one, a differential between Android versions,
+not only between parsers. Robolectric SDK 24 prints the same as the API 24 emulator (authority
+`example.com\@evil.com`, userInfo `example.com\`, host `evil.com`, path empty; one-off probe run on
+2026-11-17, not kept as a test). Robolectric SDK 29, 33 and 34 print host `example.com`, matching the
+emulators. The other eight `[103]` lines are identical on all five emulator levels.
+- **Source difference (cause not fully investigated).** In AOSP `core/java/android/net/Uri.java`,
+  `parseAuthority` has no `case '\\'` at tag `android-7.0.0_r1` (the version Robolectric SDK 24
+  runs, `android-all-instrumented` `7.0.0_r1-robolectric-r1`), and has one at `android-7.0.0_r36`,
+  `android-security-8.0.0_r54` and `android-security-10.0.0_r75`, with a comment citing the WHATWG
+  host state. The same diff changes the userinfo split from `indexOf('@')` to `lastIndexOf('@')`.
+  The commit, its date and any security bulletin were not identified (the googlesource history pages
+  need a sign-in). That the 2017-10-05 emulator image lacks this change is inferred from its
+  behaviour, not checked against its source.
+- **ShezGuard is unaffected:** the canonicaliser is pure Kotlin and does not use `android.net.Uri`,
+  and it rejects this string on every level with `URI_BACKSLASH` and `URI_USERINFO` (confirmed
+  (emulator, API 24, 29, 33, 34, 36) by the `| shezguard:` column above).
+- **Were the SDK 24 tests already tolerant of it?** No JVM test parses this string with
+  `android.net.Uri` at SDK 24. Test 103 is the only one that does, and it runs at Robolectric's
+  default SDK 34 only (no `@Config`). It is a characterisation test: it prints and asserts nothing
+  about Android's result, so it passes either way on every level. `blocksBackslashBeforeAt`
+  (CANONICALISER_TESTS 54) and `UriPolicyValidatorTest` check the string through ShezGuard's own
+  canonicaliser, which does not depend on the API level. The Robolectric classes that do run at SDK
+  24 (`ActivityGuardTest`, `CallerAndroidTest`, `ExtrasEvaluateTest`, `ExtrasUnparcelTest`,
+  `NestedIntentTest`, `SerializableExtrasTest`) do not use this string.
+- **For the article:** an app that validates the host with `Uri.getHost()` sees `example.com` on
+  most builds, but `evil.com` on an unpatched 7.0 build. ShezGuard's rejection of any backslash does
+  not depend on which parse the platform makes.
+
+Other results from the same test (identical on Robolectric SDK 34 and on the API 24, 29, 33, 34 and
+36 emulators):
 - `https:\\evil.com`, `https:evil.com` and `http:example.com` are opaque to Android, with
   no host.
 - `https:/\evil.com` is hierarchical with no authority and the path `/\evil.com`.
@@ -70,7 +110,8 @@ Other results from the same test:
 - Test 103 `characterisesAndroidParsingOfRejectedTricks`, same file as N1.
 - `docs/LIMITATIONS.md` L10 (opaque URIs).
 
-**Recorded output (test 103):**
+**Recorded output (test 103, Robolectric SDK 34; identical on the API 29, 33, 34 and 36 emulators,
+see above for API 24):**
 ```
 [103] <https:\\evil.com> android: opaque=true scheme=https authority=null userInfo=null host=null port=-1 path=null fragment=null | shezguard: Rejected [URI_OPAQUE, URI_BACKSLASH]
 [103] <https:/\evil.com> android: opaque=false scheme=https authority=null userInfo=null host=null port=-1 path=/\evil.com fragment=null | shezguard: Rejected [URI_HOST_EMPTY, URI_BACKSLASH]

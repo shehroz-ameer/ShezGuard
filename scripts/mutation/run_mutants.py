@@ -39,6 +39,21 @@ def apply(text: str, mutant: dict) -> str:
     return text
 
 
+# Step 14: some test classes moved from src/test to src/sharedTest (compiled into both the JVM unit
+# tests and the instrumented tests). Selection is by class name, so a moved class is still run; this
+# lookup makes that explicit and stops early, naming the class, if a selected class is in neither.
+TEST_SOURCE_DIRS = ("src/test/java", "src/sharedTest/java")
+
+
+def locate_tests(tests, module: str):
+    for t in tests:
+        rel = t.rstrip("*").replace(".", "/")
+        hits = [d for d in TEST_SOURCE_DIRS for ext in (".kt", ".java") if (REPO / module / d / (rel + ext)).is_file()]
+        if not hits:
+            raise SystemExit(f"test class {t} not found under {module}/{{{','.join(TEST_SOURCE_DIRS)}}}")
+        print(f"tests  {t}  ({module}/{hits[0]})")
+
+
 def run_tests(tests, module: str, task: str):
     """Runs the selected tests; returns (ran, {test name without [sdk]: failed count}, gradle exit)."""
     results = REPO / module / "build" / "test-results" / task
@@ -76,7 +91,9 @@ def main() -> int:
     backup = REPO / module / "build" / "mutation" / (target.name + ".orig")
     backup.parent.mkdir(parents=True, exist_ok=True)
     backup.write_bytes(original)
-    print(f"target {mod.FILE}\nsha256 {digest}\nbackup {backup.relative_to(REPO)}\n")
+    print(f"target {mod.FILE}\nsha256 {digest}\nbackup {backup.relative_to(REPO)}")
+    locate_tests(mod.TESTS, module)
+    print()
 
     ran, failed, code, out = run_tests(mod.TESTS, module, task)
     if code != 0 or failed or ran == 0:

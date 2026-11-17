@@ -796,3 +796,33 @@ pending (step 14)):
   findings. `check` lints only the default variant, and `lintVital` on release builds enforces only
   Fatal issues, which the rule does not use by default (README).
 - **Source:** step 13.
+
+## L42. `Nested.AllowSanitized` blocks a nested intent that carries an app-defined Parcelable (false positive, caused by N8)
+- **What:** under `Nested.AllowSanitized`, a nested intent whose extras hold a Parcelable class defined
+  by the app (not by the framework) is blocked with `NESTED_INTENT_DENIED`, even when the intent is
+  harmless and the sanitizer would allow or remove that extra. A nested intent's extras are read with
+  no class loader (`docs/PAPER_NOTES.md` N8), so on a device the app class cannot be resolved
+  (`BadParcelableException: ClassNotFoundException when unmarshalling`). `IntentSanitizer.sanitize`
+  reads every extra of the nested intent (N9 point 3), and `AndroidExtras.sanitizeNested` turns any
+  `RuntimeException` from it into `NestedResult.Denied`. That the exception came from inside `sanitize`
+  rather than a later ShezGuard read was not isolated; both paths end in the same denial. This is a false positive, not
+  missing protection: the outcome is Block.
+- **Where it shows:** **emulators only.** Confirmed (emulator, API 24, 29, 33, 34, 36):
+  `NestedIntentClassLoaderTest.recordsShezGuardDecisionForUnresolvableNestedExtra` records
+  `BLOCK [NESTED_INTENT_DENIED@extra:next]` for policy entry point "forward" (a sanitizer that allows
+  the component, `ACTION_VIEW` and the extra "note"), with the outer intent's loader set as
+  `ActivityThread` sets it. Under **Robolectric the same intent is not blocked:** a one-off probe on
+  SDK 24, 29, 33 and 34 (2026-11-17, not kept as a test) gave `SANITIZE [NESTED_INTENT_SANITIZED]`,
+  because one sandbox class loader resolves both framework and test classes there. No Robolectric
+  test can show this limitation.
+- **Not affected:** framework types inside a nested intent (String, primitives, Bundle, Intent),
+  which resolve with the boot class loader. An app-defined Serializable inside a nested intent was
+  resolved on all five emulator levels (N8 lines in `docs/results/2026-11-17_*`), so this limitation
+  is about Parcelables.
+- **Behaviour not changed in step 14.** Recorded only.
+- **Step 16 decision (open):** setting the app's class loader on the nested intent before sanitizing it
+  would remove the false positive, but it would also make the nested intent's attacker-chosen
+  `CREATOR`s and Serializables run inside `evaluate()`, code the platform itself would not run there
+  (a framework-only loader is what stops them now). That widens L27. The alternative is to document
+  that nested intents should carry only framework types.
+- **Source:** step 14 phase 1 follow-up (emulator runs of 2026-11-17).

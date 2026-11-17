@@ -71,8 +71,20 @@ internal object ExtrasFixtures {
         }
     }
 
-    /** An intent as the receiving app gets it: written to a Parcel and read back, extras still parcelled. */
-    fun received(sent: Intent): Intent {
+    /**
+     * An intent as an Activity receives it: written to a Parcel, read back (extras still parcelled), and
+     * given the app's class loader for its extras, as `ActivityThread.performLaunchActivity` and
+     * `deliverNewIntents` do before the app sees it (`setExtrasClassLoader(cl)`; AOSP tags
+     * android-7.0.0_r36 line 2541 and android-security-14.0.0_r31 line 3679). Step 14: without the loader,
+     * a device resolves app classes with the boot class loader (N8), so a hostile `CREATOR` never ran and
+     * the extras tests passed on a "class not found" failure instead. Setting the loader does not
+     * unparcel the extras. Under Robolectric one loader loads everything, so the JVM results are unchanged.
+     */
+    fun received(sent: Intent): Intent =
+        receivedWithoutLoader(sent).apply { setExtrasClassLoader(ExtrasFixtures::class.java.classLoader) }
+
+    /** Like [received] but with no extras class loader: only for tests that characterise that case (N8). */
+    fun receivedWithoutLoader(sent: Intent): Intent {
         val p = Parcel.obtain()
         try {
             sent.writeToParcel(p, 0)

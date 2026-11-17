@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.shezguard.core.canon.UriCanonicalizerDifferentialTest" tests="12" skipped="0" failures="0" errors="0" timestamp="2026-11-17T15:35:11" hostname="Mac.powerhub" time="0.046">
+  <properties/>
+  <testcase name="characterisesAndroidAccessorsForNamesOutsideConservativeSet" classname="com.shezguard.core.canon.UriCanonicalizerDifferentialTest" time="0.005"/>
+  <testcase name="characterisesAndroidParsingOfRejectedTricks" classname="com.shezguard.core.canon.UriCanonicalizerDifferentialTest" time="0.004"/>
+  <testcase name="plusInQueryDecodesToSpaceLikeAndroid" classname="com.shezguard.core.canon.UriCanonicalizerDifferentialTest" time="0.002"/>
+  <testcase name="dataStringSurvivesParcelRoundTrip" classname="com.shezguard.core.canon.UriCanonicalizerDifferentialTest" time="0.002"/>
+  <testcase name="characterisesAndroidQueryAccessorInconsistency" classname="com.shezguard.core.canon.UriCanonicalizerDifferentialTest" time="0.003"/>
+  <testcase name="encodedQuestionMarkAndHashInPathMatchAndroid" classname="com.shezguard.core.canon.UriCanonicalizerDifferentialTest" time="0.002"/>
+  <testcase name="plusInPathStaysLiteralLikeAndroid" classname="com.shezguard.core.canon.UriCanonicalizerDifferentialTest" time="0.002"/>
+  <testcase name="parsedUriToStringIsOriginalString" classname="com.shezguard.core.canon.UriCanonicalizerDifferentialTest" time="0.003"/>
+  <testcase name="agreesWithAndroidUriOnAcceptedInputs" classname="com.shezguard.core.canon.UriCanonicalizerDifferentialTest" time="0.003"/>
+  <testcase name="encodedPlusDecodesToLiteralPlusLikeAndroid" classname="com.shezguard.core.canon.UriCanonicalizerDifferentialTest" time="0.002"/>
+  <testcase name="androidAccessorsAgreeOnNamesInConservativeSet" classname="com.shezguard.core.canon.UriCanonicalizerDifferentialTest" time="0.014"/>
+  <testcase name="builderMadeUriToStringIsAndroidsEncodedForm" classname="com.shezguard.core.canon.UriCanonicalizerDifferentialTest" time="0.003"/>
+  <system-out><![CDATA[[117] <https://example.com/?a@b=1> android: getQueryParameterNames()=[a@b] getQueryParameter("a@b")=<null> getQueryParameters("a@b")=[] Uri.encode("a@b")=a%40b | shezguard: Rejected [PARAM_NAME_INVALID]
+[117] <https://example.com/?a!b=1> android: getQueryParameterNames()=[a!b] getQueryParameter("a!b")=<1> getQueryParameters("a!b")=[] Uri.encode("a!b")=a!b | shezguard: Rejected [PARAM_NAME_INVALID]
+[117] <https://example.com/?a'b=1> android: getQueryParameterNames()=[a'b] getQueryParameter("a'b")=<1> getQueryParameters("a'b")=[] Uri.encode("a'b")=a'b | shezguard: Rejected [PARAM_NAME_INVALID]
+[117] <https://example.com/?a(b=1> android: getQueryParameterNames()=[a(b] getQueryParameter("a(b")=<1> getQueryParameters("a(b")=[] Uri.encode("a(b")=a(b | shezguard: Rejected [PARAM_NAME_INVALID]
+[117] <https://example.com/?a)b=1> android: getQueryParameterNames()=[a)b] getQueryParameter("a)b")=<1> getQueryParameters("a)b")=[] Uri.encode("a)b")=a)b | shezguard: Rejected [PARAM_NAME_INVALID]
+[117] <https://example.com/?a*b=1> android: getQueryParameterNames()=[a*b] getQueryParameter("a*b")=<1> getQueryParameters("a*b")=[1] Uri.encode("a*b")=a*b | shezguard: Rejected [PARAM_NAME_INVALID]
+[117] <https://example.com/?a~b=1> android: getQueryParameterNames()=[a~b] getQueryParameter("a~b")=<1> getQueryParameters("a~b")=[] Uri.encode("a~b")=a~b | shezguard: Rejected [PARAM_NAME_INVALID]
+[117] <https://example.com/?a[b=1> android: getQueryParameterNames()=[a[b] getQueryParameter("a[b")=<null> getQueryParameters("a[b")=[] Uri.encode("a[b")=a%5Bb | shezguard: Rejected [PARAM_NAME_INVALID]
+[117] <https://example.com/?a]b=1> android: getQueryParameterNames()=[a]b] getQueryParameter("a]b")=<null> getQueryParameters("a]b")=[] Uri.encode("a]b")=a%5Db | shezguard: Rejected [PARAM_NAME_INVALID]
+[103] <https:\\evil.com> android: opaque=true scheme=https authority=null userInfo=null host=null port=-1 path=null fragment=null | shezguard: Rejected [URI_OPAQUE, URI_BACKSLASH]
+[103] <https:/\evil.com> android: opaque=false scheme=https authority=null userInfo=null host=null port=-1 path=/\evil.com fragment=null | shezguard: Rejected [URI_HOST_EMPTY, URI_BACKSLASH]
+[103] <https://example.com\@evil.com> android: opaque=false scheme=https authority=example.com userInfo=null host=example.com port=-1 path=\@evil.com fragment=null | shezguard: Rejected [URI_BACKSLASH, URI_USERINFO]
+[103] <https://user:pass@example.com/> android: opaque=false scheme=https authority=user:pass@example.com userInfo=user:pass host=example.com port=-1 path=/ fragment=null | shezguard: Rejected [URI_USERINFO]
+[103] <https://example.com@evil.com/> android: opaque=false scheme=https authority=example.com@evil.com userInfo=example.com host=evil.com port=-1 path=/ fragment=null | shezguard: Rejected [URI_USERINFO]
+[103] <https://example.com:443@evil.com/> android: opaque=false scheme=https authority=example.com:443@evil.com userInfo=example.com:443 host=evil.com port=-1 path=/ fragment=null | shezguard: Rejected [URI_USERINFO]
+[103] <https://evil.com#@example.com> android: opaque=false scheme=https authority=evil.com userInfo=null host=evil.com port=-1 path= fragment=@example.com | shezguard: Ok(host=evil.com) []
+[103] <https:evil.com> android: opaque=true scheme=https authority=null userInfo=null host=null port=-1 path=null fragment=null | shezguard: Rejected [URI_OPAQUE]
+[103] <http:example.com> android: opaque=true scheme=http authority=null userInfo=null host=null port=-1 path=null fragment=null | shezguard: Rejected [URI_OPAQUE]
+[111] <https://example.com/?q=a+b> android: getQueryParameterNames()=[q] getQueryParameter("q")=<a b> getQueryParameters("q")=[a+b] | shezguard: [(q, a b)]
+[111] <https://example.com/?a+b=1> android: getQueryParameterNames()=[a+b] getQueryParameter("a+b")=<null> getQueryParameters("a+b")=[] getQueryParameter("a b")=<null> getQueryParameters("a b")=[1] | shezguard: Rejected
+[111] <https://example.com/?%69d=5> android: getQueryParameterNames()=[id] getQueryParameter("id")=<null> getQueryParameters("id")=[] | shezguard: Rejected
+]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

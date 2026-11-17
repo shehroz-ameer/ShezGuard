@@ -33,6 +33,17 @@ android {
     testOptions {
         // Robolectric needs merged Android resources/manifest on the unit-test classpath.
         unitTests.isIncludeAndroidResources = true
+        // Step 14: the instrumented test APK targets 35, so that targetSdk-gated platform behaviour
+        // (package visibility from 30, hidden-API lists) is the behaviour a current app gets.
+        // Test APK only; the library itself declares no targetSdk.
+        targetSdk = 35
+    }
+
+    // Step 14: classes in src/sharedTest run twice: on the JVM (Robolectric, via AndroidJUnit4's
+    // delegation, keeping each class's @Config(sdk = ...)) and as instrumented tests on an emulator.
+    sourceSets {
+        getByName("test").java.srcDir("src/sharedTest/java")
+        getByName("androidTest").java.srcDir("src/sharedTest/java")
     }
 }
 
@@ -55,6 +66,11 @@ dependencies {
 
     testImplementation(libs.junit)
     testImplementation(libs.robolectric)
+    // Step 14: AndroidJUnit4 runner for src/sharedTest; on the JVM it delegates to Robolectric.
+    testImplementation(libs.androidx.junit)
+    // Step 14: @Config(sdk = ...) on shared classes must compile for androidTest. Compile-only: the
+    // annotation is absent from the test APK, and ART ignores an annotation whose class is missing.
+    androidTestCompileOnly(libs.robolectric.annotations)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
 }

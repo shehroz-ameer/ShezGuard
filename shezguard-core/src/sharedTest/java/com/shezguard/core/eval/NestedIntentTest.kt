@@ -26,8 +26,8 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
-import org.robolectric.RobolectricTestRunner
-import org.robolectric.RuntimeEnvironment
+import androidx.test.ext.junit.runners.AndroidJUnit4
+import androidx.test.core.app.ApplicationProvider
 import org.robolectric.annotation.Config
 
 /**
@@ -35,7 +35,7 @@ import org.robolectric.annotation.Config
  * `Nested.AllowSanitized` (wrapping `androidx.core.content.IntentSanitizer`).
  * Robolectric-only, device check pending (step 14).
  */
-@RunWith(RobolectricTestRunner::class)
+@RunWith(AndroidJUnit4::class)
 @Config(sdk = [24, 29, 34])
 @Suppress("DEPRECATION")
 class NestedIntentTest {
@@ -44,7 +44,7 @@ class NestedIntentTest {
     private val implicit get() = Intent("com.victim.action.ADMIN")
 
     private fun pending(): PendingIntent =
-        PendingIntent.getActivity(RuntimeEnvironment.getApplication(), 0, Intent("x"), PendingIntent.FLAG_IMMUTABLE)
+        PendingIntent.getActivity(ApplicationProvider.getApplicationContext(), 0, Intent("x"), PendingIntent.FLAG_IMMUTABLE)
 
     /** In-process and after a Parcel round trip. PendingIntent is only checked in-process (see test). */
     private fun both(intent: Intent, ep: String, roundTrip: Boolean = true, check: (Decision) -> Unit) {

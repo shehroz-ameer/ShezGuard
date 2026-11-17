@@ -17,7 +17,7 @@ internal object SerialFixtures {
 
     /**
      * Parcels [sent], replaces [KnownPayloadA]'s class name with [UNKNOWN_NAME] in the raw bytes, and reads
-     * the intent back (extras still parcelled), as when another app sends one of its own classes.
+     * the intent back (extras still parcelled, app class loader set), as when another app sends one of its own classes.
      */
     fun withUnknownClass(sent: Intent): Intent {
         val known = KnownPayloadA::class.java.name
@@ -41,7 +41,8 @@ internal object SerialFixtures {
         try {
             p.unmarshall(bytes, 0, bytes.size)
             p.setDataPosition(0)
-            return Intent.CREATOR.createFromParcel(p)
+            // The app's class loader, as for ExtrasFixtures.received (step 14).
+            return Intent.CREATOR.createFromParcel(p).apply { setExtrasClassLoader(SerialFixtures::class.java.classLoader) }
         } finally {
             p.recycle()
         }

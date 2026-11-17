@@ -18,14 +18,14 @@ import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
-import org.robolectric.RobolectricTestRunner
+import androidx.test.ext.junit.runners.AndroidJUnit4
 import org.robolectric.annotation.Config
 
 /**
  * Threat 5 with `Serializable` extras, the two attacks of the demo app's `t5_malformed_bundle.sh`
- * (step 12, docs/ATTACK_MATRIX.md). Robolectric-only; the device results are in the matrix.
+ * (step 12, docs/ATTACK_MATRIX.md). Shared with the instrumented tests (step 14).
  */
-@RunWith(RobolectricTestRunner::class)
+@RunWith(AndroidJUnit4::class)
 @Config(sdk = [24, 29, 34])
 class SerializableExtrasTest {
 
@@ -76,6 +76,7 @@ class SerializableExtrasTest {
         val intent = received(Intent().putExtra("title", "hi").putExtra("profile", GadgetPayload("attacker")))
         assertEquals("precondition: nothing deserialised yet", 0, GadgetPayload.readObjectCalls)
         val d = ShezGuard.evaluate(intent, policy, "share")
+        println("[N7s] sdk=${Build.VERSION.SDK_INT} gadgetReadObjectRunsDuringExtrasInspection gadget readObject ran ${GadgetPayload.readObjectCalls}x")
         assertEquals("readObject ran inside evaluate", 1, GadgetPayload.readObjectCalls)
         assertTrue(d.toString(), d is Decision.Sanitize)
         assertEquals(listOf(EXTRA_NOT_ALLOWED), d.violations.map { it.code })

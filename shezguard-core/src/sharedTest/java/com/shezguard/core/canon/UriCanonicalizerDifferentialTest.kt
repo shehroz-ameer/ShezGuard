@@ -10,14 +10,14 @@ import org.junit.Assert.assertTrue
 import org.junit.Assert.fail
 import org.junit.Test
 import org.junit.runner.RunWith
-import org.robolectric.RobolectricTestRunner
+import androidx.test.ext.junit.runners.AndroidJUnit4
 
 /**
  * Section B of `docs/CANONICALISER_TESTS.md`: compares the pure-Kotlin canonicaliser with
  * the real AOSP `android.net.Uri` code (Robolectric, SDK 34). Robolectric is not a device;
  * this class must also run as an instrumented test (step 14 of `docs/PROMPTS.md`).
  */
-@RunWith(RobolectricTestRunner::class)
+@RunWith(AndroidJUnit4::class)
 class UriCanonicalizerDifferentialTest {
 
     private val base = "https://example.com"

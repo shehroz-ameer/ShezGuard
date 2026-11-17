@@ -50,6 +50,10 @@ Optional: `MODULE` (default `"shezguard-core"`) and `TASK` (default `test<Varian
 another module's tests. Step 13 uses `MODULE = "shezguard-lint"`, `TASK = "test"`
 (`step13_coverage.py`, `step13_guard_calls.py`, `step13_deep_link.py`).
 
+`TESTS` names classes, not files. A class may live in `src/test/java` or, since step 14, in
+`src/sharedTest/java` (shared with the instrumented tests); the runner looks in both and stops if a
+class is in neither. Only the JVM (Robolectric) run is used for mutants.
+
 Each edit is an exact `(old, new)` text pair. `old` must occur exactly once in the file at that
 point, otherwise the runner stops before changing anything; include enough surrounding lines to
 make it unique. Mutants of one file are applied to a fresh copy of the original, never on top of

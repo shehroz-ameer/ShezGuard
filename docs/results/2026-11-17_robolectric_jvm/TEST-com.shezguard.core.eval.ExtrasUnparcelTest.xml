@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.shezguard.core.eval.ExtrasUnparcelTest" tests="21" skipped="1" failures="0" errors="0" timestamp="2026-11-17T15:35:14" hostname="Mac.powerhub" time="0.061">
+  <properties/>
+  <testcase name="callerBundleStaysParcelledAfterUnparcelFailure[24]" classname="com.shezguard.core.eval.ExtrasUnparcelTest" time="0.003"/>
+  <testcase name="callerBundleStaysParcelledAfterUnparcelFailure[29]" classname="com.shezguard.core.eval.ExtrasUnparcelTest" time="0.004"/>
+  <testcase name="callerBundleStaysParcelledAfterUnparcelFailure" classname="com.shezguard.core.eval.ExtrasUnparcelTest" time="0.003"/>
+  <testcase name="uriViolationsAreKeptWhenExtrasFailToUnparcel[24]" classname="com.shezguard.core.eval.ExtrasUnparcelTest" time="0.003"/>
+  <testcase name="uriViolationsAreKeptWhenExtrasFailToUnparcel[29]" classname="com.shezguard.core.eval.ExtrasUnparcelTest" time="0.003"/>
+  <testcase name="uriViolationsAreKeptWhenExtrasFailToUnparcel" classname="com.shezguard.core.eval.ExtrasUnparcelTest" time="0.003"/>
+  <testcase name="blocksBundleWithParcelableMissingItsCreator[24]" classname="com.shezguard.core.eval.ExtrasUnparcelTest" time="0.002"/>
+  <testcase name="blocksBundleWithParcelableMissingItsCreator[29]" classname="com.shezguard.core.eval.ExtrasUnparcelTest" time="0.003"/>
+  <testcase name="blocksBundleWithParcelableMissingItsCreator" classname="com.shezguard.core.eval.ExtrasUnparcelTest" time="0.002"/>
+  <testcase name="repeatedEvaluationGivesTheSameDecision[24]" classname="com.shezguard.core.eval.ExtrasUnparcelTest" time="0.003"/>
+  <testcase name="repeatedEvaluationGivesTheSameDecision[29]" classname="com.shezguard.core.eval.ExtrasUnparcelTest" time="0.002"/>
+  <testcase name="repeatedEvaluationGivesTheSameDecision" classname="com.shezguard.core.eval.ExtrasUnparcelTest" time="0.003"/>
+  <testcase name="blocksThrowingBundleNestedInsideAnotherBundle[24]" classname="com.shezguard.core.eval.ExtrasUnparcelTest" time="0.003"/>
+  <testcase name="blocksThrowingBundleNestedInsideAnotherBundle[29]" classname="com.shezguard.core.eval.ExtrasUnparcelTest" time="0.003"/>
+  <testcase name="blocksThrowingBundleNestedInsideAnotherBundle" classname="com.shezguard.core.eval.ExtrasUnparcelTest" time="0.003"/>
+  <testcase name="blocksBundleWhoseParcelableThrowsOnRead[24]" classname="com.shezguard.core.eval.ExtrasUnparcelTest" time="0.002"/>
+  <testcase name="blocksBundleWhoseParcelableThrowsOnRead[29]" classname="com.shezguard.core.eval.ExtrasUnparcelTest" time="0.003"/>
+  <testcase name="blocksBundleWhoseParcelableThrowsOnRead" classname="com.shezguard.core.eval.ExtrasUnparcelTest" time="0.002"/>
+  <testcase name="characterisesPartialMapAfterFailedUnparcel[24]" classname="com.shezguard.core.eval.ExtrasUnparcelTest" time="0.003"/>
+  <testcase name="characterisesPartialMapAfterFailedUnparcel[29]" classname="com.shezguard.core.eval.ExtrasUnparcelTest" time="0.003"/>
+  <testcase name="characterisesPartialMapAfterFailedUnparcel" classname="com.shezguard.core.eval.ExtrasUnparcelTest" time="0.005">
+    <skipped/>
+  </testcase>
+  <system-out><![CDATA[[N7s] sdk=24 blocksThrowingBundleNestedInsideAnotherBundle hostile CREATOR ran 1x
+[N7s] sdk=29 blocksThrowingBundleNestedInsideAnotherBundle hostile CREATOR ran 1x
+[N7s] sdk=34 blocksThrowingBundleNestedInsideAnotherBundle hostile CREATOR ran 1x
+[N7s] sdk=24 blocksBundleWhoseParcelableThrowsOnRead hostile CREATOR ran 1x
+[N7s] sdk=29 blocksBundleWhoseParcelableThrowsOnRead hostile CREATOR ran 1x
+[N7s] sdk=34 blocksBundleWhoseParcelableThrowsOnRead hostile CREATOR ran 1x
+[N6] sdk=24 first keySet() threw IllegalStateException; second keySet()=[a]
+[N6] sdk=29 first keySet() threw IllegalStateException; second keySet()=[a]
+]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

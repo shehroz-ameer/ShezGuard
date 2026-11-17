@@ -19,22 +19,36 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Assume.assumeTrue
+import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
-import org.robolectric.RobolectricTestRunner
+import androidx.test.ext.junit.runners.AndroidJUnit4
 import org.robolectric.annotation.Config
 
 /**
  * Threat 5, malformed Bundles: reading extras that throw must give `EXTRAS_UNPARCEL_FAILED`,
  * never a crash, and must leave the caller's Bundle untouched (`docs/PAPER_NOTES.md` N6, N7).
  * Below API 33 the failure happens at `keySet()` (whole Bundle); from API 33 at `get(key)`
- * (one key). Robolectric-only, device check pending (step 14).
+ * (one key). Shared with the instrumented tests (step 14). Tests using [ThrowingParcelable] also assert
+ * that its `CREATOR` really ran, so a "class not found" failure cannot pass them (it did on devices before
+ * `received()` set the app's class loader); the count is printed as `[N7s]` for the device comparison.
  */
-@RunWith(RobolectricTestRunner::class)
+@RunWith(AndroidJUnit4::class)
 @Config(sdk = [24, 29, 34])
 class ExtrasUnparcelTest {
 
     private val lazyValues get() = Build.VERSION.SDK_INT >= 33
+
+    @Before
+    fun reset() {
+        ThrowingParcelable.created = 0
+    }
+
+    /** The hostile code was reached, not just some read failure. */
+    private fun assertHostileCreatorRan(test: String) {
+        println("[N7s] sdk=${Build.VERSION.SDK_INT} $test hostile CREATOR ran ${ThrowingParcelable.created}x")
+        assertTrue("the hostile CREATOR did not run", ThrowingParcelable.created >= 1)
+    }
 
     private fun hostile(parcelable: android.os.Parcelable) =
         received(Intent().putExtra("title", "hi").putExtra("evil", parcelable))
@@ -54,7 +68,10 @@ class ExtrasUnparcelTest {
     }
 
     @Test
-    fun blocksBundleWhoseParcelableThrowsOnRead() = assertUnparcelFailed(ShezGuard.evaluate(hostile(ThrowingParcelable()), policy, "share"))
+    fun blocksBundleWhoseParcelableThrowsOnRead() {
+        assertUnparcelFailed(ShezGuard.evaluate(hostile(ThrowingParcelable()), policy, "share"))
+        assertHostileCreatorRan("blocksBundleWhoseParcelableThrowsOnRead")
+    }
 
     @Test
     fun blocksBundleWithParcelableMissingItsCreator() = assertUnparcelFailed(ShezGuard.evaluate(hostile(NoCreatorParcelable()), policy, "share"))
@@ -66,6 +83,7 @@ class ExtrasUnparcelTest {
         assertTrue(d is Decision.Block)
         // A nested Bundle stays parcelled until read (Parcel.readBundle), on every level.
         assertEquals(listOf(EXTRAS_UNPARCEL_FAILED, EXTRA_NOT_ALLOWED), d.violations.map { it.code })
+        assertHostileCreatorRan("blocksThrowingBundleNestedInsideAnotherBundle")
     }
 
     @Test

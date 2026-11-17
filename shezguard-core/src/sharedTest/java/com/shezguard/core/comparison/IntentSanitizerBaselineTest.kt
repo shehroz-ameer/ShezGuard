@@ -18,7 +18,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
-import org.robolectric.RobolectricTestRunner
+import androidx.test.ext.junit.runners.AndroidJUnit4
 import org.robolectric.annotation.Config
 
 /**
@@ -39,7 +39,7 @@ import org.robolectric.annotation.Config
  * its payload is not in the output (or the output targets no real component), "not prevented" if the
  * payload passes unchanged. Robolectric-only (SDK 29 and 34), not run on a device.
  */
-@RunWith(RobolectricTestRunner::class)
+@RunWith(AndroidJUnit4::class)
 @Config(sdk = [29, 34])
 class IntentSanitizerBaselineTest {
 

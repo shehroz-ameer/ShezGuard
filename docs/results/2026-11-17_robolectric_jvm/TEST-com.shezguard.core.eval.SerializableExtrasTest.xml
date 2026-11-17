@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.shezguard.core.eval.SerializableExtrasTest" tests="9" skipped="0" failures="0" errors="0" timestamp="2026-11-17T15:35:14" hostname="Mac.powerhub" time="0.029">
+  <properties/>
+  <testcase name="blocksSerializableOfUnknownClassWithoutCrashing[24]" classname="com.shezguard.core.eval.SerializableExtrasTest" time="0.006"/>
+  <testcase name="blocksSerializableOfUnknownClassWithoutCrashing[29]" classname="com.shezguard.core.eval.SerializableExtrasTest" time="0.004"/>
+  <testcase name="blocksSerializableOfUnknownClassWithoutCrashing" classname="com.shezguard.core.eval.SerializableExtrasTest" time="0.003"/>
+  <testcase name="knownSerializableIsReadAndOnlyNotAllowed[24]" classname="com.shezguard.core.eval.SerializableExtrasTest" time="0.003"/>
+  <testcase name="knownSerializableIsReadAndOnlyNotAllowed[29]" classname="com.shezguard.core.eval.SerializableExtrasTest" time="0.002"/>
+  <testcase name="knownSerializableIsReadAndOnlyNotAllowed" classname="com.shezguard.core.eval.SerializableExtrasTest" time="0.003"/>
+  <testcase name="gadgetReadObjectRunsDuringExtrasInspection[24]" classname="com.shezguard.core.eval.SerializableExtrasTest" time="0.003"/>
+  <testcase name="gadgetReadObjectRunsDuringExtrasInspection[29]" classname="com.shezguard.core.eval.SerializableExtrasTest" time="0.003"/>
+  <testcase name="gadgetReadObjectRunsDuringExtrasInspection" classname="com.shezguard.core.eval.SerializableExtrasTest" time="0.002"/>
+  <system-out><![CDATA[[N7s] sdk=24 gadgetReadObjectRunsDuringExtrasInspection gadget readObject ran 1x
+[N7s] sdk=29 gadgetReadObjectRunsDuringExtrasInspection gadget readObject ran 1x
+[N7s] sdk=34 gadgetReadObjectRunsDuringExtrasInspection gadget readObject ran 1x
+]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

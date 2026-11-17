@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.shezguard.core.comparison.IntentSanitizerBaselineTest" tests="20" skipped="0" failures="0" errors="0" timestamp="2026-11-17T15:35:11" hostname="Mac.powerhub" time="0.106">
+  <properties/>
+  <testcase name="hugeCopiesPassesATypeRuleAndIsRemovedOnlyByAValuePredicate[29]" classname="com.shezguard.core.comparison.IntentSanitizerBaselineTest" time="0.016"/>
+  <testcase name="hugeCopiesPassesATypeRuleAndIsRemovedOnlyByAValuePredicate" classname="com.shezguard.core.comparison.IntentSanitizerBaselineTest" time="0.009"/>
+  <testcase name="webViewUrlParameterPasses[29]" classname="com.shezguard.core.comparison.IntentSanitizerBaselineTest" time="0.008"/>
+  <testcase name="webViewUrlParameterPasses" classname="com.shezguard.core.comparison.IntentSanitizerBaselineTest" time="0.009"/>
+  <testcase name="pathTraversalParameterPasses[29]" classname="com.shezguard.core.comparison.IntentSanitizerBaselineTest" time="0.008"/>
+  <testcase name="pathTraversalParameterPasses" classname="com.shezguard.core.comparison.IntentSanitizerBaselineTest" time="0.003"/>
+  <testcase name="oversizedNoteIsRemovedByALengthPredicate[29]" classname="com.shezguard.core.comparison.IntentSanitizerBaselineTest" time="0.004"/>
+  <testcase name="oversizedNoteIsRemovedByALengthPredicate" classname="com.shezguard.core.comparison.IntentSanitizerBaselineTest" time="0.004"/>
+  <testcase name="nestedIntentToNonExportedComponentIsPreventedWhenTheNestedIntentIsSanitizedToo[29]" classname="com.shezguard.core.comparison.IntentSanitizerBaselineTest" time="0.003"/>
+  <testcase name="nestedIntentToNonExportedComponentIsPreventedWhenTheNestedIntentIsSanitizedToo" classname="com.shezguard.core.comparison.IntentSanitizerBaselineTest" time="0.004"/>
+  <testcase name="unknownSerializableClassMakesTheSanitizerThrow[29]" classname="com.shezguard.core.comparison.IntentSanitizerBaselineTest" time="0.008"/>
+  <testcase name="unknownSerializableClassMakesTheSanitizerThrow" classname="com.shezguard.core.comparison.IntentSanitizerBaselineTest" time="0.005"/>
+  <testcase name="sqlInjectionInQueryParameterPasses[29]" classname="com.shezguard.core.comparison.IntentSanitizerBaselineTest" time="0.005"/>
+  <testcase name="sqlInjectionInQueryParameterPasses" classname="com.shezguard.core.comparison.IntentSanitizerBaselineTest" time="0.003"/>
+  <testcase name="openRedirectParameterPasses[29]" classname="com.shezguard.core.comparison.IntentSanitizerBaselineTest" time="0.002"/>
+  <testcase name="openRedirectParameterPasses" classname="com.shezguard.core.comparison.IntentSanitizerBaselineTest" time="0.003"/>
+  <testcase name="gadgetReadObjectRunsInsideTheSanitizer[29]" classname="com.shezguard.core.comparison.IntentSanitizerBaselineTest" time="0.003"/>
+  <testcase name="gadgetReadObjectRunsInsideTheSanitizer" classname="com.shezguard.core.comparison.IntentSanitizerBaselineTest" time="0.003"/>
+  <testcase name="encodedTraversalParametersPass[29]" classname="com.shezguard.core.comparison.IntentSanitizerBaselineTest" time="0.003"/>
+  <testcase name="encodedTraversalParametersPass" classname="com.shezguard.core.comparison.IntentSanitizerBaselineTest" time="0.003"/>
+  <system-out><![CDATA[[baseline] sdk=29 t2d copies (type rule): NOT PREVENTED (copies=2000000 kept)
+[baseline] sdk=29 t2d copies (value predicate 1..100): PREVENTED (copies removed)
+[baseline] sdk=34 t2d copies (type rule): NOT PREVENTED (copies=2000000 kept)
+[baseline] sdk=34 t2d copies (value predicate 1..100): PREVENTED (copies removed)
+[baseline] sdk=29 benign b2b: passes (data unchanged)
+[baseline] sdk=29 t2b file: NOT PREVENTED (data passes unchanged, 0 penalties)
+[baseline] sdk=29 t2b data: NOT PREVENTED (data passes unchanged, 0 penalties)
+[baseline] sdk=34 benign b2b: passes (data unchanged)
+[baseline] sdk=34 t2b file: NOT PREVENTED (data passes unchanged, 0 penalties)
+[baseline] sdk=34 t2b data: NOT PREVENTED (data passes unchanged, 0 penalties)
+[baseline] sdk=29 benign b2c: passes (data unchanged)
+[baseline] sdk=29 t2c: NOT PREVENTED (data passes unchanged, 0 penalties)
+[baseline] sdk=34 benign b2c: passes (data unchanged)
+[baseline] sdk=34 t2c: NOT PREVENTED (data passes unchanged, 0 penalties)
+[baseline] sdk=29 benign b2d: passes
+[baseline] sdk=29 t2d: PREVENTED (note removed, 1 penalties)
+[baseline] sdk=34 benign b2d: passes
+[baseline] sdk=34 t2d: PREVENTED (note removed, 1 penalties)
+[baseline] sdk=29 benign b1: passes (component SearchActivity kept)
+[baseline] sdk=29 t1: PREVENTED (component rewritten to android/java.lang.Void, 1 penalties)
+[baseline] sdk=34 benign b1: passes (component SearchActivity kept)
+[baseline] sdk=34 t1: PREVENTED (component rewritten to android/java.lang.Void, 1 penalties)
+[baseline] sdk=29 t5: NOT PREVENTED (sanitize threw RuntimeException; uncaught, the app crashes)
+[baseline] sdk=34 t5: NOT PREVENTED (sanitize threw BadParcelableException; uncaught, the app crashes)
+[baseline] sdk=29 benign b2a: passes (data unchanged)
+[baseline] sdk=29 t2a: NOT PREVENTED (data passes unchanged, 0 penalties)
+[baseline] sdk=34 benign b2a: passes (data unchanged)
+[baseline] sdk=34 t2a: NOT PREVENTED (data passes unchanged, 0 penalties)
+[baseline] sdk=29 benign b3: passes (data unchanged)
+[baseline] sdk=29 t3: NOT PREVENTED (data passes unchanged, 0 penalties)
+[baseline] sdk=34 benign b3: passes (data unchanged)
+[baseline] sdk=34 t3: NOT PREVENTED (data passes unchanged, 0 penalties)
+[baseline] sdk=29 5b: NOT PREVENTED (readObject ran inside sanitize; the extra was then removed)
+[baseline] sdk=34 5b: NOT PREVENTED (readObject ran inside sanitize; the extra was then removed)
+[baseline] sdk=29 benign b6: passes (data unchanged)
+[baseline] sdk=29 t6 ../secret.txt: NOT PREVENTED (data passes unchanged, 0 penalties)
+[baseline] sdk=29 t6 %2e%2e%2fsecret.txt: NOT PREVENTED (data passes unchanged, 0 penalties)
+[baseline] sdk=29 t6 %252e%252e%252fsecret.txt: NOT PREVENTED (data passes unchanged, 0 penalties)
+[baseline] sdk=34 benign b6: passes (data unchanged)
+[baseline] sdk=34 t6 ../secret.txt: NOT PREVENTED (data passes unchanged, 0 penalties)
+[baseline] sdk=34 t6 %2e%2e%2fsecret.txt: NOT PREVENTED (data passes unchanged, 0 penalties)
+[baseline] sdk=34 t6 %252e%252e%252fsecret.txt: NOT PREVENTED (data passes unchanged, 0 penalties)
+]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

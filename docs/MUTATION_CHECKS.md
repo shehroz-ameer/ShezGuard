@@ -88,6 +88,20 @@ Notes:
 - **Selection.** Only `ActivityGuardTest` was run. `AuditCanaryTest`'s guard test was not part of
   the selection.
 
+## Step 14: wiring after the move to `src/sharedTest`
+Run 2026-11-17 with `scripts/mutation/run_mutants.py`, JVM (Robolectric) only, debug variant.
+- Step 10 mutants **a1** and **e** re-run after the runner switch: both caught by the same tests as
+  recorded above, target restored byte for byte. `ActivityGuardTest` was not moved.
+- No earlier recorded mutant is caught by a moved class, so a new one was added
+  (`scripts/mutation/step14_shared_wiring.py`), target `AndroidExtras.kt`:
+
+| Mutant | Change | Result | Caught by |
+|---|---|---|---|
+| w1 | A nested intent left inside `IntentSanitizer`'s output is not denied (the `leavesNestedIntent` branch removed) | caught (SDK 24, 29, 34) | `NestedIntentTest.blocksDoublyNestedIntentLeftBySanitizer` (now in `src/sharedTest`) |
+
+The runner located `NestedIntentTest` under `shezguard-core/src/sharedTest/java` (75 cases), and the
+target was restored byte for byte.
+
 ## Step 13: build-time coverage check (Lint rule)
 Targets in `:shezguard-lint`: `ShezGuardDetector.kt` (coverage), `GuardCallHeuristics.kt` (call order and
 result use), `DeepLinkDetector.kt` (threat 4 advice). Tests: lint-tests on the JVM (each test runs Lint in
