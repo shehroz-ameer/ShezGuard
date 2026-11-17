@@ -8,7 +8,22 @@ is not a physical device and does not cover OEM changes. No physical device was 
 | Folder | What |
 |---|---|
 | `2026-11-17_robolectric_jvm/` | Robolectric reference: JUnit XML of the six `src/sharedTest` classes (`testDebugUnitTest`), their tagged lines (`tagged.txt`), and the full JVM test-name lists (896 per variant) |
-| `2026-11-17_<AVD>_api<N>/` | One emulator run: `device.txt` (build, patch, ABI, `hidden_api_policy` before / during / after, commit), JUnit XML, full `logcat.txt`, `tagged.txt`, `gradle.txt` |
+| `2026-11-17_<AVD>_api<N>_<label>/` | One emulator run: `device.txt` (run label, build, patch, ABI, `hidden_api_policy` before / during / after, attacker and test APK state, commit), `tagged.txt`; runs before the secret-scan follow-up also keep their JUnit XML and `gradle.txt`, later runs keep `results.txt` (one line per test) instead. **No raw logcat** (see below) |
+
+**Run labels.** Every run folder ends in a label naming the phase, and `run_shared_tests.sh` refuses to
+write into an existing folder, so a later run never overwrites an earlier one. Phase 2 had overwritten
+the phase 1 folders (same date and name); they were renamed afterwards: `_phase1` folders are restored
+unchanged from commit 957da81 (phase 1 and its follow-ups, 67 or 66 tests per level), `_phase2` folders
+are the phase 2 runs from commit ca50ca0 (84 tests per level), and `_phase2-followup` folders (API 34 and
+36 only) add the plain internal launch test for L43 (85 tests). The Robolectric folder
+`2026-11-17_robolectric_jvm/` is a reference, updated only by adding files (phase 2 added
+`CraftedUriParcelTest`).
+
+Phase 3 (benchmark and footprint, `docs/BENCHMARK.md`): `2026-11-17_Pixel_8_api34_phase3-bench/` and
+`2026-11-17_Pixel_4_api29_phase3-bench/` (written by `scripts/bench/run_bench.sh`: `device.txt`,
+`percall_lines.txt`, `percall_raw.tar.gz`, `micro_run<k>.json`, instrumentation output, `summary.md` from
+`scripts/bench/summarise.py`), and `2026-11-17_footprint_phase3/footprint.txt`
+(`scripts/bench/footprint.sh`). Both scripts also refuse to overwrite an existing folder.
 
 Emulators (all arm64-v8a): `ShezGuard_API_24` (google_apis, Android 7.0, patch 2017-10-05),
 `Pixel_4` (API 29, Play image), `ShezGuard_API_33` (google_apis, patch 2024-03-01), `Pixel_8` (API 34,
@@ -79,6 +94,24 @@ Results, 2026-11-17 (84 instrumented tests per level, 0 failed; skips are level 
 `device.txt`); AGP uninstalls the test APK after the run (`test_apk_installed_after=0`), which also
 removes the domain states set via pm.
 
+## Skipped tests per level (phase 2 and follow-up runs)
+Every skip is a JUnit assumption on the API level; none hides a failure. Phase 2 runs: 84 tests per level;
+follow-up runs (API 34, 36): 85.
+
+| Test | Skipped on | Reason (assumption) |
+|---|---|---|
+| `CallerIdentityDeviceTest.sharedIdentityIsReliableOnApi34` | 24, 29, 33 | `ActivityOptions.setShareIdentityEnabled` exists from API 34 |
+| `DomainVerificationDeviceTest.mapsThePlatformDomainStates` | 24, 29 | `DomainVerificationManager` exists from API 31 |
+| `DomainVerificationDeviceTest.linkHandlingDisallowedMeansNotVerified` | 24, 29 | same |
+| `DomainVerificationDeviceTest.domainVerificationIsUnavailableBelowApi31` | 33, 34, 36 | checks the below-31 path only |
+| `CraftedUriParcelTest.blocksCraftedParcelWhoseDecodedPathDisagreesWithEncoded` | 33, 34, 36 | representation `BOTH` is read only up to API 29 (N4); 30+ is covered by `CraftedUriDeviceTest` |
+| `CraftedUriParcelTest.consistentCraftedParcelIsAllowed` | 33, 34, 36 | same |
+| `ExtrasUnparcelTest.characterisesPartialMapAfterFailedUnparcel` | 33, 34, 36 | from API 33 the hostile value is lazy and `keySet()` succeeds (N7), so there is no partial map to characterise |
+
+Totals: API 24 and 29: 3 skipped; API 33: 5; API 34 and 36: 4. On the JVM the 2 skips per variant are
+`ExtrasUnparcelTest.characterisesPartialMapAfterFailedUnparcel` at SDK 34 (same reason) and
+`CallerAndroidTest.rotatedOutSigningKeyIsNotAccepted` at SDK 24 (signing lineage exists from API 28).
+
 ## Test-only dependencies added in step 14
 | Catalog entry | Coordinates | Configuration | Why |
 |---|---|---|---|
@@ -112,11 +145,42 @@ after each final run read `null` again.
 
 ## Scripts
 - `scripts/device/run_shared_tests.sh <AVD>`: build and push `:attacker`, boot, check, set and restore
-  the hidden-API setting, run `connectedDebugAndroidTest`, collect logcat and XML into this folder, put
-  `:attacker` back as found.
+  the hidden-API setting, run `connectedDebugAndroidTest`, write `device.txt`, `tagged.txt` and
+  `results.txt` into this folder (raw logcat, XML and Gradle output stay in a temporary folder), put
+  `:attacker` back as found, scrub the folder and fail if a pattern remains.
+- `scripts/device/junit_summary.py <xml dir>`: one line per test (PASS / SKIP / FAIL with the first line
+  of the message).
+- `scripts/device/scrub.py <folder> [--check] [--literals FILE]`: masks secrets and identifiers, then
+  re-scans; exit 1 if anything remains (see "Raw logs and secrets").
 - `scripts/device/extract_tagged.py`: the tagged lines (`[103]`, `[111]`, `[117]`, `[N4]`, `[N4d]`,
-  `[N6]`, `[N7s]`, `[N7d]`, `[N8]`, `[N11d]`, `[N12d]`, `[N13d]`, `[baseline]`) from JUnit XML or logcat (`System.out` only).
-- `scripts/device/compare_with_robolectric.py <robolectric dir> <logcat> <api>`: compares one run with
+  `[N6]`, `[N7s]`, `[N7d]`, `[N8]`, `[N11d]`, `[N12d]`, `[N13d]`, `[baseline]`) from JUnit XML, a logcat dump (`System.out` only) or a `tagged.txt`.
+- `scripts/device/compare_with_robolectric.py <robolectric dir> <tagged.txt> <api>`: compares one run with
   Robolectric; exit 1 on any difference at the same SDK or any differing count.
 - `scripts/device/check_hidden_api_policy.sh <AVD> [--reset]`: reads (and optionally resets and
   re-checks) the setting across cold boots.
+
+## Raw logs and secrets (follow-up of 2026-11-17)
+A secret scan flagged a Google API key in the phase 2 API 29 raw logcat. It was logged by the Play Store
+(`com.android.vending`, tag `Firebase-Installations`), part of the emulator's Google Play system image,
+not by this project. Raw logcat also carried the host's adb public key and `user@host` name (logged by
+the emulator's `AdbDebuggingManager`, phase 1, API 29). So:
+- **Every raw `logcat.txt` was removed** from `docs/results` (all `_phase1`, `_phase2` and
+  `_phase2-followup` folders; the phase 3 folders never had one). The tagged lines kept in `tagged.txt`
+  are exactly what `extract_tagged.py` extracts from those logcats, and
+  `compare_with_robolectric.py` gives identical output (exit 0) from `tagged.txt` for all 12 runs; this
+  was checked before the logcats were removed.
+- The run scripts now keep **only filtered output** in `docs/results`: `device.txt`, `tagged.txt`,
+  `results.txt` (device tests); `percall_lines.txt` (filtered `[BENCH-PERCALL]` lines),
+  `percall_raw.tar.gz` (numbers only), `micro_run<k>.json` (androidx.benchmark's results and device
+  context) and `instrument_status.txt` (benchmark); `footprint.txt`. Raw logcat, JUnit XML and full
+  instrumentation output go to a temporary folder that is deleted.
+- **Scrub step** (`scripts/device/scrub.py`), run by `run_shared_tests.sh`, `run_bench.sh` and
+  `footprint.sh` before they finish: masks Google API keys (`AIza…`), OAuth tokens (`ya29.`), AWS key
+  ids (`AKIA…`), private-key PEM headers, email addresses (except the test-fixture domains listed in the
+  script, e.g. `evil.com`, `example.com`, `uri.path`), device serial numbers (`ro.serialno`,
+  `ro.boot.serialno`, read from the device, and the `EMULATOR…X…` form), the host's adb public key, and
+  certificate fingerprints (colon hex, and the debug certificate's SHA-256 and SHA-1 digests read from the
+  built APK's public certificate). It re-scans afterwards and the run fails if anything remains.
+- The removed logcats are still in the git history (commits 957da81 and ca50ca0, both pushed); history
+  was not rewritten.
+

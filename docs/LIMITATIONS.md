@@ -843,13 +843,17 @@ pending (step 14)):
   test, the attacker's result slot forwarded by this app's `ForwarderActivity` (a plain `startActivity`
   with `FLAG_ACTIVITY_FORWARD_RESULT`) gives `calling=com.shezguard.attacker`,
   `launchedFrom=com.shezguard.core.test`, and "partner" (which lists only the attacker) is blocked on
-  API 34 and 36 but allowed on 24, 29, 33. A plain internal `startActivity` without that flag was not
-  run separately; it goes through the same same-uid rule.
+  API 34 and 36 but allowed on 24, 29, 33. **A plain internal `startActivity`** (one of this app's
+  activities starting the probe, no result, no flags; `plainInternalLaunchNamesThisAppFromApi34`, phase 2
+  follow-up) gives `launchedFrom=com.shezguard.core.test` and "partner"
+  `BLOCK(LAUNCHED_FROM_PACKAGE)[CALLER_NOT_ALLOWED_RELIABLE]`, while "self" is allowed: confirmed
+  (emulator, API 34, 36), `docs/results/2026-11-17_*_phase2-followup/`. The same test asserts the
+  below-34 case (no reliable source, soft code only) but has not yet been run on API 24, 29 or 33.
 - **Workaround today:** list the app's own package and certificate in the allow-list of an entry point
   that the app itself also launches.
 - **Behaviour not changed in step 14.** Recorded only. **Step 16 decision (open):** whether a reliable
   source naming the app's own package should be treated as "allowed" without listing it.
-- **Source:** step 14 phase 2 (emulator runs of 2026-11-17).
+- **Source:** step 14 phase 2 and its follow-up (emulator runs of 2026-11-17).
 
 ## L44. From API 33, the system referrer is hidden unless the app can see the launcher
 - **What:** the system referrer (`Activity.getReferrer()` without referrer extras, ShezGuard's

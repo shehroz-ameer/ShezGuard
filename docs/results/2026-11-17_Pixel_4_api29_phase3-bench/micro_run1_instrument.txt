@@ -1,0 +1,387 @@
+INSTRUMENTATION_STATUS: class=com.shezguard.benchmark.MicroBenchmark
+INSTRUMENTATION_STATUS: current=1
+INSTRUMENTATION_STATUS: id=AndroidJUnitRunner
+INSTRUMENTATION_STATUS: numtests=11
+INSTRUMENTATION_STATUS: stream=
+com.shezguard.benchmark.MicroBenchmark:
+INSTRUMENTATION_STATUS: test=early_block_scheme
+INSTRUMENTATION_STATUS_CODE: 1
+INSTRUMENTATION_STATUS: additionalTestOutputFile_MicroBenchmark_early_block_scheme_2026-11-17-19-20-34.perfetto-trace=/sdcard/Android/media/com.shezguard.benchmark.test/additional_test_output/MicroBenchmark_early_block_scheme_2026-11-17-19-20-34.perfetto-trace
+INSTRUMENTATION_STATUS_CODE: 2
+INSTRUMENTATION_STATUS: EMULATOR_allocation_count_max=369.0086645319269
+INSTRUMENTATION_STATUS: EMULATOR_allocation_count_median=369.0073460161989
+INSTRUMENTATION_STATUS: EMULATOR_allocation_count_min=369.00659257864004
+INSTRUMENTATION_STATUS: EMULATOR_allocation_count_stddev=8.774394197722883E-4
+INSTRUMENTATION_STATUS: EMULATOR_time_nanos_max=18041.860237332832
+INSTRUMENTATION_STATUS: EMULATOR_time_nanos_median=17491.949896402337
+INSTRUMENTATION_STATUS: EMULATOR_time_nanos_min=17079.817856470145
+INSTRUMENTATION_STATUS: EMULATOR_time_nanos_stddev=219.7816983249513
+INSTRUMENTATION_STATUS: android.studio.display.benchmark=NOTE: Your device is running a version of ART where method tracing is known to
+affect performance measurement after trace capture, so method tracing is
+off by default.
+
+To use method tracing, either flash this device, use a different device, or
+enable method tracing with MicrobenchmarkConfig / instrumentation argument, and
+only run one test at a time.
+
+For more information, see https://issuetracker.google.com/issues/316174880
+
+WARNING: Running on Emulator
+    Benchmark is running on an emulator, which is not representative of
+    real user devices. Use a physical device to benchmark. Emulator
+    benchmark improvements might not carry over to a real user's
+    experience (or even regress real device performance). 
+
+       17,079   ns         369 allocs    [Trace](file://MicroBenchmark_early_block_scheme_2026-11-17-19-20-34.perfetto-trace)    EMULATOR_MicroBenchmark.early_block_scheme
+INSTRUMENTATION_STATUS: android.studio.v2display.benchmark=NOTE: Your device is running a version of ART where method tracing is known to
+affect performance measurement after trace capture, so method tracing is
+off by default.
+
+To use method tracing, either flash this device, use a different device, or
+enable method tracing with MicrobenchmarkConfig / instrumentation argument, and
+only run one test at a time.
+
+For more information, see https://issuetracker.google.com/issues/316174880
+
+WARNING: Running on Emulator
+    Benchmark is running on an emulator, which is not representative of
+    real user devices. Use a physical device to benchmark. Emulator
+    benchmark improvements might not carry over to a real user's
+    experience (or even regress real device performance). 
+
+       17,079   ns         369 allocs    [Trace](file://MicroBenchmark_early_block_scheme_2026-11-17-19-20-34.perfetto-trace)    EMULATOR_MicroBenchmark.early_block_scheme
+INSTRUMENTATION_STATUS: android.studio.v2display.benchmark.outputDirPath=/sdcard/Android/media/com.shezguard.benchmark.test/additional_test_output
+INSTRUMENTATION_STATUS: android.studio.v3display.benchmark=NOTE: Your device is running a version of ART where method tracing is known to
+affect performance measurement after trace capture, so method tracing is
+off by default.
+
+To use method tracing, either flash this device, use a different device, or
+enable method tracing with MicrobenchmarkConfig / instrumentation argument, and
+only run one test at a time.
+
+For more information, see https://issuetracker.google.com/issues/316174880
+
+WARNING: Running on Emulator
+    Benchmark is running on an emulator, which is not representative of
+    real user devices. Use a physical device to benchmark. Emulator
+    benchmark improvements might not carry over to a real user's
+    experience (or even regress real device performance). 
+
+       17,079   ns         369 allocs    [Trace](file://MicroBenchmark_early_block_scheme_2026-11-17-19-20-34.perfetto-trace)    EMULATOR_MicroBenchmark.early_block_scheme
+INSTRUMENTATION_STATUS: android.studio.v3display.benchmark.outputDirPath=/sdcard/Android/media/com.shezguard.benchmark.test/additional_test_output
+INSTRUMENTATION_STATUS_CODE: 2
+INSTRUMENTATION_STATUS: class=com.shezguard.benchmark.MicroBenchmark
+INSTRUMENTATION_STATUS: current=1
+INSTRUMENTATION_STATUS: id=AndroidJUnitRunner
+INSTRUMENTATION_STATUS: numtests=11
+INSTRUMENTATION_STATUS: stream=.
+INSTRUMENTATION_STATUS: test=early_block_scheme
+INSTRUMENTATION_STATUS_CODE: 0
+INSTRUMENTATION_STATUS: class=com.shezguard.benchmark.MicroBenchmark
+INSTRUMENTATION_STATUS: current=2
+INSTRUMENTATION_STATUS: id=AndroidJUnitRunner
+INSTRUMENTATION_STATUS: numtests=11
+INSTRUMENTATION_STATUS: stream=
+INSTRUMENTATION_STATUS: test=simple_link
+INSTRUMENTATION_STATUS_CODE: 1
+INSTRUMENTATION_STATUS: additionalTestOutputFile_MicroBenchmark_simple_link_2026-11-17-19-20-49.perfetto-trace=/sdcard/Android/media/com.shezguard.benchmark.test/additional_test_output/MicroBenchmark_simple_link_2026-11-17-19-20-49.perfetto-trace
+INSTRUMENTATION_STATUS_CODE: 2
+INSTRUMENTATION_STATUS: EMULATOR_allocation_count_max=353.00782046922814
+INSTRUMENTATION_STATUS: EMULATOR_allocation_count_median=353.0054403264196
+INSTRUMENTATION_STATUS: EMULATOR_allocation_count_min=353.00187011220675
+INSTRUMENTATION_STATUS: EMULATOR_allocation_count_stddev=0.0021247874600340113
+INSTRUMENTATION_STATUS: EMULATOR_time_nanos_max=18356.854471268278
+INSTRUMENTATION_STATUS: EMULATOR_time_nanos_median=16909.462172730364
+INSTRUMENTATION_STATUS: EMULATOR_time_nanos_min=16487.091125467527
+INSTRUMENTATION_STATUS: EMULATOR_time_nanos_stddev=338.2507369343586
+INSTRUMENTATION_STATUS: android.studio.display.benchmark=       16,487   ns         353 allocs    [Trace](file://MicroBenchmark_simple_link_2026-11-17-19-20-49.perfetto-trace)    EMULATOR_MicroBenchmark.simple_link
+INSTRUMENTATION_STATUS: android.studio.v2display.benchmark=       16,487   ns         353 allocs    [Trace](file://MicroBenchmark_simple_link_2026-11-17-19-20-49.perfetto-trace)    EMULATOR_MicroBenchmark.simple_link
+INSTRUMENTATION_STATUS: android.studio.v2display.benchmark.outputDirPath=/sdcard/Android/media/com.shezguard.benchmark.test/additional_test_output
+INSTRUMENTATION_STATUS: android.studio.v3display.benchmark=       16,487   ns         353 allocs    [Trace](file://MicroBenchmark_simple_link_2026-11-17-19-20-49.perfetto-trace)    EMULATOR_MicroBenchmark.simple_link
+INSTRUMENTATION_STATUS: android.studio.v3display.benchmark.outputDirPath=/sdcard/Android/media/com.shezguard.benchmark.test/additional_test_output
+INSTRUMENTATION_STATUS_CODE: 2
+INSTRUMENTATION_STATUS: class=com.shezguard.benchmark.MicroBenchmark
+INSTRUMENTATION_STATUS: current=2
+INSTRUMENTATION_STATUS: id=AndroidJUnitRunner
+INSTRUMENTATION_STATUS: numtests=11
+INSTRUMENTATION_STATUS: stream=.
+INSTRUMENTATION_STATUS: test=simple_link
+INSTRUMENTATION_STATUS_CODE: 0
+INSTRUMENTATION_STATUS: class=com.shezguard.benchmark.MicroBenchmark
+INSTRUMENTATION_STATUS: current=3
+INSTRUMENTATION_STATUS: id=AndroidJUnitRunner
+INSTRUMENTATION_STATUS: numtests=11
+INSTRUMENTATION_STATUS: stream=
+INSTRUMENTATION_STATUS: test=many_params
+INSTRUMENTATION_STATUS_CODE: 1
+INSTRUMENTATION_STATUS: additionalTestOutputFile_MicroBenchmark_many_params_2026-11-17-19-28-36.perfetto-trace=/sdcard/Android/media/com.shezguard.benchmark.test/additional_test_output/MicroBenchmark_many_params_2026-11-17-19-28-36.perfetto-trace
+INSTRUMENTATION_STATUS_CODE: 2
+INSTRUMENTATION_STATUS: EMULATOR_allocation_count_max=3422.1708253358925
+INSTRUMENTATION_STATUS: EMULATOR_allocation_count_median=3422.115163147793
+INSTRUMENTATION_STATUS: EMULATOR_allocation_count_min=3422.088291746641
+INSTRUMENTATION_STATUS: EMULATOR_allocation_count_stddev=0.03607219949578397
+INSTRUMENTATION_STATUS: EMULATOR_time_nanos_max=4.662481016698656E7
+INSTRUMENTATION_STATUS: EMULATOR_time_nanos_median=325263.3886756238
+INSTRUMENTATION_STATUS: EMULATOR_time_nanos_min=212128.93857965452
+INSTRUMENTATION_STATUS: EMULATOR_time_nanos_stddev=6542381.705749779
+INSTRUMENTATION_STATUS: android.studio.display.benchmark=      212,128   ns        3422 allocs    [Trace](file://MicroBenchmark_many_params_2026-11-17-19-28-36.perfetto-trace)    EMULATOR_MicroBenchmark.many_params
+INSTRUMENTATION_STATUS: android.studio.v2display.benchmark=      212,128   ns        3422 allocs    [Trace](file://MicroBenchmark_many_params_2026-11-17-19-28-36.perfetto-trace)    EMULATOR_MicroBenchmark.many_params
+INSTRUMENTATION_STATUS: android.studio.v2display.benchmark.outputDirPath=/sdcard/Android/media/com.shezguard.benchmark.test/additional_test_output
+INSTRUMENTATION_STATUS: android.studio.v3display.benchmark=      212,128   ns        3422 allocs    [Trace](file://MicroBenchmark_many_params_2026-11-17-19-28-36.perfetto-trace)    EMULATOR_MicroBenchmark.many_params
+INSTRUMENTATION_STATUS: android.studio.v3display.benchmark.outputDirPath=/sdcard/Android/media/com.shezguard.benchmark.test/additional_test_output
+INSTRUMENTATION_STATUS_CODE: 2
+INSTRUMENTATION_STATUS: class=com.shezguard.benchmark.MicroBenchmark
+INSTRUMENTATION_STATUS: current=3
+INSTRUMENTATION_STATUS: id=AndroidJUnitRunner
+INSTRUMENTATION_STATUS: numtests=11
+INSTRUMENTATION_STATUS: stream=.
+INSTRUMENTATION_STATUS: test=many_params
+INSTRUMENTATION_STATUS_CODE: 0
+INSTRUMENTATION_STATUS: class=com.shezguard.benchmark.MicroBenchmark
+INSTRUMENTATION_STATUS: current=4
+INSTRUMENTATION_STATUS: id=AndroidJUnitRunner
+INSTRUMENTATION_STATUS: numtests=11
+INSTRUMENTATION_STATUS: stream=
+INSTRUMENTATION_STATUS: test=max_length
+INSTRUMENTATION_STATUS_CODE: 1
+INSTRUMENTATION_STATUS: additionalTestOutputFile_MicroBenchmark_max_length_2026-11-17-19-28-52.perfetto-trace=/sdcard/Android/media/com.shezguard.benchmark.test/additional_test_output/MicroBenchmark_max_length_2026-11-17-19-28-52.perfetto-trace
+INSTRUMENTATION_STATUS_CODE: 2
+INSTRUMENTATION_STATUS: EMULATOR_allocation_count_max=575.0965034965035
+INSTRUMENTATION_STATUS: EMULATOR_allocation_count_median=575.0923076923077
+INSTRUMENTATION_STATUS: EMULATOR_allocation_count_min=575.0881118881119
+INSTRUMENTATION_STATUS: EMULATOR_allocation_count_stddev=0.0033391150730707198
+INSTRUMENTATION_STATUS: EMULATOR_time_nanos_max=178355.56923076924
+INSTRUMENTATION_STATUS: EMULATOR_time_nanos_median=155574.94615384616
+INSTRUMENTATION_STATUS: EMULATOR_time_nanos_min=146091.66573426573
+INSTRUMENTATION_STATUS: EMULATOR_time_nanos_stddev=6308.157807262675
+INSTRUMENTATION_STATUS: android.studio.display.benchmark=      146,091   ns         575 allocs    [Trace](file://MicroBenchmark_max_length_2026-11-17-19-28-52.perfetto-trace)    EMULATOR_MicroBenchmark.max_length
+INSTRUMENTATION_STATUS: android.studio.v2display.benchmark=      146,091   ns         575 allocs    [Trace](file://MicroBenchmark_max_length_2026-11-17-19-28-52.perfetto-trace)    EMULATOR_MicroBenchmark.max_length
+INSTRUMENTATION_STATUS: android.studio.v2display.benchmark.outputDirPath=/sdcard/Android/media/com.shezguard.benchmark.test/additional_test_output
+INSTRUMENTATION_STATUS: android.studio.v3display.benchmark=      146,091   ns         575 allocs    [Trace](file://MicroBenchmark_max_length_2026-11-17-19-28-52.perfetto-trace)    EMULATOR_MicroBenchmark.max_length
+INSTRUMENTATION_STATUS: android.studio.v3display.benchmark.outputDirPath=/sdcard/Android/media/com.shezguard.benchmark.test/additional_test_output
+INSTRUMENTATION_STATUS_CODE: 2
+INSTRUMENTATION_STATUS: class=com.shezguard.benchmark.MicroBenchmark
+INSTRUMENTATION_STATUS: current=4
+INSTRUMENTATION_STATUS: id=AndroidJUnitRunner
+INSTRUMENTATION_STATUS: numtests=11
+INSTRUMENTATION_STATUS: stream=.
+INSTRUMENTATION_STATUS: test=max_length
+INSTRUMENTATION_STATUS_CODE: 0
+INSTRUMENTATION_STATUS: class=com.shezguard.benchmark.MicroBenchmark
+INSTRUMENTATION_STATUS: current=5
+INSTRUMENTATION_STATUS: id=AndroidJUnitRunner
+INSTRUMENTATION_STATUS: numtests=11
+INSTRUMENTATION_STATUS: stream=
+INSTRUMENTATION_STATUS: test=baseline_sanitizer_nested1
+INSTRUMENTATION_STATUS_CODE: 1
+INSTRUMENTATION_STATUS: additionalTestOutputFile_MicroBenchmark_baseline_sanitizer_nested1_2026-11-17-19-29-00.perfetto-trace=/sdcard/Android/media/com.shezguard.benchmark.test/additional_test_output/MicroBenchmark_baseline_sanitizer_nested1_2026-11-17-19-29-00.perfetto-trace
+INSTRUMENTATION_STATUS_CODE: 2
+INSTRUMENTATION_STATUS: EMULATOR_allocation_count_max=52.00101252151608
+INSTRUMENTATION_STATUS: EMULATOR_allocation_count_median=52.00087751864727
+INSTRUMENTATION_STATUS: EMULATOR_allocation_count_min=52.00077626649566
+INSTRUMENTATION_STATUS: EMULATOR_allocation_count_stddev=8.801110270624526E-5
+INSTRUMENTATION_STATUS: EMULATOR_time_nanos_max=2315.047116001215
+INSTRUMENTATION_STATUS: EMULATOR_time_nanos_median=2093.0788585507444
+INSTRUMENTATION_STATUS: EMULATOR_time_nanos_min=1899.1030409396199
+INSTRUMENTATION_STATUS: EMULATOR_time_nanos_stddev=87.71031795293992
+INSTRUMENTATION_STATUS: android.studio.display.benchmark=        1,899   ns          52 allocs    [Trace](file://MicroBenchmark_baseline_sanitizer_nested1_2026-11-17-19-29-00.perfetto-trace)    EMULATOR_MicroBenchmark.baseline_sanitizer_nested1
+INSTRUMENTATION_STATUS: android.studio.v2display.benchmark=        1,899   ns          52 allocs    [Trace](file://MicroBenchmark_baseline_sanitizer_nested1_2026-11-17-19-29-00.perfetto-trace)    EMULATOR_MicroBenchmark.baseline_sanitizer_nested1
+INSTRUMENTATION_STATUS: android.studio.v2display.benchmark.outputDirPath=/sdcard/Android/media/com.shezguard.benchmark.test/additional_test_output
+INSTRUMENTATION_STATUS: android.studio.v3display.benchmark=        1,899   ns          52 allocs    [Trace](file://MicroBenchmark_baseline_sanitizer_nested1_2026-11-17-19-29-00.perfetto-trace)    EMULATOR_MicroBenchmark.baseline_sanitizer_nested1
+INSTRUMENTATION_STATUS: android.studio.v3display.benchmark.outputDirPath=/sdcard/Android/media/com.shezguard.benchmark.test/additional_test_output
+INSTRUMENTATION_STATUS_CODE: 2
+INSTRUMENTATION_STATUS: class=com.shezguard.benchmark.MicroBenchmark
+INSTRUMENTATION_STATUS: current=5
+INSTRUMENTATION_STATUS: id=AndroidJUnitRunner
+INSTRUMENTATION_STATUS: numtests=11
+INSTRUMENTATION_STATUS: stream=.
+INSTRUMENTATION_STATUS: test=baseline_sanitizer_nested1
+INSTRUMENTATION_STATUS_CODE: 0
+INSTRUMENTATION_STATUS: class=com.shezguard.benchmark.MicroBenchmark
+INSTRUMENTATION_STATUS: current=6
+INSTRUMENTATION_STATUS: id=AndroidJUnitRunner
+INSTRUMENTATION_STATUS: numtests=11
+INSTRUMENTATION_STATUS: stream=
+INSTRUMENTATION_STATUS: test=early_block_unregistered
+INSTRUMENTATION_STATUS_CODE: 1
+INSTRUMENTATION_STATUS: additionalTestOutputFile_MicroBenchmark_early_block_unregistered_2026-11-17-19-29-08.perfetto-trace=/sdcard/Android/media/com.shezguard.benchmark.test/additional_test_output/MicroBenchmark_early_block_unregistered_2026-11-17-19-29-08.perfetto-trace
+INSTRUMENTATION_STATUS_CODE: 2
+INSTRUMENTATION_STATUS: EMULATOR_allocation_count_max=9.00015
+INSTRUMENTATION_STATUS: EMULATOR_allocation_count_median=9.00007
+INSTRUMENTATION_STATUS: EMULATOR_allocation_count_min=9.0
+INSTRUMENTATION_STATUS: EMULATOR_allocation_count_stddev=5.683308895331757E-5
+INSTRUMENTATION_STATUS: EMULATOR_time_nanos_max=237.67302
+INSTRUMENTATION_STATUS: EMULATOR_time_nanos_median=199.90374
+INSTRUMENTATION_STATUS: EMULATOR_time_nanos_min=179.7083
+INSTRUMENTATION_STATUS: EMULATOR_time_nanos_stddev=12.997555828026682
+INSTRUMENTATION_STATUS: android.studio.display.benchmark=          179   ns           9 allocs    [Trace](file://MicroBenchmark_early_block_unregistered_2026-11-17-19-29-08.perfetto-trace)    EMULATOR_MicroBenchmark.early_block_unregistered
+INSTRUMENTATION_STATUS: android.studio.v2display.benchmark=          179   ns           9 allocs    [Trace](file://MicroBenchmark_early_block_unregistered_2026-11-17-19-29-08.perfetto-trace)    EMULATOR_MicroBenchmark.early_block_unregistered
+INSTRUMENTATION_STATUS: android.studio.v2display.benchmark.outputDirPath=/sdcard/Android/media/com.shezguard.benchmark.test/additional_test_output
+INSTRUMENTATION_STATUS: android.studio.v3display.benchmark=          179   ns           9 allocs    [Trace](file://MicroBenchmark_early_block_unregistered_2026-11-17-19-29-08.perfetto-trace)    EMULATOR_MicroBenchmark.early_block_unregistered
+INSTRUMENTATION_STATUS: android.studio.v3display.benchmark.outputDirPath=/sdcard/Android/media/com.shezguard.benchmark.test/additional_test_output
+INSTRUMENTATION_STATUS_CODE: 2
+INSTRUMENTATION_STATUS: class=com.shezguard.benchmark.MicroBenchmark
+INSTRUMENTATION_STATUS: current=6
+INSTRUMENTATION_STATUS: id=AndroidJUnitRunner
+INSTRUMENTATION_STATUS: numtests=11
+INSTRUMENTATION_STATUS: stream=.
+INSTRUMENTATION_STATUS: test=early_block_unregistered
+INSTRUMENTATION_STATUS_CODE: 0
+INSTRUMENTATION_STATUS: class=com.shezguard.benchmark.MicroBenchmark
+INSTRUMENTATION_STATUS: current=7
+INSTRUMENTATION_STATUS: id=AndroidJUnitRunner
+INSTRUMENTATION_STATUS: numtests=11
+INSTRUMENTATION_STATUS: stream=
+INSTRUMENTATION_STATUS: test=large_bundle
+INSTRUMENTATION_STATUS_CODE: 1
+INSTRUMENTATION_STATUS: additionalTestOutputFile_MicroBenchmark_large_bundle_2026-11-17-19-29-23.perfetto-trace=/sdcard/Android/media/com.shezguard.benchmark.test/additional_test_output/MicroBenchmark_large_bundle_2026-11-17-19-29-23.perfetto-trace
+INSTRUMENTATION_STATUS_CODE: 2
+INSTRUMENTATION_STATUS: EMULATOR_allocation_count_max=874.0127826941987
+INSTRUMENTATION_STATUS: EMULATOR_allocation_count_median=874.0108161258604
+INSTRUMENTATION_STATUS: EMULATOR_allocation_count_min=874.0029498525074
+INSTRUMENTATION_STATUS: EMULATOR_allocation_count_stddev=0.004148480454233766
+INSTRUMENTATION_STATUS: EMULATOR_time_nanos_max=45092.96460176991
+INSTRUMENTATION_STATUS: EMULATOR_time_nanos_median=42394.69026548672
+INSTRUMENTATION_STATUS: EMULATOR_time_nanos_min=40174.47099311701
+INSTRUMENTATION_STATUS: EMULATOR_time_nanos_stddev=1350.2631494224133
+INSTRUMENTATION_STATUS: android.studio.display.benchmark=       40,174   ns         874 allocs    [Trace](file://MicroBenchmark_large_bundle_2026-11-17-19-29-23.perfetto-trace)    EMULATOR_MicroBenchmark.large_bundle
+INSTRUMENTATION_STATUS: android.studio.v2display.benchmark=       40,174   ns         874 allocs    [Trace](file://MicroBenchmark_large_bundle_2026-11-17-19-29-23.perfetto-trace)    EMULATOR_MicroBenchmark.large_bundle
+INSTRUMENTATION_STATUS: android.studio.v2display.benchmark.outputDirPath=/sdcard/Android/media/com.shezguard.benchmark.test/additional_test_output
+INSTRUMENTATION_STATUS: android.studio.v3display.benchmark=       40,174   ns         874 allocs    [Trace](file://MicroBenchmark_large_bundle_2026-11-17-19-29-23.perfetto-trace)    EMULATOR_MicroBenchmark.large_bundle
+INSTRUMENTATION_STATUS: android.studio.v3display.benchmark.outputDirPath=/sdcard/Android/media/com.shezguard.benchmark.test/additional_test_output
+INSTRUMENTATION_STATUS_CODE: 2
+INSTRUMENTATION_STATUS: class=com.shezguard.benchmark.MicroBenchmark
+INSTRUMENTATION_STATUS: current=7
+INSTRUMENTATION_STATUS: id=AndroidJUnitRunner
+INSTRUMENTATION_STATUS: numtests=11
+INSTRUMENTATION_STATUS: stream=.
+INSTRUMENTATION_STATUS: test=large_bundle
+INSTRUMENTATION_STATUS_CODE: 0
+INSTRUMENTATION_STATUS: class=com.shezguard.benchmark.MicroBenchmark
+INSTRUMENTATION_STATUS: current=8
+INSTRUMENTATION_STATUS: id=AndroidJUnitRunner
+INSTRUMENTATION_STATUS: numtests=11
+INSTRUMENTATION_STATUS: stream=
+INSTRUMENTATION_STATUS: test=baseline_app_reads_bundle
+INSTRUMENTATION_STATUS_CODE: 1
+INSTRUMENTATION_STATUS: additionalTestOutputFile_MicroBenchmark_baseline_app_reads_bundle_2026-11-17-19-29-31.perfetto-trace=/sdcard/Android/media/com.shezguard.benchmark.test/additional_test_output/MicroBenchmark_baseline_app_reads_bundle_2026-11-17-19-29-31.perfetto-trace
+INSTRUMENTATION_STATUS_CODE: 2
+INSTRUMENTATION_STATUS: EMULATOR_allocation_count_max=389.0242914979757
+INSTRUMENTATION_STATUS: EMULATOR_allocation_count_median=389.012955465587
+INSTRUMENTATION_STATUS: EMULATOR_allocation_count_min=389.0089068825911
+INSTRUMENTATION_STATUS: EMULATOR_allocation_count_stddev=0.006150649073633392
+INSTRUMENTATION_STATUS: EMULATOR_time_nanos_max=36018.70364372469
+INSTRUMENTATION_STATUS: EMULATOR_time_nanos_median=32054.63967611336
+INSTRUMENTATION_STATUS: EMULATOR_time_nanos_min=29555.812145748987
+INSTRUMENTATION_STATUS: EMULATOR_time_nanos_stddev=1819.0322099623722
+INSTRUMENTATION_STATUS: android.studio.display.benchmark=       29,555   ns         389 allocs    [Trace](file://MicroBenchmark_baseline_app_reads_bundle_2026-11-17-19-29-31.perfetto-trace)    EMULATOR_MicroBenchmark.baseline_app_reads_bundle
+INSTRUMENTATION_STATUS: android.studio.v2display.benchmark=       29,555   ns         389 allocs    [Trace](file://MicroBenchmark_baseline_app_reads_bundle_2026-11-17-19-29-31.perfetto-trace)    EMULATOR_MicroBenchmark.baseline_app_reads_bundle
+INSTRUMENTATION_STATUS: android.studio.v2display.benchmark.outputDirPath=/sdcard/Android/media/com.shezguard.benchmark.test/additional_test_output
+INSTRUMENTATION_STATUS: android.studio.v3display.benchmark=       29,555   ns         389 allocs    [Trace](file://MicroBenchmark_baseline_app_reads_bundle_2026-11-17-19-29-31.perfetto-trace)    EMULATOR_MicroBenchmark.baseline_app_reads_bundle
+INSTRUMENTATION_STATUS: android.studio.v3display.benchmark.outputDirPath=/sdcard/Android/media/com.shezguard.benchmark.test/additional_test_output
+INSTRUMENTATION_STATUS_CODE: 2
+INSTRUMENTATION_STATUS: class=com.shezguard.benchmark.MicroBenchmark
+INSTRUMENTATION_STATUS: current=8
+INSTRUMENTATION_STATUS: id=AndroidJUnitRunner
+INSTRUMENTATION_STATUS: numtests=11
+INSTRUMENTATION_STATUS: stream=.
+INSTRUMENTATION_STATUS: test=baseline_app_reads_bundle
+INSTRUMENTATION_STATUS_CODE: 0
+INSTRUMENTATION_STATUS: class=com.shezguard.benchmark.MicroBenchmark
+INSTRUMENTATION_STATUS: current=9
+INSTRUMENTATION_STATUS: id=AndroidJUnitRunner
+INSTRUMENTATION_STATUS: numtests=11
+INSTRUMENTATION_STATUS: stream=
+INSTRUMENTATION_STATUS: test=baseline_app_reads_link
+INSTRUMENTATION_STATUS_CODE: 1
+INSTRUMENTATION_STATUS: additionalTestOutputFile_MicroBenchmark_baseline_app_reads_link_2026-11-17-19-29-39.perfetto-trace=/sdcard/Android/media/com.shezguard.benchmark.test/additional_test_output/MicroBenchmark_baseline_app_reads_link_2026-11-17-19-29-39.perfetto-trace
+INSTRUMENTATION_STATUS_CODE: 2
+INSTRUMENTATION_STATUS: EMULATOR_allocation_count_max=24.00051640190823
+INSTRUMENTATION_STATUS: EMULATOR_allocation_count_median=24.00049181134117
+INSTRUMENTATION_STATUS: EMULATOR_allocation_count_min=24.000418039639992
+INSTRUMENTATION_STATUS: EMULATOR_allocation_count_stddev=4.467098343784788E-5
+INSTRUMENTATION_STATUS: EMULATOR_time_nanos_max=1740.9581960360006
+INSTRUMENTATION_STATUS: EMULATOR_time_nanos_median=1639.7756356661585
+INSTRUMENTATION_STATUS: EMULATOR_time_nanos_min=1406.302414793685
+INSTRUMENTATION_STATUS: EMULATOR_time_nanos_stddev=74.25881853407269
+INSTRUMENTATION_STATUS: android.studio.display.benchmark=        1,406   ns          24 allocs    [Trace](file://MicroBenchmark_baseline_app_reads_link_2026-11-17-19-29-39.perfetto-trace)    EMULATOR_MicroBenchmark.baseline_app_reads_link
+INSTRUMENTATION_STATUS: android.studio.v2display.benchmark=        1,406   ns          24 allocs    [Trace](file://MicroBenchmark_baseline_app_reads_link_2026-11-17-19-29-39.perfetto-trace)    EMULATOR_MicroBenchmark.baseline_app_reads_link
+INSTRUMENTATION_STATUS: android.studio.v2display.benchmark.outputDirPath=/sdcard/Android/media/com.shezguard.benchmark.test/additional_test_output
+INSTRUMENTATION_STATUS: android.studio.v3display.benchmark=        1,406   ns          24 allocs    [Trace](file://MicroBenchmark_baseline_app_reads_link_2026-11-17-19-29-39.perfetto-trace)    EMULATOR_MicroBenchmark.baseline_app_reads_link
+INSTRUMENTATION_STATUS: android.studio.v3display.benchmark.outputDirPath=/sdcard/Android/media/com.shezguard.benchmark.test/additional_test_output
+INSTRUMENTATION_STATUS_CODE: 2
+INSTRUMENTATION_STATUS: class=com.shezguard.benchmark.MicroBenchmark
+INSTRUMENTATION_STATUS: current=9
+INSTRUMENTATION_STATUS: id=AndroidJUnitRunner
+INSTRUMENTATION_STATUS: numtests=11
+INSTRUMENTATION_STATUS: stream=.
+INSTRUMENTATION_STATUS: test=baseline_app_reads_link
+INSTRUMENTATION_STATUS_CODE: 0
+INSTRUMENTATION_STATUS: class=com.shezguard.benchmark.MicroBenchmark
+INSTRUMENTATION_STATUS: current=10
+INSTRUMENTATION_STATUS: id=AndroidJUnitRunner
+INSTRUMENTATION_STATUS: numtests=11
+INSTRUMENTATION_STATUS: stream=
+INSTRUMENTATION_STATUS: test=nested_depth1
+INSTRUMENTATION_STATUS_CODE: 1
+INSTRUMENTATION_STATUS: additionalTestOutputFile_MicroBenchmark_nested_depth1_2026-11-17-19-29-55.perfetto-trace=/sdcard/Android/media/com.shezguard.benchmark.test/additional_test_output/MicroBenchmark_nested_depth1_2026-11-17-19-29-55.perfetto-trace
+INSTRUMENTATION_STATUS_CODE: 2
+INSTRUMENTATION_STATUS: EMULATOR_allocation_count_max=125.00304196672461
+INSTRUMENTATION_STATUS: EMULATOR_allocation_count_median=125.0025453190961
+INSTRUMENTATION_STATUS: EMULATOR_allocation_count_min=125.00192450956047
+INSTRUMENTATION_STATUS: EMULATOR_allocation_count_stddev=5.012820769366163E-4
+INSTRUMENTATION_STATUS: EMULATOR_time_nanos_max=6340.877948845295
+INSTRUMENTATION_STATUS: EMULATOR_time_nanos_median=4978.918363546064
+INSTRUMENTATION_STATUS: EMULATOR_time_nanos_min=4595.761298733549
+INSTRUMENTATION_STATUS: EMULATOR_time_nanos_stddev=371.99091594252883
+INSTRUMENTATION_STATUS: android.studio.display.benchmark=        4,595   ns         125 allocs    [Trace](file://MicroBenchmark_nested_depth1_2026-11-17-19-29-55.perfetto-trace)    EMULATOR_MicroBenchmark.nested_depth1
+INSTRUMENTATION_STATUS: android.studio.v2display.benchmark=        4,595   ns         125 allocs    [Trace](file://MicroBenchmark_nested_depth1_2026-11-17-19-29-55.perfetto-trace)    EMULATOR_MicroBenchmark.nested_depth1
+INSTRUMENTATION_STATUS: android.studio.v2display.benchmark.outputDirPath=/sdcard/Android/media/com.shezguard.benchmark.test/additional_test_output
+INSTRUMENTATION_STATUS: android.studio.v3display.benchmark=        4,595   ns         125 allocs    [Trace](file://MicroBenchmark_nested_depth1_2026-11-17-19-29-55.perfetto-trace)    EMULATOR_MicroBenchmark.nested_depth1
+INSTRUMENTATION_STATUS: android.studio.v3display.benchmark.outputDirPath=/sdcard/Android/media/com.shezguard.benchmark.test/additional_test_output
+INSTRUMENTATION_STATUS_CODE: 2
+INSTRUMENTATION_STATUS: class=com.shezguard.benchmark.MicroBenchmark
+INSTRUMENTATION_STATUS: current=10
+INSTRUMENTATION_STATUS: id=AndroidJUnitRunner
+INSTRUMENTATION_STATUS: numtests=11
+INSTRUMENTATION_STATUS: stream=.
+INSTRUMENTATION_STATUS: test=nested_depth1
+INSTRUMENTATION_STATUS_CODE: 0
+INSTRUMENTATION_STATUS: class=com.shezguard.benchmark.MicroBenchmark
+INSTRUMENTATION_STATUS: current=11
+INSTRUMENTATION_STATUS: id=AndroidJUnitRunner
+INSTRUMENTATION_STATUS: numtests=11
+INSTRUMENTATION_STATUS: stream=
+INSTRUMENTATION_STATUS: test=nested_depth4
+INSTRUMENTATION_STATUS_CODE: 1
+INSTRUMENTATION_STATUS: additionalTestOutputFile_MicroBenchmark_nested_depth4_2026-11-17-19-30-03.perfetto-trace=/sdcard/Android/media/com.shezguard.benchmark.test/additional_test_output/MicroBenchmark_nested_depth4_2026-11-17-19-30-03.perfetto-trace
+INSTRUMENTATION_STATUS_CODE: 2
+INSTRUMENTATION_STATUS: EMULATOR_allocation_count_max=106.0028901734104
+INSTRUMENTATION_STATUS: EMULATOR_allocation_count_median=106.00204012240735
+INSTRUMENTATION_STATUS: EMULATOR_allocation_count_min=106.00119007140428
+INSTRUMENTATION_STATUS: EMULATOR_allocation_count_stddev=6.428993676051027E-4
+INSTRUMENTATION_STATUS: EMULATOR_time_nanos_max=6424.8368752125125
+INSTRUMENTATION_STATUS: EMULATOR_time_nanos_median=5345.0346395783745
+INSTRUMENTATION_STATUS: EMULATOR_time_nanos_min=4938.385498129888
+INSTRUMENTATION_STATUS: EMULATOR_time_nanos_stddev=350.53636763847084
+INSTRUMENTATION_STATUS: android.studio.display.benchmark=        4,938   ns         106 allocs    [Trace](file://MicroBenchmark_nested_depth4_2026-11-17-19-30-03.perfetto-trace)    EMULATOR_MicroBenchmark.nested_depth4
+INSTRUMENTATION_STATUS: android.studio.v2display.benchmark=        4,938   ns         106 allocs    [Trace](file://MicroBenchmark_nested_depth4_2026-11-17-19-30-03.perfetto-trace)    EMULATOR_MicroBenchmark.nested_depth4
+INSTRUMENTATION_STATUS: android.studio.v2display.benchmark.outputDirPath=/sdcard/Android/media/com.shezguard.benchmark.test/additional_test_output
+INSTRUMENTATION_STATUS: android.studio.v3display.benchmark=        4,938   ns         106 allocs    [Trace](file://MicroBenchmark_nested_depth4_2026-11-17-19-30-03.perfetto-trace)    EMULATOR_MicroBenchmark.nested_depth4
+INSTRUMENTATION_STATUS: android.studio.v3display.benchmark.outputDirPath=/sdcard/Android/media/com.shezguard.benchmark.test/additional_test_output
+INSTRUMENTATION_STATUS_CODE: 2
+INSTRUMENTATION_STATUS: class=com.shezguard.benchmark.MicroBenchmark
+INSTRUMENTATION_STATUS: current=11
+INSTRUMENTATION_STATUS: id=AndroidJUnitRunner
+INSTRUMENTATION_STATUS: numtests=11
+INSTRUMENTATION_STATUS: stream=.
+INSTRUMENTATION_STATUS: test=nested_depth4
+INSTRUMENTATION_STATUS_CODE: 0
+INSTRUMENTATION_RESULT: stream=
+
+Time: 585.158
+
+OK (11 tests)
+
+
+INSTRUMENTATION_CODE: -1

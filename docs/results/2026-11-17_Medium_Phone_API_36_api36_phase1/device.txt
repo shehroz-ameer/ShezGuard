@@ -1,0 +1,13 @@
+avd=Medium_Phone_API_36
+emulator=yes (ro.kernel.qemu/ro.boot.qemu=11)
+model=sdk_gphone64_arm64
+api=36
+release=16
+fingerprint=google/sdk_gphone64_arm64/emu64a:16/BP22.250325.006/13344233:user/release-keys
+security_patch=2025-04-05
+abi=arm64-v8a
+hidden_api_policy_before=null
+hidden_api_policy_during_run=1
+commit=084717a8a5e0b6a69843a1e56a4e17784cf44cc0 + uncommitted changes in shezguard-core
+date=2026-11-17T15:41:02Z
+hidden_api_policy_after_restore=null

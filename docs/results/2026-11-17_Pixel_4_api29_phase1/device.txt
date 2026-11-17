@@ -1,0 +1,13 @@
+avd=Pixel_4
+emulator=yes (ro.kernel.qemu/ro.boot.qemu=1)
+model=Android SDK built for arm64
+api=29
+release=10
+fingerprint=google/sdk_gphone64_arm64/emulator64_arm64:10/QSR1.211112.011/13135432:user/release-keys
+security_patch=2019-09-05
+abi=arm64-v8a
+hidden_api_policy_before=null
+hidden_api_policy_during_run=1
+commit=084717a8a5e0b6a69843a1e56a4e17784cf44cc0 + uncommitted changes in shezguard-core
+date=2026-11-17T15:42:49Z
+hidden_api_policy_after_restore=null

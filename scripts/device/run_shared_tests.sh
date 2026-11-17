@@ -2,7 +2,10 @@
 # Step 14: runs :shezguard-core's instrumented tests (src/sharedTest + src/androidTest) on ONE
 # emulator and stores the evidence under docs/results/<date>_<avd>_api<N>/.
 #
-# Usage: scripts/device/run_shared_tests.sh <AVD name> [port]
+# Usage: scripts/device/run_shared_tests.sh <AVD name> <run label> [port]
+#
+# The results folder is docs/results/<date>_<AVD>_api<N>_<run label> (e.g. label "phase2-followup").
+# The script refuses to run if that folder already exists, so a later run never overwrites an earlier one.
 #
 # - Boots the AVD on its own port (default 5580) with a cold boot and no snapshot save, and shuts it
 #   down at the end.
@@ -15,10 +18,18 @@
 # - Phase 2: builds :attacker, pushes it to /data/local/tmp/shezguard-attacker.apk for the caller
 #   tests (they reinstall it before each test), and at the end puts the attacker back the way it was
 #   (installed with this build if it was installed before, uninstalled otherwise) and deletes the APK.
+# - Only filtered output is written to docs/results: device.txt, tagged.txt (the tests' tagged lines,
+#   extracted from logcat) and results.txt (one line per test, from the JUnit XML). The raw logcat, the
+#   XML and the Gradle output stay in a temporary folder that is deleted at the end. Before exiting, the
+#   results folder is scrubbed (scripts/device/scrub.py: API keys, tokens, private-key headers, email
+#   addresses, the device serial number, the debug certificate fingerprint) and the run fails if
+#   anything still matches.
 set -uo pipefail
 
-AVD="${1:?usage: run_shared_tests.sh <AVD> [port]}"
-PORT="${2:-5580}"
+AVD="${1:?usage: run_shared_tests.sh <AVD> <run label> [port]}"
+LABEL="${2:?usage: run_shared_tests.sh <AVD> <run label> [port]}"
+case "$LABEL" in *[!A-Za-z0-9._-]*) echo "run label: letters, digits, . _ - only" >&2; exit 2 ;; esac
+PORT="${3:-5580}"
 SERIAL="emulator-$PORT"
 REPO="$(cd "$(dirname "$0")/../.." && pwd)"
 SDK="${ANDROID_HOME:-$HOME/Library/Android/sdk}"
@@ -37,6 +48,7 @@ fi
 ATTACKER_APK_LOCAL="$REPO/attacker/build/outputs/apk/debug/attacker-debug.apk"
 ATTACKER_APK_DEVICE=/data/local/tmp/shezguard-attacker.apk
 ATTACKER_WAS_INSTALLED=""
+WORK="$(mktemp -d)"   # raw logcat, JUnit XML, Gradle output, scrub literals: never under docs/results
 
 "$EMU" -avd "$AVD" -port "$PORT" -no-snapshot-save -no-boot-anim -no-audio -no-window >/dev/null 2>&1 &
 EMU_PID=$!
@@ -77,6 +89,7 @@ cleanup() {
     [ -n "${OUT:-}" ] && { echo "attacker_installed_after=$att"; echo "test_apk_installed_after=$tst"; } >> "$OUT/device.txt"
   fi
   shutdown_emulator
+  rm -rf "$WORK"
   exit $code
 }
 trap cleanup EXIT INT TERM
@@ -91,8 +104,9 @@ case "$SERIAL" in emulator-*) ;; *) echo "refusing: not an emulator serial" >&2;
 case "$QEMU" in *1*) ;; *) echo "refusing: $SERIAL reports no ro.kernel.qemu/ro.boot.qemu=1 (physical device?)" >&2; exit 4 ;; esac
 
 API="$(prop ro.build.version.sdk)"
-OUT="$REPO/docs/results/$(date +%Y-%m-%d)_${AVD}_api${API}"
-rm -rf "$OUT"; mkdir -p "$OUT"
+OUT_TARGET="$REPO/docs/results/$(date +%Y-%m-%d)_${AVD}_api${API}_${LABEL}"
+if [ -e "$OUT_TARGET" ]; then echo "refusing: $OUT_TARGET exists (use a new run label)" >&2; exit 6; fi
+OUT="$OUT_TARGET"; mkdir -p "$OUT"
 
 if [ "$API" -ge 28 ]; then
   ORIG_POLICY="$(a shell settings get global hidden_api_policy | tr -d '\r')"
@@ -114,6 +128,7 @@ a shell input keyevent 82 >/dev/null 2>&1
 a shell wm dismiss-keyguard >/dev/null 2>&1
 
 {
+  echo "run_label=$LABEL"
   echo "avd=$AVD"
   echo "emulator=yes (ro.kernel.qemu/ro.boot.qemu=$QEMU)"
   echo "model=$(prop ro.product.model)"
@@ -133,10 +148,24 @@ cat "$OUT/device.txt"
 a logcat -G 16M >/dev/null 2>&1
 a logcat -c
 rm -rf "$REPO/shezguard-core/build/outputs/androidTest-results/connected"
-(cd "$REPO" && ANDROID_SERIAL="$SERIAL" ./gradlew :shezguard-core:connectedDebugAndroidTest --no-watch-fs -q) > "$OUT/gradle.txt" 2>&1
+(cd "$REPO" && ANDROID_SERIAL="$SERIAL" ./gradlew :shezguard-core:connectedDebugAndroidTest --no-watch-fs -q) > "$WORK/gradle.txt" 2>&1
 TEST_EXIT=$?
-a logcat -d -v threadtime > "$OUT/logcat.txt"
-find "$REPO/shezguard-core/build/outputs/androidTest-results/connected" -name '*.xml' -exec cp {} "$OUT/" \;
-python3 -I "$REPO/scripts/device/extract_tagged.py" "$OUT/logcat.txt" > "$OUT/tagged.txt"
+[ "$TEST_EXIT" = 0 ] || tail -20 "$WORK/gradle.txt" >&2
+a logcat -d -v threadtime > "$WORK/logcat.txt"
+mkdir -p "$WORK/xml"
+find "$REPO/shezguard-core/build/outputs/androidTest-results/connected" -name '*.xml' -exec cp {} "$WORK/xml/" \;
+python3 -I "$REPO/scripts/device/extract_tagged.py" "$WORK/logcat.txt" > "$OUT/tagged.txt"
+python3 -I "$REPO/scripts/device/junit_summary.py" "$WORK/xml" > "$OUT/results.txt"
+head -1 "$OUT/results.txt"
+
+# Scrub: exact values read at run time (device serial numbers, the debug certificate's fingerprints from
+# the attacker APK's public certificate; no keystore is read), written only to $WORK, never printed.
+{ prop ro.serialno; prop ro.boot.serialno
+  "$SDK/build-tools/36.0.0/apksigner" verify --print-certs "$ATTACKER_APK_LOCAL" 2>/dev/null \
+    | sed -nE 's/.*certificate SHA-(256|1) digest: ([0-9a-fA-F]+).*/\2/p'
+} > "$WORK/literals.txt"
+if ! python3 -I "$REPO/scripts/device/scrub.py" "$OUT" --literals "$WORK/literals.txt"; then
+  echo "SCRUB FAILED: a pattern remains in ${OUT#$REPO/}" >&2; exit 8
+fi
 echo "gradle exit=$TEST_EXIT; results in ${OUT#$REPO/}"
 exit $TEST_EXIT

@@ -1,0 +1,54 @@
+[103] <http:example.com> android: opaque=true scheme=http authority=null userInfo=null host=null port=-1 path=null fragment=null | shezguard: Rejected [URI_OPAQUE]
+[103] <https://evil.com#@example.com> android: opaque=false scheme=https authority=evil.com userInfo=null host=evil.com port=-1 path= fragment=@example.com | shezguard: Ok(host=evil.com) []
+[103] <https://example.com:443@evil.com/> android: opaque=false scheme=https authority=example.com:443@evil.com userInfo=example.com:443 host=evil.com port=-1 path=/ fragment=null | shezguard: Rejected [URI_USERINFO]
+[103] <https://example.com@evil.com/> android: opaque=false scheme=https authority=example.com@evil.com userInfo=example.com host=evil.com port=-1 path=/ fragment=null | shezguard: Rejected [URI_USERINFO]
+[103] <https://example.com\@evil.com> android: opaque=false scheme=https authority=example.com userInfo=null host=example.com port=-1 path=\@evil.com fragment=null | shezguard: Rejected [URI_BACKSLASH, URI_USERINFO]
+[103] <https://user:pass@example.com/> android: opaque=false scheme=https authority=user:pass@example.com userInfo=user:pass host=example.com port=-1 path=/ fragment=null | shezguard: Rejected [URI_USERINFO]
+[103] <https:/\evil.com> android: opaque=false scheme=https authority=null userInfo=null host=null port=-1 path=/\evil.com fragment=null | shezguard: Rejected [URI_HOST_EMPTY, URI_BACKSLASH]
+[103] <https:\\evil.com> android: opaque=true scheme=https authority=null userInfo=null host=null port=-1 path=null fragment=null | shezguard: Rejected [URI_OPAQUE, URI_BACKSLASH]
+[103] <https:evil.com> android: opaque=true scheme=https authority=null userInfo=null host=null port=-1 path=null fragment=null | shezguard: Rejected [URI_OPAQUE]
+[111] <https://example.com/?%69d=5> android: getQueryParameterNames()=[id] getQueryParameter("id")=<null> getQueryParameters("id")=[] | shezguard: Rejected
+[111] <https://example.com/?a+b=1> android: getQueryParameterNames()=[a+b] getQueryParameter("a+b")=<null> getQueryParameters("a+b")=[] getQueryParameter("a b")=<null> getQueryParameters("a b")=[1] | shezguard: Rejected
+[111] <https://example.com/?q=a+b> android: getQueryParameterNames()=[q] getQueryParameter("q")=<a b> getQueryParameters("q")=[a+b] | shezguard: [(q, a b)]
+[117] <https://example.com/?a!b=1> android: getQueryParameterNames()=[a!b] getQueryParameter("a!b")=<1> getQueryParameters("a!b")=[] Uri.encode("a!b")=a!b | shezguard: Rejected [PARAM_NAME_INVALID]
+[117] <https://example.com/?a'b=1> android: getQueryParameterNames()=[a'b] getQueryParameter("a'b")=<1> getQueryParameters("a'b")=[] Uri.encode("a'b")=a'b | shezguard: Rejected [PARAM_NAME_INVALID]
+[117] <https://example.com/?a(b=1> android: getQueryParameterNames()=[a(b] getQueryParameter("a(b")=<1> getQueryParameters("a(b")=[] Uri.encode("a(b")=a(b | shezguard: Rejected [PARAM_NAME_INVALID]
+[117] <https://example.com/?a)b=1> android: getQueryParameterNames()=[a)b] getQueryParameter("a)b")=<1> getQueryParameters("a)b")=[] Uri.encode("a)b")=a)b | shezguard: Rejected [PARAM_NAME_INVALID]
+[117] <https://example.com/?a*b=1> android: getQueryParameterNames()=[a*b] getQueryParameter("a*b")=<1> getQueryParameters("a*b")=[1] Uri.encode("a*b")=a*b | shezguard: Rejected [PARAM_NAME_INVALID]
+[117] <https://example.com/?a@b=1> android: getQueryParameterNames()=[a@b] getQueryParameter("a@b")=<null> getQueryParameters("a@b")=[] Uri.encode("a@b")=a%40b | shezguard: Rejected [PARAM_NAME_INVALID]
+[117] <https://example.com/?a[b=1> android: getQueryParameterNames()=[a[b] getQueryParameter("a[b")=<null> getQueryParameters("a[b")=[] Uri.encode("a[b")=a%5Bb | shezguard: Rejected [PARAM_NAME_INVALID]
+[117] <https://example.com/?a]b=1> android: getQueryParameterNames()=[a]b] getQueryParameter("a]b")=<null> getQueryParameters("a]b")=[] Uri.encode("a]b")=a%5Db | shezguard: Rejected [PARAM_NAME_INVALID]
+[117] <https://example.com/?a~b=1> android: getQueryParameterNames()=[a~b] getQueryParameter("a~b")=<1> getQueryParameters("a~b")=[] Uri.encode("a~b")=a~b | shezguard: Rejected [PARAM_NAME_INVALID]
+[N7d] sdk=34 loader=app gadget readObject ran 1x; SANITIZE [EXTRA_NOT_ALLOWED@extra:<undeclared>]
+[N7d] sdk=34 loader=app hostile CREATOR ran 1x; BLOCK [EXTRAS_UNPARCEL_FAILED@extra:<undeclared>, EXTRA_NOT_ALLOWED@extra:<undeclared>]
+[N7d] sdk=34 loader=none gadget readObject ran 1x; SANITIZE [EXTRA_NOT_ALLOWED@extra:<undeclared>]
+[N7d] sdk=34 loader=none hostile CREATOR ran 0x; BLOCK [EXTRAS_UNPARCEL_FAILED@extra:<undeclared>, EXTRA_NOT_ALLOWED@extra:<undeclared>]
+[N7s] sdk=34 blocksBundleWhoseParcelableThrowsOnRead hostile CREATOR ran 1x
+[N7s] sdk=34 blocksThrowingBundleNestedInsideAnotherBundle hostile CREATOR ran 1x
+[N7s] sdk=34 gadgetReadObjectRunsDuringExtrasInspection gadget readObject ran 1x
+[N8] sdk=34 Parcel.class loader=java.lang.BootClassLoader app loader=dalvik.system.PathClassLoader
+[N8] sdk=34 ShezGuard forward, nested app Parcelable: BLOCK [NESTED_INTENT_DENIED@extra:next]
+[N8] sdk=34 nested app Parcelable, app loader set on nested: read com.shezguard.core.eval.PlainParcelable
+[N8] sdk=34 nested app Parcelable, no loader on nested: BadParcelableException: ClassNotFoundException when unmarshalling: com.shezguard.core.eval.PlainParcelable
+[N8] sdk=34 nested app Serializable, no loader on nested: read com.shezguard.core.eval.KnownPayloadA
+[baseline] sdk=34 5b: NOT PREVENTED (readObject ran inside sanitize; the extra was then removed)
+[baseline] sdk=34 benign b1: passes (component SearchActivity kept)
+[baseline] sdk=34 benign b2a: passes (data unchanged)
+[baseline] sdk=34 benign b2b: passes (data unchanged)
+[baseline] sdk=34 benign b2c: passes (data unchanged)
+[baseline] sdk=34 benign b2d: passes
+[baseline] sdk=34 benign b3: passes (data unchanged)
+[baseline] sdk=34 benign b6: passes (data unchanged)
+[baseline] sdk=34 t1: PREVENTED (component rewritten to android/java.lang.Void, 1 penalties)
+[baseline] sdk=34 t2a: NOT PREVENTED (data passes unchanged, 0 penalties)
+[baseline] sdk=34 t2b data: NOT PREVENTED (data passes unchanged, 0 penalties)
+[baseline] sdk=34 t2b file: NOT PREVENTED (data passes unchanged, 0 penalties)
+[baseline] sdk=34 t2c: NOT PREVENTED (data passes unchanged, 0 penalties)
+[baseline] sdk=34 t2d copies (type rule): NOT PREVENTED (copies=2000000 kept)
+[baseline] sdk=34 t2d copies (value predicate 1..100): PREVENTED (copies removed)
+[baseline] sdk=34 t2d: PREVENTED (note removed, 1 penalties)
+[baseline] sdk=34 t3: NOT PREVENTED (data passes unchanged, 0 penalties)
+[baseline] sdk=34 t5: NOT PREVENTED (sanitize threw BadParcelableException; uncaught, the app crashes)
+[baseline] sdk=34 t6 %252e%252e%252fsecret.txt: NOT PREVENTED (data passes unchanged, 0 penalties)
+[baseline] sdk=34 t6 %2e%2e%2fsecret.txt: NOT PREVENTED (data passes unchanged, 0 penalties)
+[baseline] sdk=34 t6 ../secret.txt: NOT PREVENTED (data passes unchanged, 0 penalties)

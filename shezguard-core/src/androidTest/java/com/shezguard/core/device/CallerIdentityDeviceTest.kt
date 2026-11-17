@@ -14,6 +14,7 @@ import com.shezguard.core.ViolationCode.CALLER_NOT_ALLOWED_RELIABLE
 import com.shezguard.core.ViolationCode.CALLER_UNIDENTIFIED
 import com.shezguard.core.device.probe.DeviceShell
 import com.shezguard.core.device.probe.DeviceShell.attacker
+import com.shezguard.core.device.probe.HostActivity
 import com.shezguard.core.device.probe.Probe
 import com.shezguard.core.device.probe.ProbeActivity
 import com.shezguard.core.device.probe.ProbeLog
@@ -154,6 +155,37 @@ class CallerIdentityDeviceTest {
         } else {
             assertEquals(Probe.SELF, r.launchedFromPackage)
             assertEquals(listOf(CALLER_NOT_ALLOWED_RELIABLE), callerCodes(partner))
+        }
+    }
+
+    /**
+     * L43: one of this app's own activities starts the probe with a plain `startActivity` (no result,
+     * no flags). From API 34 the platform reports this app as `getLaunchedFromPackage()` (same uid), a
+     * reliable source, so "partner" (which lists only the attacker) is a hard Block; below 34 there is no
+     * reliable source and the launch is only scored.
+     */
+    @Test
+    fun plainInternalLaunchNamesThisAppFromApi34() {
+        val inst = InstrumentationRegistry.getInstrumentation()
+        val host = inst.startActivitySync(
+            Intent(context, HostActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK),
+        )
+        inst.runOnMainSync { host.startActivity(Intent(host, ProbeActivity::class.java)) }
+        val r = awaitProbe("internal plain launch")
+        inst.runOnMainSync { host.finish() }
+        record("N13d", "plainInternalLaunchNamesThisAppFromApi34", r)
+        assertNull(r.callingPackage)
+        val partner = r.decisions.getValue("partner")
+        if (sdk >= 34) {
+            assertEquals(Probe.SELF, r.launchedFromPackage)
+            assertEquals(IdentitySource.LAUNCHED_FROM_PACKAGE, partner.callerIdentitySource)
+            assertEquals(listOf(CALLER_NOT_ALLOWED_RELIABLE), callerCodes(partner))
+            assertTrue(r.summary("partner"), partner is Decision.Block)
+            assertTrue(r.summary("self"), r.decisions.getValue("self") is Decision.Allow)
+        } else {
+            assertNull(r.launchedFromPackage)
+            assertTrue(r.summary("partner"), partner !is Decision.Block)
+            assertTrue(r.summary("partner"), callerCodes(partner).single() in setOf(CALLER_UNIDENTIFIED, CALLER_NOT_ALLOWED))
         }
     }
 

@@ -203,14 +203,30 @@ over IPC on API 24–29 (still within minSdk 24). It supports the rule that apps
 the `Decision`, and shows why a runtime parser-agreement check must also compare the platform
 parser with itself.
 
-**Not verified.** No device or emulator run yet (step 14). Robolectric's SDK 29 `Parcel` is a
-JVM emulation. OEM builds and devices without the listed security patches were not examined.
-The AOSP commit that removed `BOTH` was not identified (the history pages need sign-in), so no
-CVE or bug number is claimed. Whether `Intent` delivery through `system_server` preserves a
-crafted `Uri` parcel unchanged on API 24–29 was not tested; the
-`Uri.CREATOR`-level demonstration is what is shown.
+**Emulator results (step 14 phase 2, 2026-11-17).** The same bytes, at each emulator's level,
+in process (`CraftedUriDeviceTest`, shared `CraftedUriParcelTest`) and sent by a second app
+(`:attacker`, mode `uri_mismatch`, which builds the `Uri` with its own platform's `Uri.CREATOR` and
+sends it as `ACTION_VIEW` data through `system_server`):
 
-**Evidence.** `CraftedUriParcelTest` (SDK 29); `ParserMismatchTest` rows for (c)2;
+| API | In process | Sent by another app |
+|---|---|---|
+| 24, 29 | accepted; `getPath()` = `/admin/../../secret`, string form `https://example.com/product/1?id=1` | **the mismatch survives delivery**; the receiving app sees the same disagreeing forms; ShezGuard blocks with `URI_PARSER_MISMATCH` on the path |
+| 33 | **cannot be built**: `IllegalArgumentException: Unknown representation: 115` | the attacker cannot build it; nothing is sent |
+| 34, 36 | accepted, but read as a different object: the relative `Uri` `h` (no scheme, no authority), forms agree | `h` is delivered; ShezGuard blocks it as `URI_MALFORMED`, not as a mismatch |
+
+So the **mismatch block (`URI_PARSER_MISMATCH`) is demonstrated only on API 24 and 29**, confirmed
+(emulator, API 24, 29). On 33, 34 and 36 the crafted mismatch does not arise, as the table above
+predicts from the source; the `h` on 34/36 is not a mismatch and is blocked for being malformed.
+API 25–28 and 30–32 were not run (no images).
+
+**Still not verified.** OEM builds and devices without the listed security patches were not examined.
+The AOSP commit that removed `BOTH` was not identified (the history pages need sign-in), so no
+CVE or bug number is claimed. Whether `system_server` on API 30+ would accept `BOTH` bytes written
+directly into a hand-made binder transaction (rather than through the sender's own `Uri.CREATOR`) was
+not tested.
+
+**Evidence.** `CraftedUriParcelTest` (SDK 29; shared, emulators 24 and 29); `CraftedUriDeviceTest`
+(`[N4d]` lines in `docs/results/2026-11-17_*_phase2/tagged.txt`); `ParserMismatchTest` rows for (c)2;
 `docs/LIMITATIONS.md` L19.
 
 ## N5. `Intent(Intent)` copies extras without unparcelling them (API 24–34)
@@ -722,3 +738,28 @@ in the app, then read invalid memory. The ART code path was not read.
 
 **Evidence.** `docs/ATTACK_MATRIX.md` (R8 section, runs R7a, R7b); `docs/LIMITATIONS.md` L40;
 `app/proguard-rules.pro`.
+
+## Step 14: test predictions that the emulators proved wrong
+
+Recorded as "predicted X, observed Y". In each case the test assumption was wrong, not ShezGuard's
+behaviour and not a docs claim; the tests were corrected after the first API 34 run of phase 2
+(2026-11-17) and then passed on all five emulators. The observed behaviour is the platform's.
+
+1. **N4 bytes on API 34.** *Predicted:* `Uri.CREATOR` on API 34 rejects the hand-written `BOTH` parcel,
+   so the attacker cannot build the `Uri` and nothing reaches the target (as on API 30–33, where
+   `Part.readFrom` knows only one representation per part). *Observed (emulator, API 34, 36):* the bytes
+   are accepted and read as a different object, the relative `HierarchicalUri` `h` (scheme `null`,
+   authority `null`, path `h`), whose encoded and decoded forms agree. The attacker sends it; ShezGuard
+   blocks it as `URI_MALFORMED`. On API 33 the prediction held (`IllegalArgumentException: Unknown
+   representation: 115`). Why API 34 reads these bytes as `h` was not traced in the source; it is
+   consistent with N4's "the whole URI is one string, re-parsed" for 34.
+2. **Identity of the app's own for-result launch on API 34+.** *Predicted:* when this app's
+   `RequesterActivity` starts the probe with `startActivityForResult`, ShezGuard reports
+   `CALLING_PACKAGE`. *Observed (emulator, API 34, 36):* `getLaunchedFromPackage()` also names this app,
+   because the launcher has the same uid (N13, `canGetLaunchedFromLocked`), and ShezGuard prefers it, so
+   the source is `LAUNCHED_FROM_PACKAGE`. On API 24, 29 and 33 the prediction held. Consequence: L43 (a
+   plain internal `startActivity` was then run on API 34 and 36 and behaves the same way).
+3. **`pm get-app-links` output.** *Predicted:* it lists only the package's domains and their states, so
+   it can be printed as evidence. *Observed (emulator, API 34):* it also prints a `Signatures:` line, the
+   SHA-256 fingerprint of the package's signing certificate. The test now drops that line; the run that
+   printed it was deleted and not committed.

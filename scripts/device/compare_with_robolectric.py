@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Compares the tagged lines of one emulator run with the Robolectric run of the same shared tests.
 
-Usage: compare_with_robolectric.py <robolectric-junit-xml-dir> <device logcat.txt> <api>
+Usage: compare_with_robolectric.py <robolectric-junit-xml-dir> <device tagged.txt (or logcat.txt)> <api>
 
 Only tags printed by src/sharedTest classes are compared: [103], [111], [117] (differential test,
 JVM default SDK 34, lines carry no sdk=), [N4] (step 14 phase 2), [N6], [N7s] and [baseline]

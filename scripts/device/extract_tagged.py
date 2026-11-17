@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 """Extracts the tagged characterisation lines ("[111] ...", "[N6] ...", "[baseline] ...") that the
-shared tests print, from JUnit XML (Robolectric <system-out>) or from a logcat dump (device runs, tag
-System.out). Prints them sorted and de-duplicated, one per line, so two runs can be compared with diff.
+shared tests print, from JUnit XML (Robolectric <system-out>), from a logcat dump (device runs, tag
+System.out), or from a tagged.txt this script wrote earlier (device runs keep only that file since the
+step 14 secret-scan follow-up). Prints them sorted and de-duplicated, one per line, so two runs can be compared with diff.
 
-Usage: extract_tagged.py <junit-xml-dir | logcat.txt> [--sdk N]
+Usage: extract_tagged.py <junit-xml-dir | logcat.txt | tagged.txt> [--sdk N]
   --sdk N keeps only lines for SDK N: lines that carry "sdk=N", plus lines with no sdk= field
   (the differential tests run at Robolectric's default SDK, 34, on the JVM).
 Python 3.9+, standard library only.
@@ -23,7 +24,8 @@ def lines_from(path: Path):
                 yield from (node.text or "").splitlines()
     else:
         # logcat: only what the tests printed (println goes to tag System.out); other apps log "[123] ..." too.
-        yield from (l for l in path.read_text(errors="replace").splitlines() if " System.out: " in l)
+        # A tagged.txt line starts with the tag itself (a logcat line starts with a date).
+        yield from (l for l in path.read_text(errors="replace").splitlines() if " System.out: " in l or l.startswith("["))
 
 
 def main() -> int:
