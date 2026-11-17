@@ -4,7 +4,8 @@
 Usage: compare_with_robolectric.py <robolectric-junit-xml-dir> <device logcat.txt> <api>
 
 Only tags printed by src/sharedTest classes are compared: [103], [111], [117] (differential test,
-JVM default SDK 34, lines carry no sdk=), [N6], [N7s] and [baseline] (lines carry sdk=N). For each tag:
+JVM default SDK 34, lines carry no sdk=), [N4] (step 14 phase 2), [N6], [N7s] and [baseline]
+(lines carry sdk=N). For each tag:
 - "same": the device printed exactly the Robolectric lines for that SDK;
 - "DIFFERS": both ran and the lines differ (both sides printed);
 - "no Robolectric run at this SDK": nothing to compare against (device lines are listed).
@@ -25,7 +26,7 @@ import sys
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
-TAGS = ["103", "111", "117", "N6", "N7s", "baseline"]
+TAGS = ["103", "111", "117", "N4", "N6", "N7s", "baseline"]
 COUNT = re.compile(r"\bran (\d+)x")
 JVM_DEFAULT_SDK = "34"
 

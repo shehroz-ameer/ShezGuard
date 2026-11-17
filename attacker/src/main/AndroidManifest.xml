@@ -5,9 +5,11 @@
 -->
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
-    <!-- Lets this app see the demo app on API 30+ (package visibility). -->
+    <!-- Lets this app see the demo app on API 30+ (package visibility). Step 14: also ShezGuard's
+         instrumented test APK, which IdentityActivity launches. -->
     <queries>
         <package android:name="com.shezguard.router" />
+        <package android:name="com.shezguard.core.test" />
     </queries>
 
     <application
@@ -18,6 +20,12 @@
         <!-- Driven from adb: am start -n com.shezguard.attacker/.AttackActivity -e attack <mode> -->
         <activity
             android:name=".AttackActivity"
+            android:exported="true"
+            android:theme="@android:style/Theme.Translucent.NoTitleBar" />
+
+        <!-- Step 14: caller-identity modes against ShezGuard's instrumented test APK (IdentityActivity KDoc). -->
+        <activity
+            android:name=".IdentityActivity"
             android:exported="true"
             android:theme="@android:style/Theme.Translucent.NoTitleBar" />
 

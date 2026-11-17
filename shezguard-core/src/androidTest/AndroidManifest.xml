@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Step 14 phase 2: activities of the instrumented test APK (com.shezguard.core.test), emulator only.
+  No <queries> element of its own: the package-visibility checks need the test APK not to query
+  :attacker. The merged manifest has androidx.test's <queries> for three test-service packages
+  (androidx.test.orchestrator, androidx.test.services, com.google.android.apps.common.testing.services),
+  none of which is the attacker (docs/results/README.md).
+-->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <application>
+        <!-- Caller targets, launched by :attacker's IdentityActivity. They record what the platform and
+             ShezGuard report, then finish. -->
+        <activity
+            android:name="com.shezguard.core.device.probe.ProbeActivity"
+            android:exported="true" />
+        <activity
+            android:name="com.shezguard.core.device.probe.ProbeSingleTopActivity"
+            android:exported="true"
+            android:launchMode="singleTop" />
+        <!-- Started for result by :attacker; forwards the result slot (FLAG_ACTIVITY_FORWARD_RESULT). -->
+        <activity
+            android:name="com.shezguard.core.device.probe.ForwarderActivity"
+            android:exported="true" />
+        <!-- Started by the test; starts ProbeSingleTopActivity for result (N12). -->
+        <activity
+            android:name="com.shezguard.core.device.probe.RequesterActivity"
+            android:exported="false" />
+        <!-- An Activity of this app, for ShezGuard.evaluate(activity, ...) in the domain checks. -->
+        <activity
+            android:name="com.shezguard.core.device.probe.HostActivity"
+            android:exported="false" />
+
+        <!-- Domain verification (N13): App Links filters on three hosts under the reserved .invalid TLD,
+             so a verification attempt can never succeed and resolves nowhere. States are set with
+             `pm set-app-links`, not by real Digital Asset Links verification. -->
+        <activity
+            android:name="com.shezguard.core.device.probe.LinkActivity"
+            android:exported="true">
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="https" />
+                <data android:host="dv-verified.invalid" />
+                <data android:host="dv-selected.invalid" />
+                <data android:host="dv-unverified.invalid" />
+            </intent-filter>
+        </activity>
+    </application>
+
+</manifest>

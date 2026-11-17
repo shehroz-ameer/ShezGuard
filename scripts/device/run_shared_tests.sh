@@ -12,6 +12,9 @@
 #   tests (Intent.mExtras, BaseBundle.isParcelled(), used by N5/N6 checks) is allowed, and restores
 #   the previous value from an EXIT trap, also when the run fails or is interrupted. The value used is
 #   written to device.txt; results from these runs must say they used it.
+# - Phase 2: builds :attacker, pushes it to /data/local/tmp/shezguard-attacker.apk for the caller
+#   tests (they reinstall it before each test), and at the end puts the attacker back the way it was
+#   (installed with this build if it was installed before, uninstalled otherwise) and deletes the APK.
 set -uo pipefail
 
 AVD="${1:?usage: run_shared_tests.sh <AVD> [port]}"
@@ -29,6 +32,11 @@ for _ in $(seq 1 60); do "$ADB" devices | grep -q "^$SERIAL" || break; sleep 1; 
 if "$ADB" devices | grep -q "^$SERIAL"; then
   echo "refusing: $SERIAL is already in use" >&2; exit 2
 fi
+
+(cd "$REPO" && ./gradlew :attacker:assembleDebug --no-watch-fs -q) || { echo "attacker build failed" >&2; exit 5; }
+ATTACKER_APK_LOCAL="$REPO/attacker/build/outputs/apk/debug/attacker-debug.apk"
+ATTACKER_APK_DEVICE=/data/local/tmp/shezguard-attacker.apk
+ATTACKER_WAS_INSTALLED=""
 
 "$EMU" -avd "$AVD" -port "$PORT" -no-snapshot-save -no-boot-anim -no-audio -no-window >/dev/null 2>&1 &
 EMU_PID=$!
@@ -59,6 +67,15 @@ cleanup() {
     echo "hidden_api_policy restored to: $after (was $ORIG_POLICY)"
     [ -n "${OUT:-}" ] && echo "hidden_api_policy_after_restore=$after" >> "$OUT/device.txt"
   fi
+  if [ -n "$ATTACKER_WAS_INSTALLED" ]; then
+    a shell pm uninstall com.shezguard.attacker >/dev/null 2>&1
+    [ "$ATTACKER_WAS_INSTALLED" = yes ] && a shell pm install -t "$ATTACKER_APK_DEVICE" >/dev/null 2>&1
+    a shell rm -f "$ATTACKER_APK_DEVICE"
+    local att; att="$(a shell pm list packages com.shezguard.attacker | tr -d '\r' | grep -c 'package:com.shezguard.attacker$')"
+    local tst; tst="$(a shell pm list packages com.shezguard.core.test | tr -d '\r' | grep -c 'package:com.shezguard.core.test$')"
+    echo "attacker restored: installed=$att (was $ATTACKER_WAS_INSTALLED); test APK installed=$tst"
+    [ -n "${OUT:-}" ] && { echo "attacker_installed_after=$att"; echo "test_apk_installed_after=$tst"; } >> "$OUT/device.txt"
+  fi
   shutdown_emulator
   exit $code
 }
@@ -84,6 +101,18 @@ if [ "$API" -ge 28 ]; then
 fi
 USED_POLICY="$(a shell settings get global hidden_api_policy | tr -d '\r')"
 
+# :attacker for the caller tests. Remember whether it was installed (earlier attack runs install it).
+if a shell pm list packages com.shezguard.attacker | tr -d '\r' | grep -q 'package:com.shezguard.attacker$'; then
+  ATTACKER_WAS_INSTALLED=yes
+else
+  ATTACKER_WAS_INSTALLED=no
+fi
+a push "$ATTACKER_APK_LOCAL" "$ATTACKER_APK_DEVICE" >/dev/null
+# Wake the screen and dismiss a swipe keyguard, so activities started by another app reach onCreate.
+a shell input keyevent KEYCODE_WAKEUP >/dev/null 2>&1
+a shell input keyevent 82 >/dev/null 2>&1
+a shell wm dismiss-keyguard >/dev/null 2>&1
+
 {
   echo "avd=$AVD"
   echo "emulator=yes (ro.kernel.qemu/ro.boot.qemu=$QEMU)"
@@ -95,6 +124,7 @@ USED_POLICY="$(a shell settings get global hidden_api_policy | tr -d '\r')"
   echo "abi=$(prop ro.product.cpu.abi)"
   echo "hidden_api_policy_before=${ORIG_POLICY:-not read (API < 28, setting not changed)}"
   echo "hidden_api_policy_during_run=$USED_POLICY"
+  echo "attacker_installed_before=$ATTACKER_WAS_INSTALLED"
   echo "commit=$(git -C "$REPO" rev-parse HEAD)$(git -C "$REPO" diff --quiet HEAD -- shezguard-core || echo ' + uncommitted changes in shezguard-core')"
   echo "date=$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 } > "$OUT/device.txt"

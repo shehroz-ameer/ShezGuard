@@ -32,6 +32,52 @@ are in each `device.txt`.
   framework resolves app classes with the boot class loader (N8), so the hostile `CREATOR` was never
   found ("ran 0x"). The tests now assert that the hostile `CREATOR` ran, and print `[N7s] ... ran Nx`.
   `compare_with_robolectric.py` fails on any count that differs from Robolectric.
+- Phase 2 moved `CraftedUriParcelTest` (N4) to `src/sharedTest`, skipped above API 29 by an assumption
+  (on the JVM it runs at SDK 29 as before; the JVM count stays 896 per variant, same names). Its
+  Robolectric XML was added to `2026-11-17_robolectric_jvm/`.
+
+## Phase 2: caller identity, package visibility, domain verification, crafted `Uri`
+Device-only classes in `src/androidTest` (emulator only, run by the same script):
+- `CallerIdentityDeviceTest`: `:attacker`'s `IdentityActivity` launches probe activities of the test
+  APK (`device/probe/Probes.kt`, declared in `src/androidTest/AndroidManifest.xml`). Before each test the
+  attacker is uninstalled and reinstalled from `/data/local/tmp/shezguard-attacker.apk`, so no
+  visibility grant carries over. The test APK starts the attacker only through the shell (`am start`),
+  never resolving it itself. Its merged manifest has no `<queries>` of its own; androidx.test adds
+  `<queries>` for `androidx.test.orchestrator`, `androidx.test.services` and
+  `com.google.android.apps.common.testing.services` only.
+- `DomainVerificationDeviceTest`: `autoVerify` filters for `dv-verified.invalid`, `dv-selected.invalid`,
+  `dv-unverified.invalid`. **States set with `pm set-app-links` / `pm set-app-links-user-selection` /
+  `pm set-app-links-allowed`, not by real Digital Asset Links verification**; reset in `@After`. The
+  `Signatures:` line of `pm get-app-links` is dropped before printing.
+- `CraftedUriDeviceTest`: N4 in process at the emulator's level, and cross process (`:attacker` builds the
+  `Uri` with its own `Uri.CREATOR` and sends it through `system_server`).
+- The caller tests' parcelled-extras checks use the same reflection as N5/N6, so they also rely on the
+  hidden-API setting on API 28+.
+- Signing: the policy lists the attacker with the SHA-256 of the test APK's own certificate, read from
+  the installed package at run time (both are debug builds from this machine; no keystore is read, and
+  the digest is never printed). The for-result test would fail if they differed.
+
+Results, 2026-11-17 (84 instrumented tests per level, 0 failed; skips are level guards):
+
+| | API 24 | API 29 | API 33 | API 34 | API 36 |
+|---|---|---|---|---|---|
+| Fresh attacker visible to the test APK (no `<queries>`) | yes | yes | **no** | **no** | **no** |
+| Plain launch: calling / launchedFrom / referrer | null / - / attacker | null / - / attacker | null / - / **null** | null / null / **null** | null / null / **null** |
+| Plain launch: "partner" (attacker allowed, advisory) | `CALLER_UNIDENTIFIED` (`REFERRER_SYSTEM`) | same | `CALLER_UNIDENTIFIED` (`NONE`) | same | same |
+| For result: calling, visible after, "partner" / "wrongKey" | attacker, yes, Allow (`CALLING_PACKAGE`) / `CALLER_NOT_ALLOWED_RELIABLE` | same | same | same | same |
+| Shared identity: launchedFrom, visible after, "partner" | - | - | - | attacker, yes, Allow (`LAUNCHED_FROM_PACKAGE`) | same |
+| Forward result: calling / launchedFrom, "partner" | attacker / -, Allow | same | same | attacker / **test APK**, Block (`CALLER_NOT_ALLOWED_RELIABLE`, L43) | same |
+| Spoofed `EXTRA_REFERRER` / `_NAME`: `getReferrer()`, "router" | demo app, `CALLER_UNIDENTIFIED` (`REFERRER_EXTRA`) | same | same | same | same |
+| Extras, no referrer: ShezGuard leaves both Bundles parcelled; `getReferrer()` unparcels | yes; yes | yes; yes | yes; yes | yes; yes | yes; yes |
+| `onNewIntent` (attacker and shell): calling (and launchedFrom on 34+) still the launch's caller; ShezGuard `NONE`, `CALLER_UNIDENTIFIED`; same intent evaluated as LAUNCH would be allowed | yes | yes | yes | yes | yes |
+| Domain: approved / user-selected / none / undeclared; approved with link handling off | all `UNAVAILABLE` | all `UNAVAILABLE` | pass / `NOT_VERIFIED` x3; `NOT_VERIFIED` | same | same |
+| N4 bytes in process | accepted, forms disagree | same | rejected (`IllegalArgumentException: Unknown representation: 115`) | accepted as `Uri` "h", forms agree | same as 34 |
+| N4 cross process | **survives delivery**; ShezGuard Block `URI_PARSER_MISMATCH` | same | attacker cannot build it; nothing sent | "h" delivered; Block `URI_MALFORMED` | same as 34 |
+
+"same" = same as the cell to the left. Full lines: `[N4d]`, `[N11d]`, `[N12d]`, `[N13d]` in each run's
+`tagged.txt`. `:attacker` was put back as found on each AVD (`attacker_installed_before/after` in
+`device.txt`); AGP uninstalls the test APK after the run (`test_apk_installed_after=0`), which also
+removes the domain states set via pm.
 
 ## Test-only dependencies added in step 14
 | Catalog entry | Coordinates | Configuration | Why |
@@ -65,10 +111,11 @@ of each final run records `hidden_api_policy_before`, `_during_run` and `_after_
 after each final run read `null` again.
 
 ## Scripts
-- `scripts/device/run_shared_tests.sh <AVD>`: boot, check, set and restore the hidden-API setting, run
-  `connectedDebugAndroidTest`, collect logcat and XML into this folder.
-- `scripts/device/extract_tagged.py`: the tagged lines (`[103]`, `[111]`, `[117]`, `[N6]`, `[N7s]`,
-  `[N7d]`, `[N8]`, `[baseline]`) from JUnit XML or logcat (`System.out` only).
+- `scripts/device/run_shared_tests.sh <AVD>`: build and push `:attacker`, boot, check, set and restore
+  the hidden-API setting, run `connectedDebugAndroidTest`, collect logcat and XML into this folder, put
+  `:attacker` back as found.
+- `scripts/device/extract_tagged.py`: the tagged lines (`[103]`, `[111]`, `[117]`, `[N4]`, `[N4d]`,
+  `[N6]`, `[N7s]`, `[N7d]`, `[N8]`, `[N11d]`, `[N12d]`, `[N13d]`, `[baseline]`) from JUnit XML or logcat (`System.out` only).
 - `scripts/device/compare_with_robolectric.py <robolectric dir> <logcat> <api>`: compares one run with
   Robolectric; exit 1 on any difference at the same SDK or any differing count.
 - `scripts/device/check_hidden_api_policy.sh <AVD> [--reset]`: reads (and optionally resets and

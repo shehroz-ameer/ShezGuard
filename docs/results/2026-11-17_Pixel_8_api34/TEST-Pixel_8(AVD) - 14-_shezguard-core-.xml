@@ -1,77 +1,100 @@
 <?xml version='1.0' encoding='UTF-8' ?>
-<testsuite name="com.shezguard.core.canon.UriCanonicalizerDifferentialTest" tests="67" failures="0" errors="0" skipped="1" time="1.7" timestamp="2026-11-17T15:44:56" hostname="localhost">
+<testsuite name="com.shezguard.core.canon.UriCanonicalizerDifferentialTest" tests="84" failures="0" errors="0" skipped="4" time="25.593" timestamp="2026-11-17T17:27:15" hostname="localhost">
   <properties>
     <property name="device" value="Pixel_8(AVD) - 14" />
     <property name="flavor" value="" />
     <property name="project" value=":shezguard-core" />
   </properties>
-  <testcase name="characterisesAndroidAccessorsForNamesOutsideConservativeSet" classname="com.shezguard.core.canon.UriCanonicalizerDifferentialTest" time="0.037" />
+  <testcase name="characterisesAndroidAccessorsForNamesOutsideConservativeSet" classname="com.shezguard.core.canon.UriCanonicalizerDifferentialTest" time="0.009" />
   <testcase name="characterisesAndroidParsingOfRejectedTricks" classname="com.shezguard.core.canon.UriCanonicalizerDifferentialTest" time="0.001" />
-  <testcase name="plusInQueryDecodesToSpaceLikeAndroid" classname="com.shezguard.core.canon.UriCanonicalizerDifferentialTest" time="0.001" />
-  <testcase name="dataStringSurvivesParcelRoundTrip" classname="com.shezguard.core.canon.UriCanonicalizerDifferentialTest" time="0.002" />
-  <testcase name="characterisesAndroidQueryAccessorInconsistency" classname="com.shezguard.core.canon.UriCanonicalizerDifferentialTest" time="0.0" />
+  <testcase name="plusInQueryDecodesToSpaceLikeAndroid" classname="com.shezguard.core.canon.UriCanonicalizerDifferentialTest" time="0.0" />
+  <testcase name="dataStringSurvivesParcelRoundTrip" classname="com.shezguard.core.canon.UriCanonicalizerDifferentialTest" time="0.035" />
+  <testcase name="characterisesAndroidQueryAccessorInconsistency" classname="com.shezguard.core.canon.UriCanonicalizerDifferentialTest" time="0.001" />
   <testcase name="encodedQuestionMarkAndHashInPathMatchAndroid" classname="com.shezguard.core.canon.UriCanonicalizerDifferentialTest" time="0.001" />
   <testcase name="plusInPathStaysLiteralLikeAndroid" classname="com.shezguard.core.canon.UriCanonicalizerDifferentialTest" time="0.001" />
-  <testcase name="parsedUriToStringIsOriginalString" classname="com.shezguard.core.canon.UriCanonicalizerDifferentialTest" time="0.0" />
-  <testcase name="agreesWithAndroidUriOnAcceptedInputs" classname="com.shezguard.core.canon.UriCanonicalizerDifferentialTest" time="0.059" />
+  <testcase name="parsedUriToStringIsOriginalString" classname="com.shezguard.core.canon.UriCanonicalizerDifferentialTest" time="0.001" />
+  <testcase name="agreesWithAndroidUriOnAcceptedInputs" classname="com.shezguard.core.canon.UriCanonicalizerDifferentialTest" time="0.034" />
   <testcase name="encodedPlusDecodesToLiteralPlusLikeAndroid" classname="com.shezguard.core.canon.UriCanonicalizerDifferentialTest" time="0.0" />
-  <testcase name="androidAccessorsAgreeOnNamesInConservativeSet" classname="com.shezguard.core.canon.UriCanonicalizerDifferentialTest" time="0.199" />
-  <testcase name="builderMadeUriToStringIsAndroidsEncodedForm" classname="com.shezguard.core.canon.UriCanonicalizerDifferentialTest" time="0.002" />
-  <testcase name="hugeCopiesPassesATypeRuleAndIsRemovedOnlyByAValuePredicate" classname="com.shezguard.core.comparison.IntentSanitizerBaselineTest" time="0.028" />
-  <testcase name="webViewUrlParameterPasses" classname="com.shezguard.core.comparison.IntentSanitizerBaselineTest" time="0.001" />
+  <testcase name="androidAccessorsAgreeOnNamesInConservativeSet" classname="com.shezguard.core.canon.UriCanonicalizerDifferentialTest" time="0.31" />
+  <testcase name="builderMadeUriToStringIsAndroidsEncodedForm" classname="com.shezguard.core.canon.UriCanonicalizerDifferentialTest" time="0.001" />
+  <testcase name="hugeCopiesPassesATypeRuleAndIsRemovedOnlyByAValuePredicate" classname="com.shezguard.core.comparison.IntentSanitizerBaselineTest" time="0.001" />
+  <testcase name="webViewUrlParameterPasses" classname="com.shezguard.core.comparison.IntentSanitizerBaselineTest" time="0.061" />
   <testcase name="pathTraversalParameterPasses" classname="com.shezguard.core.comparison.IntentSanitizerBaselineTest" time="0.001" />
-  <testcase name="oversizedNoteIsRemovedByALengthPredicate" classname="com.shezguard.core.comparison.IntentSanitizerBaselineTest" time="0.0" />
-  <testcase name="nestedIntentToNonExportedComponentIsPreventedWhenTheNestedIntentIsSanitizedToo" classname="com.shezguard.core.comparison.IntentSanitizerBaselineTest" time="0.001" />
-  <testcase name="unknownSerializableClassMakesTheSanitizerThrow" classname="com.shezguard.core.comparison.IntentSanitizerBaselineTest" time="0.029" />
-  <testcase name="sqlInjectionInQueryParameterPasses" classname="com.shezguard.core.comparison.IntentSanitizerBaselineTest" time="0.001" />
-  <testcase name="openRedirectParameterPasses" classname="com.shezguard.core.comparison.IntentSanitizerBaselineTest" time="0.001" />
-  <testcase name="gadgetReadObjectRunsInsideTheSanitizer" classname="com.shezguard.core.comparison.IntentSanitizerBaselineTest" time="0.001" />
-  <testcase name="encodedTraversalParametersPass" classname="com.shezguard.core.comparison.IntentSanitizerBaselineTest" time="0.001" />
-  <testcase name="blocksHostileCreatorWithAppLoader" classname="com.shezguard.core.device.ExtrasClassLoaderTest" time="0.029" />
-  <testcase name="gadgetReadObjectRunsWithAppLoader" classname="com.shezguard.core.device.ExtrasClassLoaderTest" time="0.004" />
-  <testcase name="recordsWhetherHostileCreatorRunsWithoutLoader" classname="com.shezguard.core.device.ExtrasClassLoaderTest" time="0.001" />
+  <testcase name="oversizedNoteIsRemovedByALengthPredicate" classname="com.shezguard.core.comparison.IntentSanitizerBaselineTest" time="0.026" />
+  <testcase name="nestedIntentToNonExportedComponentIsPreventedWhenTheNestedIntentIsSanitizedToo" classname="com.shezguard.core.comparison.IntentSanitizerBaselineTest" time="0.0" />
+  <testcase name="unknownSerializableClassMakesTheSanitizerThrow" classname="com.shezguard.core.comparison.IntentSanitizerBaselineTest" time="0.056" />
+  <testcase name="sqlInjectionInQueryParameterPasses" classname="com.shezguard.core.comparison.IntentSanitizerBaselineTest" time="0.0" />
+  <testcase name="openRedirectParameterPasses" classname="com.shezguard.core.comparison.IntentSanitizerBaselineTest" time="0.0" />
+  <testcase name="gadgetReadObjectRunsInsideTheSanitizer" classname="com.shezguard.core.comparison.IntentSanitizerBaselineTest" time="0.032" />
+  <testcase name="encodedTraversalParametersPass" classname="com.shezguard.core.comparison.IntentSanitizerBaselineTest" time="0.0" />
+  <testcase name="freshlyInstalledAttackerIsHiddenWithoutInteraction" classname="com.shezguard.core.device.CallerIdentityDeviceTest" time="1.011" />
+  <testcase name="plainLaunchHasNoReliableIdentity" classname="com.shezguard.core.device.CallerIdentityDeviceTest" time="1.5" />
+  <testcase name="spoofedReferrerExtraIsAdvisory" classname="com.shezguard.core.device.CallerIdentityDeviceTest" time="0.872" />
+  <testcase name="newIntentFromAnotherAppKeepsTheLaunchIdentity" classname="com.shezguard.core.device.CallerIdentityDeviceTest" time="6.635" />
+  <testcase name="spoofedReferrerNameExtraIsAdvisory" classname="com.shezguard.core.device.CallerIdentityDeviceTest" time="0.642" />
+  <testcase name="forResultLaunchIsReliableAndGrantsVisibility" classname="com.shezguard.core.device.CallerIdentityDeviceTest" time="0.697" />
+  <testcase name="systemReferrerIsNotReadWhenTheIntentHasExtras" classname="com.shezguard.core.device.CallerIdentityDeviceTest" time="0.804" />
+  <testcase name="newIntentFromTheShellKeepsTheLaunchIdentity" classname="com.shezguard.core.device.CallerIdentityDeviceTest" time="5.724" />
+  <testcase name="sharedIdentityIsReliableOnApi34" classname="com.shezguard.core.device.CallerIdentityDeviceTest" time="0.649" />
+  <testcase name="forwardedResultNamesTheResultRecipientNotTheLauncher" classname="com.shezguard.core.device.CallerIdentityDeviceTest" time="1.021" />
+  <testcase name="characterisesTheBothRepresentationAtThisLevel" classname="com.shezguard.core.device.CraftedUriDeviceTest" time="0.0" />
+  <testcase name="craftedUriSentByAnotherApp" classname="com.shezguard.core.device.CraftedUriDeviceTest" time="0.829" />
+  <testcase name="domainVerificationIsUnavailableBelowApi31" classname="com.shezguard.core.device.DomainVerificationDeviceTest" time="0.505">
+    <skipped />
+  </testcase>
+  <testcase name="mapsThePlatformDomainStates" classname="com.shezguard.core.device.DomainVerificationDeviceTest" time="0.571" />
+  <testcase name="linkHandlingDisallowedMeansNotVerified" classname="com.shezguard.core.device.DomainVerificationDeviceTest" time="0.538" />
+  <testcase name="blocksHostileCreatorWithAppLoader" classname="com.shezguard.core.device.ExtrasClassLoaderTest" time="0.002" />
+  <testcase name="gadgetReadObjectRunsWithAppLoader" classname="com.shezguard.core.device.ExtrasClassLoaderTest" time="0.0" />
+  <testcase name="recordsWhetherHostileCreatorRunsWithoutLoader" classname="com.shezguard.core.device.ExtrasClassLoaderTest" time="0.034" />
   <testcase name="recordsWhetherGadgetReadObjectRunsWithoutLoader" classname="com.shezguard.core.device.ExtrasClassLoaderTest" time="0.0" />
-  <testcase name="parcelClassLoaderIsNotTheAppLoader" classname="com.shezguard.core.device.NestedIntentClassLoaderTest" time="0.001" />
-  <testcase name="recordsShezGuardDecisionForUnresolvableNestedExtra" classname="com.shezguard.core.device.NestedIntentClassLoaderTest" time="0.0" />
-  <testcase name="appParcelableInNestedIntentResolvesWithAppLoader" classname="com.shezguard.core.device.NestedIntentClassLoaderTest" time="0.0" />
-  <testcase name="appParcelableInNestedIntentFailsToResolve" classname="com.shezguard.core.device.NestedIntentClassLoaderTest" time="0.001" />
-  <testcase name="characterisesAppSerializableInNestedIntent" classname="com.shezguard.core.device.NestedIntentClassLoaderTest" time="0.001" />
+  <testcase name="parcelClassLoaderIsNotTheAppLoader" classname="com.shezguard.core.device.NestedIntentClassLoaderTest" time="0.0" />
+  <testcase name="recordsShezGuardDecisionForUnresolvableNestedExtra" classname="com.shezguard.core.device.NestedIntentClassLoaderTest" time="0.001" />
+  <testcase name="appParcelableInNestedIntentResolvesWithAppLoader" classname="com.shezguard.core.device.NestedIntentClassLoaderTest" time="0.001" />
+  <testcase name="appParcelableInNestedIntentFailsToResolve" classname="com.shezguard.core.device.NestedIntentClassLoaderTest" time="0.0" />
+  <testcase name="characterisesAppSerializableInNestedIntent" classname="com.shezguard.core.device.NestedIntentClassLoaderTest" time="0.0" />
+  <testcase name="blocksCraftedParcelWhoseDecodedPathDisagreesWithEncoded" classname="com.shezguard.core.eval.CraftedUriParcelTest" time="0.001">
+    <skipped />
+  </testcase>
+  <testcase name="consistentCraftedParcelIsAllowed" classname="com.shezguard.core.eval.CraftedUriParcelTest" time="0.033">
+    <skipped />
+  </testcase>
   <testcase name="callerBundleStaysParcelledAfterUnparcelFailure" classname="com.shezguard.core.eval.ExtrasUnparcelTest" time="0.0" />
-  <testcase name="uriViolationsAreKeptWhenExtrasFailToUnparcel" classname="com.shezguard.core.eval.ExtrasUnparcelTest" time="0.001" />
-  <testcase name="blocksBundleWithParcelableMissingItsCreator" classname="com.shezguard.core.eval.ExtrasUnparcelTest" time="0.0" />
+  <testcase name="uriViolationsAreKeptWhenExtrasFailToUnparcel" classname="com.shezguard.core.eval.ExtrasUnparcelTest" time="0.0" />
+  <testcase name="blocksBundleWithParcelableMissingItsCreator" classname="com.shezguard.core.eval.ExtrasUnparcelTest" time="0.001" />
   <testcase name="repeatedEvaluationGivesTheSameDecision" classname="com.shezguard.core.eval.ExtrasUnparcelTest" time="0.001" />
-  <testcase name="blocksThrowingBundleNestedInsideAnotherBundle" classname="com.shezguard.core.eval.ExtrasUnparcelTest" time="0.029" />
+  <testcase name="blocksThrowingBundleNestedInsideAnotherBundle" classname="com.shezguard.core.eval.ExtrasUnparcelTest" time="0.0" />
   <testcase name="blocksBundleWhoseParcelableThrowsOnRead" classname="com.shezguard.core.eval.ExtrasUnparcelTest" time="0.0" />
   <testcase name="characterisesPartialMapAfterFailedUnparcel" classname="com.shezguard.core.eval.ExtrasUnparcelTest" time="0.002">
     <skipped />
   </testcase>
-  <testcase name="sanitizeCopyDoesNotUnparcelExtras" classname="com.shezguard.core.eval.IntentCopyParcelTest" time="0.001" />
+  <testcase name="sanitizeCopyDoesNotUnparcelExtras" classname="com.shezguard.core.eval.IntentCopyParcelTest" time="0.032" />
   <testcase name="blocksNestedIntentInSparseArray" classname="com.shezguard.core.eval.NestedIntentTest" time="0.0" />
-  <testcase name="denyIsTheDefault" classname="com.shezguard.core.eval.NestedIntentTest" time="0.002" />
+  <testcase name="denyIsTheDefault" classname="com.shezguard.core.eval.NestedIntentTest" time="0.001" />
   <testcase name="blocksPendingIntentUnderSanitizedKey" classname="com.shezguard.core.eval.NestedIntentTest" time="0.0" />
   <testcase name="blocksExplicitNestedIntentRedirection" classname="com.shezguard.core.eval.NestedIntentTest" time="0.0" />
   <testcase name="blocksNestedIntentWhoseComponentIntentSanitizerRewrites" classname="com.shezguard.core.eval.NestedIntentTest" time="0.001" />
   <testcase name="sanitizesNestedIntentThroughIntentSanitizer" classname="com.shezguard.core.eval.NestedIntentTest" time="0.0" />
   <testcase name="intentSanitizerMessagesNeverReachDecisionOutput" classname="com.shezguard.core.eval.NestedIntentTest" time="0.001" />
   <testcase name="blocksIntentSenderExtra" classname="com.shezguard.core.eval.NestedIntentTest" time="0.0" />
-  <testcase name="blocksPendingIntentExtra" classname="com.shezguard.core.eval.NestedIntentTest" time="0.0" />
+  <testcase name="blocksPendingIntentExtra" classname="com.shezguard.core.eval.NestedIntentTest" time="0.001" />
   <testcase name="blocksDoublyNestedIntentLeftBySanitizer" classname="com.shezguard.core.eval.NestedIntentTest" time="0.0" />
   <testcase name="blocksNonIntentValueUnderSanitizedKey" classname="com.shezguard.core.eval.NestedIntentTest" time="0.001" />
   <testcase name="blocksNestedIntentUnderUnlistedKey" classname="com.shezguard.core.eval.NestedIntentTest" time="0.0" />
-  <testcase name="blocksImplicitNestedIntentRedirection" classname="com.shezguard.core.eval.NestedIntentTest" time="0.001" />
-  <testcase name="blocksNestedIntentInArrayList" classname="com.shezguard.core.eval.NestedIntentTest" time="0.0" />
-  <testcase name="blocksNestedIntentInsideAnotherNestedIntent" classname="com.shezguard.core.eval.NestedIntentTest" time="0.0" />
-  <testcase name="intentSanitizerExceptionBecomesViolation" classname="com.shezguard.core.eval.NestedIntentTest" time="0.031" />
-  <testcase name="blocksNestedIntentAsMapValue" classname="com.shezguard.core.eval.NestedIntentTest" time="0.001" />
+  <testcase name="blocksImplicitNestedIntentRedirection" classname="com.shezguard.core.eval.NestedIntentTest" time="0.0" />
+  <testcase name="blocksNestedIntentInArrayList" classname="com.shezguard.core.eval.NestedIntentTest" time="0.001" />
+  <testcase name="blocksNestedIntentInsideAnotherNestedIntent" classname="com.shezguard.core.eval.NestedIntentTest" time="0.036" />
+  <testcase name="intentSanitizerExceptionBecomesViolation" classname="com.shezguard.core.eval.NestedIntentTest" time="0.001" />
+  <testcase name="blocksNestedIntentAsMapValue" classname="com.shezguard.core.eval.NestedIntentTest" time="0.0" />
   <testcase name="blocksImplicitNestedIntentWithoutAllowAnyComponent" classname="com.shezguard.core.eval.NestedIntentTest" time="0.001" />
   <testcase name="blocksNestedIntentInNestedBundle" classname="com.shezguard.core.eval.NestedIntentTest" time="0.0" />
-  <testcase name="forwardedNestedIntentIsTheSanitizerOutputNotTheOriginal" classname="com.shezguard.core.eval.NestedIntentTest" time="0.028" />
-  <testcase name="blocksNestedIntentInParcelableArray" classname="com.shezguard.core.eval.NestedIntentTest" time="0.0" />
-  <testcase name="blocksNestedIntentUnderAllowedKey" classname="com.shezguard.core.eval.NestedIntentTest" time="0.001" />
-  <testcase name="sanitizesImplicitNestedIntentWithAllowAnyComponent" classname="com.shezguard.core.eval.NestedIntentTest" time="0.0" />
-  <testcase name="nullUnderSanitizedKeyCountsAsAbsent" classname="com.shezguard.core.eval.NestedIntentTest" time="0.001" />
-  <testcase name="blocksNestedIntentArrayUnderSanitizedKey" classname="com.shezguard.core.eval.NestedIntentTest" time="0.001" />
-  <testcase name="blocksSerializableOfUnknownClassWithoutCrashing" classname="com.shezguard.core.eval.SerializableExtrasTest" time="0.029" />
-  <testcase name="knownSerializableIsReadAndOnlyNotAllowed" classname="com.shezguard.core.eval.SerializableExtrasTest" time="0.001" />
+  <testcase name="forwardedNestedIntentIsTheSanitizerOutputNotTheOriginal" classname="com.shezguard.core.eval.NestedIntentTest" time="0.0" />
+  <testcase name="blocksNestedIntentInParcelableArray" classname="com.shezguard.core.eval.NestedIntentTest" time="0.001" />
+  <testcase name="blocksNestedIntentUnderAllowedKey" classname="com.shezguard.core.eval.NestedIntentTest" time="0.0" />
+  <testcase name="sanitizesImplicitNestedIntentWithAllowAnyComponent" classname="com.shezguard.core.eval.NestedIntentTest" time="0.001" />
+  <testcase name="nullUnderSanitizedKeyCountsAsAbsent" classname="com.shezguard.core.eval.NestedIntentTest" time="0.0" />
+  <testcase name="blocksNestedIntentArrayUnderSanitizedKey" classname="com.shezguard.core.eval.NestedIntentTest" time="0.0" />
+  <testcase name="blocksSerializableOfUnknownClassWithoutCrashing" classname="com.shezguard.core.eval.SerializableExtrasTest" time="0.001" />
+  <testcase name="knownSerializableIsReadAndOnlyNotAllowed" classname="com.shezguard.core.eval.SerializableExtrasTest" time="0.0" />
   <testcase name="gadgetReadObjectRunsDuringExtrasInspection" classname="com.shezguard.core.eval.SerializableExtrasTest" time="0.0" />
 </testsuite>

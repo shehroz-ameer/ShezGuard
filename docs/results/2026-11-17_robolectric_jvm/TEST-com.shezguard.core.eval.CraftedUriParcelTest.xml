@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.shezguard.core.eval.CraftedUriParcelTest" tests="2" skipped="0" failures="0" errors="0" timestamp="2026-11-17T17:24:05" hostname="Mac.powerhub" time="0.007">
+  <properties/>
+  <testcase name="blocksCraftedParcelWhoseDecodedPathDisagreesWithEncoded" classname="com.shezguard.core.eval.CraftedUriParcelTest" time="0.005"/>
+  <testcase name="consistentCraftedParcelIsAllowed" classname="com.shezguard.core.eval.CraftedUriParcelTest" time="0.002"/>
+  <system-out><![CDATA[[N4] sdk=29 toString=<https://example.com/product/1?id=1> getPath=</admin/../../secret> getEncodedPath=</product/1> getPathSegments=[product, 1]
+]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

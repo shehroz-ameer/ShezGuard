@@ -826,3 +826,44 @@ pending (step 14)):
   (a framework-only loader is what stops them now). That widens L27. The alternative is to document
   that nested intents should carry only framework types.
 - **Source:** step 14 phase 1 follow-up (emulator runs of 2026-11-17).
+
+## L43. On API 34+, an app's own launches carry a reliable identity: its own package
+- **What:** from API 34, `Activity.getLaunchedFromPackage()` names the launcher when the launcher shares
+  the target's uid, without any opt-in (`docs/PAPER_NOTES.md` N13, `canGetLaunchedFromLocked`). So when
+  one of the app's own activities starts a guarded activity, ShezGuard gets a **reliable** source naming
+  the app itself (`LAUNCHED_FROM_PACKAGE`, preferred over `CALLING_PACKAGE`). Under
+  `allowedPackages { ... }` that does not list the app's own package, such a launch is a **hard
+  Block** (`CALLER_NOT_ALLOWED_RELIABLE`) on API 34+, while the same launch on API 24-33 is at most
+  `CALLER_UNIDENTIFIED` (soft) unless it was for result. Every reliable source must be allowed
+  (author condition 3), so this also applies when another reliable source names an allowed partner.
+- **Seen (emulator, API 34, 36):** `CallerIdentityDeviceTest`. The singleTop probe started for result by
+  this app's own `RequesterActivity` reports `launchedFrom=com.shezguard.core.test` and is blocked for
+  "partner" (`BLOCK(LAUNCHED_FROM_PACKAGE)[CALLER_NOT_ALLOWED_RELIABLE]`); on API 24, 29, 33 the same
+  launch is `BLOCK(CALLING_PACKAGE)` for "partner" because it was for result. In the forward-result
+  test, the attacker's result slot forwarded by this app's `ForwarderActivity` (a plain `startActivity`
+  with `FLAG_ACTIVITY_FORWARD_RESULT`) gives `calling=com.shezguard.attacker`,
+  `launchedFrom=com.shezguard.core.test`, and "partner" (which lists only the attacker) is blocked on
+  API 34 and 36 but allowed on 24, 29, 33. A plain internal `startActivity` without that flag was not
+  run separately; it goes through the same same-uid rule.
+- **Workaround today:** list the app's own package and certificate in the allow-list of an entry point
+  that the app itself also launches.
+- **Behaviour not changed in step 14.** Recorded only. **Step 16 decision (open):** whether a reliable
+  source naming the app's own package should be treated as "allowed" without listing it.
+- **Source:** step 14 phase 2 (emulator runs of 2026-11-17).
+
+## L44. From API 33, the system referrer is hidden unless the app can see the launcher
+- **What:** the system referrer (`Activity.getReferrer()` without referrer extras, ShezGuard's
+  `REFERRER_SYSTEM`) is `null` when the receiving app cannot see the launching app under package
+  visibility (`ActivityRecord.getFilteredReferrer`, N13: present on API 33 and 34 in the source read). So
+  for an ordinary launch by an app the target does not query, ShezGuard's only advisory source is
+  usually absent (`IdentitySource.NONE`), and an `allowedPackages` rule can neither score an unlisted
+  launcher with `CALLER_NOT_ALLOWED` nor tell "unknown" from "not allowed".
+- **Seen (emulator):** a plain launch by the freshly installed attacker gives
+  `referrer=android-app://com.shezguard.attacker` and `REFERRER_SYSTEM` on API 24 and 29, and
+  `referrer=null` with `IdentitySource.NONE` on API 33, 34 and 36 (`plainLaunchHasNoReliableIdentity`).
+  After a for-result or shared-identity launch, which makes the attacker visible, the referrer is present
+  again. Inside `onNewIntent`, the shell (visible to every app) was reported as the referrer on 33, 34
+  and 36.
+- **Not a loss of protection:** the referrer is advisory and caller-settable (L30), so nothing that was
+  enforced depends on it. It does mean a default (advisory) allow-list scores fewer launches on API 33+.
+- **Source:** step 14 phase 2 (emulator runs of 2026-11-17). API 31-32 not run (no image).

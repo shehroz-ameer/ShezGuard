@@ -22,8 +22,7 @@ import java.io.Serializable
  * - `benign_profile`: "profile" is LegacyProfile("alice"). The same class as `gadget`: the legitimate
  *   object runs the same readObject (its "migration"), which is exactly why 5b cannot be told apart.
  *
- * Step 14 will add caller-identity modes (startActivityForResult, FLAG_ACTIVITY_FORWARD_RESULT,
- * ActivityOptions.setShareIdentityEnabled, referrer variants).
+ * Step 14's caller-identity modes are in [IdentityActivity].
  */
 class AttackActivity : Activity() {
     override fun onCreate(savedInstanceState: Bundle?) {
