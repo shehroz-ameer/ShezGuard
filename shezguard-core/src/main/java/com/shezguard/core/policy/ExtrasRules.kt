@@ -89,7 +89,11 @@ public enum class ExtraType {
 /** How Intents nested inside extras are handled (threat 1, intent redirection). */
 public sealed class Nested {
 
-    /** Any nested Intent blocks (`NESTED_INTENT_DENIED`). The default. */
+    /**
+     * Any nested Intent blocks (`NESTED_INTENT_DENIED`). The default. An Intent hidden inside an opaque framework
+     * Parcelable (a `ClipData` item, a `Notification`) is not seen as nested: that extra is removed as
+     * `EXTRA_NOT_ALLOWED` (Sanitize) instead (`docs/LIMITATIONS.md` L26, step 16 H5).
+     */
     public data object Deny : Nested()
 
     /**

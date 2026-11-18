@@ -361,6 +361,12 @@ ShezGuard's nested-intent check looks only at extras values that are, or contain
   `FLAG_GRANT_WRITE_URI_PERMISSION`, `FLAG_GRANT_PERSISTABLE_URI_PERMISSION`,
   `FLAG_GRANT_PREFIX_URI_PERMISSION`) on the incoming intent. On a nested intent under
   `AllowSanitized` they are kept only if the developer's `IntentSanitizer` allows them.
+- **Framework Parcelables that carry intents** (step 16, `docs/HARDENING.md` H5): an `Intent` or `PendingIntent`
+  inside a `ClipData` item or a `Notification` (and similar framework objects) stored as an extra is opaque too. Under
+  `Nested.Deny` such an extra is removed as `EXTRA_NOT_ALLOWED` (Sanitize), not reported as `NESTED_INTENT_DENIED`
+  (Block). The object never reaches the app through the sanitized copy; only the outcome label and the missing
+  nested-intent code differ from the `Nested.Deny` KDoc. Under an allowed or `AllowSanitized` key it is
+  `EXTRA_WRONG_TYPE` (Block). `NestedIntentHardeningTest.observesIntentInsideFrameworkParcelableIsRemovedNotReportedAsNested`.
 - **Source:** step 6 (author condition 3). Listed as "not covered" in `docs/ATTACK_MATRIX.md`.
 
 ## L27. Inspecting extras adds deserialisation the app might not have done
@@ -810,6 +816,11 @@ check was cut by author decision; `ActivityGuardTest`):
   secret. `android:autoVerify="true"` does not prove verification succeeds (that needs a valid Digital
   Asset Links file, not checked). An https filter without `autoVerify` is left to the built-in
   `AppLinkWarning`, which helps only where that check is enabled.
+- **`exempt = true` is not checked** (step 16, `docs/HARDENING.md` H7, by design): the rule accepts it on any
+  activity, including an exported `BROWSABLE` one that reads `intent.data`; the guard is then never called for it. The
+  rule's message limits exemptions to activities that read no intent data, but does not verify it. A Warning for an
+  exempt activity that is `BROWSABLE` or reads `getIntent()` is possible future work
+  (`LintHardeningTest.observesExemptBrowsableActivityThatReadsIntentDataIsAccepted`).
 - **Suppression.** Lint baselines, `lint.xml`, `disable`/`ignore` options and `@SuppressLint` hide
   findings. `check` lints only the default variant, and `lintVital` on release builds enforces only
   Fatal issues, which the rule does not use by default (README).
