@@ -1,0 +1,16 @@
+run_label=phase5-hardening
+avd=ShezGuard_API_24
+emulator=yes (ro.kernel.qemu/ro.boot.qemu=1)
+model=Android SDK built for arm64
+api=24
+release=7.0
+fingerprint=google/sdk_google_phone_arm64/generic_arm64:7.0/NYC/8695085:userdebug/dev-keys
+security_patch=2017-10-05
+abi=arm64-v8a
+hidden_api_policy_before=not read (API < 28, setting not changed)
+hidden_api_policy_during_run=null
+attacker_installed_before=no
+commit=1e2d4be16975a71b5a3c88d4e7f9a56261aabd38 + uncommitted changes in shezguard-core
+date=2026-11-18T12:22:01Z
+attacker_installed_after=0
+test_apk_installed_after=0

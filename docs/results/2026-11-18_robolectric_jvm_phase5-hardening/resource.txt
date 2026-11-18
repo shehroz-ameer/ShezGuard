@@ -1,0 +1,19 @@
+JVM only (Robolectric SDK 34, HotSpot 17.0.19, aarch64); indicative, not device numbers.
+PACKAGE_NAME regex on a 1000001-char 'aaaa...!' referrer authority             median     12.26 ms   alloc      0.0 MB   (max     20.06 ms, n=5)
+PACKAGE_NAME regex on a 2001-char 'a.a.a...!' referrer authority               median      0.07 ms   alloc      0.0 MB   (max      0.08 ms, n=5)
+PACKAGE_NAME regex on 1 MB 'a.a.a...a': StackOverflowError (java.util.regex recursion per group repetition)
+H1 JVM frames per nesting level: 8.0 (stack at the leaf: 459 frames at depth 50, 859 at depth 100)
+H1 JVM recursing frames (x count): Parcel.$$robo$$android_os_Parcel$readValue x104, Parcel.readValue x104, Parcel.$$robo$$android_os_Parcel$readListInternal x51, Parcel.readListInternal x51, Parcel.$$robo$$android_os_Parcel$readArrayListInternal x51, Parcel.readArrayListInternal x51; first non-framework frames below them (innermost first): AndroidExtras$Companion.valueAt < AndroidExtras$Companion.access$valueAt < AndroidExtras.read < Evaluator.run < Evaluator.evaluate < Evaluator.evaluate$default
+H1 JVM (Robolectric SDK 34, 8 MB thread): evaluate ok at depth 2000, StackOverflowError at depth 3000 (grid 1000..5000, first overflow only)
+default limit: 2046-char URI, 305 distinct params (Allow)                      median      0.59 ms   alloc      0.5 MB   (max      0.64 ms, n=51)
+default limit: 2040-char URI, one value of %XX runs                            median      0.03 ms   alloc      0.1 MB   (max      0.08 ms, n=51)
+default limit: 438911-char URI (over the limit, still fully parsed)            median      8.05 ms   alloc     24.4 MB   (max      8.15 ms, n=5)
+50000 int extras (1359664 parcel bytes): EXTRAS_TOO_MANY after a full keySet() median     36.42 ms   alloc     37.7 MB   (max     69.25 ms, n=5)
+(baseline: the Parcel round trip alone for the same intent)                    median     11.77 ms   alloc     30.5 MB   (max     11.82 ms, n=5)
+one unknown IntArray(240000) extra (~960 KB): read, then removed (Sanitize)    median     26.12 ms   alloc     34.6 MB   (max    106.93 ms, n=5)
+sdk 34, nested List depth   5000, parcel    60216 bytes: app reads data/action ok; app reads another extra ok; evaluate StackOverflowError
+raised limit:   2000 distinct params,   14911-char URI:      21.1 ms (ALLOW, single run)
+raised limit:   4000 distinct params,   30911-char URI:      82.0 ms (ALLOW, single run)
+raised limit:   8000 distinct params,   62911-char URI:     323.5 ms (ALLOW, single run)
+raised limit:  16000 distinct params,  132911-char URI:    1234.4 ms (ALLOW, single run)
+raised limit: time ratio 16k/8k = 3.8 (2 = linear, 4 = quadratic)

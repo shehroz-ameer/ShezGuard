@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Extracts the tagged characterisation lines ("[111] ...", "[N6] ...", "[baseline] ...") that the
+"""Extracts the tagged characterisation lines ("[111] ...", "[N6] ...", "[H1] ...", "[baseline] ...") that the
 shared tests print, from JUnit XML (Robolectric <system-out>), from a logcat dump (device runs, tag
 System.out), or from a tagged.txt this script wrote earlier (device runs keep only that file since the
 step 14 secret-scan follow-up). Prints them sorted and de-duplicated, one per line, so two runs can be compared with diff.
@@ -14,7 +14,7 @@ import sys
 import xml.etree.ElementTree as ET
 from pathlib import Path
 
-TAG = re.compile(r"(\[(?:\d+|N\d+[a-z]?|baseline)\] .*)$")
+TAG = re.compile(r"(\[(?:\d+|N\d+[a-z]?|H\d+|baseline)\] .*)$")
 
 
 def lines_from(path: Path):

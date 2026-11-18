@@ -418,8 +418,11 @@ are Robolectric-only. Nothing else is claimed.
 - **Deserialisation side effects** of a hostile `Parcelable` or `Serializable` run before ShezGuard
   sees the result (L1, L27). ShezGuard stops the crash, not the side effect.
 - **`Error`s are not caught.** A parcel that makes unparcelling throw `StackOverflowError` (deeply
-  nested lists, which the platform reads recursively and eagerly) or `OutOfMemoryError` crashes the
-  app as it would without ShezGuard. Not tested.
+  nested lists, which the platform reads recursively) or `OutOfMemoryError` crashes the app. This is
+  **not** the same as without ShezGuard: ShezGuard reads every extra, so it also crashes an app that
+  never reads that extra (on API 33+ even one that reads other extras, because the list is lazy there).
+  Shown in step 15 as `docs/HARDENING.md` H1 (corrected wording; the earlier text claimed the behaviour
+  was the same as without ShezGuard and was untested).
 - **String content of extras is not validated**: only type and length. A `STRING` extra may hold
   control characters, bidi overrides or a URL; apply the app's own validation before using it.
 - **A `null` value under an allowed key is accepted** as absent (author decision 5): `hasExtra` is
@@ -885,3 +888,26 @@ check was cut by author decision; `ActivityGuardTest`):
 - **Not a loss of protection:** the referrer is advisory and caller-settable (L30), so nothing that was
   enforced depends on it. It does mean a default (advisory) allow-list scores fewer launches on API 33+.
 - **Source:** step 14 phase 2 (emulator runs of 2026-11-17). API 31-32 not run (no image).
+
+## L45. A built policy can be changed after it is built (open, decision in step 16)
+- **What:** `IntentPolicy.entryPoints` is a `LinkedHashMap` exposed as `Map`; code holding the policy can cast it and
+  register an entry point under a name that is not its own. The public `EntryPointPolicy` and `ExtrasRule`
+  constructors keep the caller's own collections, so a caller that later changes the `Set`/`Map` it passed in changes
+  the policy, after (and around) the checks in their `init` blocks and the DSL's build-time checks.
+- **Scope:** needs code inside the app (outside the threat model) or a developer who passes a collection and then
+  mutates it. No immutability is claimed; SPEC 4 says the same input gives the same decision.
+- **Shown by:** `PolicyHardeningTest.builtPolicyCannotBeChangedAfterBuild` (JVM/Robolectric; `docs/HARDENING.md` H6).
+- **Status:** open, decision in step 16 (e.g. defensive, unmodifiable copies). Behaviour not changed in step 15.
+
+## L46. Parser-mismatch cost is quadratic in distinct parameters; `maxUriLength` has no upper bound (open, decision in step 16)
+- **What:** for each distinct query parameter name, the parser-mismatch check calls `Uri.getQueryParameter`, which
+  scans the query from its start (and looks up the first canonical value linearly). The cost is O(N²) in the number
+  of distinct names. At the default `maxUriLength` (2048) the worst case is about 1 ms on the JVM (305 parameters).
+  `limits(maxUriLength = ...)` accepts any positive value, so an entry point with a raised limit can be slowed down.
+- **Measured (JVM only, single runs):** with `maxUriLength = 1_000_000`: 2 000 distinct parameters 19 ms, 4 000 75 ms,
+  8 000 299 ms, 16 000 1 100 ms (×3.7 per doubling). About 55 000 fit in a 1 MB transaction; extrapolated ~13 s on
+  that machine, enough for an ANR on the main thread. Not measured on a device.
+- **Shown by:** `ResourceExhaustionHardeningTest.measuresQuadraticParserMismatchWithARaisedUriLimit`
+  (`docs/HARDENING.md` H8).
+- **Status:** open, decision in step 16 (e.g. an upper bound on `maxUriLength`, or a linear check). Behaviour not
+  changed in step 15.

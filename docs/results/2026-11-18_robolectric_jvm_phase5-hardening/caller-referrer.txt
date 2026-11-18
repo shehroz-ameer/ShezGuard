@@ -1,0 +1,5 @@
+JVM/Robolectric SDK 34 only (characterisation; not reproduced on device).
+referrer of    2015 chars (parcel    4200 bytes): SANITIZE [EXTRA_NOT_ALLOWED, CALLER_NOT_ALLOWED]
+referrer of   20015 chars (parcel   40200 bytes): SANITIZE [EXTRA_NOT_ALLOWED, CALLER_NOT_ALLOWED]
+referrer of  100015 chars (parcel  200200 bytes): StackOverflowError
+JVM overflow observed: true

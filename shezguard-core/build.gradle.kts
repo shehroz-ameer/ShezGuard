@@ -52,6 +52,37 @@ kotlin {
     explicitApi()
 }
 
+// Step 15: adversarial hardening tests (docs/HARDENING.md). Several of them fail on purpose: each
+// failing test demonstrates a finding. They live in src/hardeningTest and are compiled into the debug
+// unit-test classes ONLY when `hardeningTest` is on the command line, so `test` and `check` never
+// compile or run them. The normal unit-test tasks also exclude the package, as a second guard.
+// Run: ./gradlew :shezguard-core:hardeningTest
+val hardeningRequested = gradle.startParameter.taskNames.any { it.substringAfterLast(':') == "hardeningTest" }
+if (hardeningRequested) {
+    android.sourceSets.getByName("test").java.srcDir("src/hardeningTest/java")
+}
+val hardeningPackage = "com.shezguard.core.hardening.*"
+tasks.withType<Test>().configureEach {
+    if (name != "hardeningTest") {
+        filter.excludeTestsMatching(hardeningPackage)
+    }
+}
+tasks.register<Test>("hardeningTest") {
+    group = "verification"
+    description = "Step 15 adversarial hardening tests (expected to contain failing tests). Not part of test/check."
+    val unit = tasks.named<Test>("testDebugUnitTest").get()
+    testClassesDirs = unit.testClassesDirs
+    classpath = unit.classpath
+    filter.includeTestsMatching(hardeningPackage)
+    maxHeapSize = "2g"
+    systemProperty("shezguard.hardening.out", layout.buildDirectory.dir("hardening").get().asFile.absolutePath)
+    testLogging {
+        events("passed", "failed", "skipped")
+        showStandardStreams = true
+        exceptionFormat = org.gradle.api.tasks.testing.logging.TestExceptionFormat.SHORT
+    }
+}
+
 dependencies {
     // The only allowed runtime dependency: androidx.core (for IntentSanitizer).
     // `api`, not `implementation`: the public constructor NestedIntentSanitizer(IntentSanitizer)

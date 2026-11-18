@@ -1,0 +1,44 @@
+Differential fuzz, JVM (Robolectric SDK 34, AOSP android.net.Uri). seed=0x5eed0015 count=40000
+generator: DifferentialFuzzHardeningTest.generate (grammar) on even n, mutate(generate) on odd n
+policy: schemes https/http/myapp, hosts example.com a.example.com, port 8443, anyPath, fragment, params a b id q, Unknown.Ignore, repeated allowed
+allow=10863 block=29137 evaluation_failed=0
+
+== HOST_CASE: 5519 cases (known, by design: canonical host is lowercased; getHost() keeps the sender's case)
+   <myapp://A.EXAMPLE.COM/?b=][#a?b> checked=a.example.com getHost=A.EXAMPLE.COM
+   <Https://A.EXAMPLE.COM:443/€?utm_source=;a=]%20;a-b=a%3Db=@;utm_source=%2b*> checked=a.example.com getHost=A.EXAMPLE.COM
+   <Https://Example.Com:443/#%20> checked=example.com getHost=Example.Com
+   <Https://A.EXAMPLE.COM/~/%7E?x=> checked=a.example.com getHost=A.EXAMPLE.COM
+   <hTtP://EXAMPLE.com:80/%3F/%2B?a.b=/&q=%25&a-b=%22~#a?b> checked=example.com getHost=EXAMPLE.com
+   <http://EXAMPLE.com/@/a/%20/%41?a-b&A=a=b&a-b=;&q==%25> checked=example.com getHost=EXAMPLE.com
+   <https://EXAMPLE.com/;x=1/?q=/?q=(;a.b=%C3%A9;utm_source=/> checked=example.com getHost=EXAMPLE.com
+   <myapp://EXAMPLE.com/€> checked=example.com getHost=EXAMPLE.com
+
+== GETPATH_DUPLICATE_SLASH: 1244 cases (finding H2: getPath() keeps '//', ShezGuard collapses it; Allow)
+   <http://example.com:80//b/> checked=/b/ getPath=//b/
+   <https://a.example.com//%2B//_/?b=?%26A> checked=/+/_/ getPath=//+//_/
+   <hTtP://EXAMPLE.com//%3F?a=,> checked=/? getPath=//?
+   <https://EXAMPLE.com//é/> checked=/é/ getPath=//é/
+   <http://EXAMPLE.com/€///_> checked=/€/_ getPath=/€///_
+   <HTTPS://Example.Com//;x=1/%E2%82%AC#%20> checked=/;x=1/€ getPath=//;x=1/€
+   <hTtP://example.com//?id=$=+&id=a%2Bb> checked=/ getPath=//
+   <https://example.com/)//?a.b=é;a=[;x=;;A=,#/x> checked=/)/ getPath=/)//
+
+== PLURAL_PLUS: 1213 cases (known, L11: getQueryParameters does not decode '+')
+   <myapp://example.com:8443?x=1=%7E&x=+&a.b=%23> x checked=[1=~,  ] uri=[1=~, +]
+   <Https://a.example.com/evil.example/?a9=&a.b=/=!&utm_source=%3F&utm_source=++> utm_source checked=[?,   ] uri=[?, ++]
+   <https://Example.Com/7E/a?a-b=!&a-b=%2b={++&x=^> a-b checked=[!, +={  ] uri=[!, +={++]
+   <https://Example.Com/b/*?b=%25&a=+> a checked=[ ] uri=[+]
+   <https://example.com:8443/!/%41/%7E?A=%22&utm_source='=`&a.b=&id=+=?> id checked=[ =?] uri=[+=?]
+   <Https://a.example.com:443/%7E/)/*/?A=a+b=+&b=*$> A checked=[a b= ] uri=[a+b=+]
+   <hTtP://example.com//?id=$=+&id=a%2Bb> id checked=[$= , a+b] uri=[$=+, a+b]
+   <HTTPS://a.example.com:443/@?id=,%20&b=a+b&b=%23&a.b=%3C%22> b checked=[a b, #] uri=[a+b, #]
+
+== URI_SELF_PLURAL_VS_SINGULAR: 1121 cases (known, L11: getQueryParameters(n)[0] != getQueryParameter(n) because of '+')
+   <https://Example.Com/b/*?b=%25&a=+> a plural=[+] single= 
+   <https://example.com:8443/!/%41/%7E?A=%22&utm_source='=`&a.b=&id=+=?> id plural=[+=?] single= =?
+   <Https://a.example.com:443/%7E/)/*/?A=a+b=+&b=*$> A plural=[a+b=+] single=a b= 
+   <hTtP://example.com//?id=$=+&id=a%2Bb> id plural=[$=+, a+b] single=$= 
+   <HTTPS://a.example.com:443/@?id=,%20&b=a+b&b=%23&a.b=%3C%22> b plural=[a+b, #] single=a b
+   <https://Example.Com/@/@/)?a-b=;q=+=+> a-b plural=[;q=+=+] single=;q= = 
+   <HTTPS://a.example.com/..;/€?a-b=%7E=+&q=~#%23> a-b plural=[~=+] single=~= 
+   <http://Example.Com?b=|;a=/=a+b;id#a?b> b plural=[|;a=/=a+b;id] single=|;a=/=a b;id

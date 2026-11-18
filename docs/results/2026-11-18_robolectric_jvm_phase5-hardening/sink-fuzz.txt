@@ -1,0 +1,73 @@
+Sink-oracle fuzz, JVM only (Robolectric SDK 34). generator: SinkOracleFuzzHardeningTest.generate on even n, mutate(generate) on odd n.
+seed=0x514b0001 count=400000 inputs (x2 entry points) in 2.3 s; allow any=160251 prefix=89634
+  == H3-like (servlet normalisation escapes /product/): 10058
+     <http://example.com/product/..;/..;/..;/%23/!_/+> encodedPath=/product/..;/..;/..;/%23/!_/+ -> /#/!_/+
+     <HTTPS://example.com/product//a/..;/..;/a> encodedPath=/product//a/..;/..;/a -> /a
+     <https://example.com/product//%25/)/%2e%2e;/..;/..;?x=a+b> encodedPath=/product//%25/)/%2e%2e;/..;/..; -> /
+     <https://example.com/product/b/%3F/.%2e;/..;/..;/evil.example/> encodedPath=/product/b/%3F/.%2e;/..;/..;/evil.example/ -> /evil.example/
+     <http://example.com/product//..;/*> encodedPath=/product//..;/* -> /*
+     <https://a.example.com/product/..;/> encodedPath=/product/..;/ -> /
+  == H2-related (getPath starts with '//' but names no authority; java.net.URI cannot resolve it): 13687
+     any <HTTPS://example.com//+/?q=%2B> getPath=//+/ -> <unresolvable: URISyntaxException>
+     any <HTTPS://example.com//> getPath=// -> <unresolvable: URISyntaxException>
+     any <https://example.com//?a=é> getPath=// -> <unresolvable: URISyntaxException>
+     any <http://a.example.com//?x=a+b> getPath=// -> <unresolvable: URISyntaxException>
+     any <HTTPS://example.com//..;/..;> getPath=//..;/..; -> <unresolvable: URISyntaxException>
+     any <https://a.example.com//;x=1/@/~?q=//evil.example> getPath=//;x=1/@/~ -> <unresolvable: URISyntaxException>
+  == H3-boundary (normalises to /product, the prefix without its slash): 2995
+     <http://example.com/product/;x=1> encodedPath=/product/;x=1 -> /product
+     <https://a.example.com/product//;?q=%2F> encodedPath=/product//; -> /product
+     <http://EXAMPLE.com/product//%3F/.%2e;/;x=1?a=..;> encodedPath=/product//%3F/.%2e;/;x=1 -> /product
+     <HTTPS://EXAMPLE.com/product//product/;/.;/..;/..;/product?q=;> encodedPath=/product//product/;/.;/..;/..;/product -> /product
+     <http://example.com/product//;x=1> encodedPath=/product//;x=1 -> /product
+     <http://example.com/product//;?x=%20> encodedPath=/product//; -> /product
+  == H2-like (getPath resolves to another host), entry point any: 1718
+     any <HTTPS://EXAMPLE.com//a.b/%41/..;/'/..;x=1/?a=;> getPath=//a.b/A/..;/'/..;x=1/ -> host a.b
+     any <http://EXAMPLE.com//%41> getPath=//A -> host A
+     any <https://example.com//%41/%23&/product> getPath=//A/#&/product -> host A
+     any <http://a.example.com//a.b> getPath=//a.b -> host a.b
+     any <http://example.com//evil.example> getPath=//evil.example -> host evil.example
+     any <https://a.example.com//produ//ct/:/*/.%2e;/evil.example?x=%2F> getPath=//produ//ct/:/*/..;/evil.example -> host produ
+  == H2-like (getPath resolves to another host), entry point prefix: 292
+     prefix <https://EXAMPLE.com//product/-/%3F/> getPath=//product/-/?/ -> host product
+     prefix <https://a.example.com//product/$/_/*> getPath=//product/$/_/* -> host product
+     prefix <HTTPS://a.example.com//product/:/..;/..;/%20/?a=%2F> getPath=//product/:/..;/..;/ / -> host product
+     prefix <https://example.com//product/_/%23/a.b> getPath=//product/_/#/a.b -> host product
+     prefix <http://EXAMPLE.com//product/$/)/$///> getPath=//product/$/)/$/// -> host product
+     prefix <HTTPS://example.com//product/,/%3B/> getPath=//product/,/;/ -> host product
+seed=0x514b0002 count=400000 inputs (x2 entry points) in 1.8 s; allow any=160108 prefix=89041
+  == H2-related (getPath starts with '//' but names no authority; java.net.URI cannot resolve it): 13587
+     any <http://a.example.com//?x=%20> getPath=// -> <unresolvable: URISyntaxException>
+     any <HTTPS://example.com//> getPath=// -> <unresolvable: URISyntaxException>
+     any <HTTPS://example.com//..;/a;b/%20/%C3%A9/?x=1> getPath=//..;/a;b/ /é/ -> <unresolvable: URISyntaxException>
+     any <http://EXAMPLE.com//?x=//evil.exmple> getPath=// -> <unresolvable: URISyntaxException>
+     any <https://example.com//> getPath=// -> <unresolvable: URISyntaxException>
+     any <https://example.com//..;/.*.;?x0=%20> getPath=//..;/.*.; -> <unresolvable: URISyntaxException>
+  == H3-boundary (normalises to /product, the prefix without its slash): 3078
+     <https://example.com/product/;?a=%2B> encodedPath=/product/; -> /product
+     <http://example.com/product/;> encodedPath=/product/; -> /product
+     <HTTPS://example.com/product/product/..;> encodedPath=/product/product/..; -> /product
+     <HTTPS://example.com/product//%20/.%2e;> encodedPath=/product//%20/.%2e; -> /product
+     <http://EXAMPLE.com/product//;x=1> encodedPath=/product//;x=1 -> /product
+     <HTTPS://example.com/product/.;> encodedPath=/product/.; -> /product
+  == H3-like (servlet normalisation escapes /product/): 9782
+     <https://EXAMPLE.com/product/.%2e;/$/%2B/> encodedPath=/product/.%2e;/$/%2B/ -> /$/+/
+     <https://a.example.com/product/%25/%2e%2e;/..;x=1/+/..;a?q=//evil.example> encodedPath=/product/%25/%2e%2e;/..;x=1/+/..;a -> /
+     <http://a.example.com/product//;/.%2e;> encodedPath=/product//;/.%2e; -> /
+     <https://a.example.com/product/..;x=1/%25/..;/..;/a.b> encodedPath=/product/..;x=1/%25/..;/..;/a.b -> /a.b
+     <https://a.example.com/product/a//;b/..;/..;/%3B/> encodedPath=/product/a//;b/..;/..;/%3B/ -> /;/
+     <HTTPS://example.com/product/..;///> encodedPath=/product/..;/// -> /
+  == H2-like (getPath resolves to another host), entry point any: 1696
+     any <https://example.com//product?a=..;> getPath=//product -> host product
+     any <http://EXAMPLE.com//%41/a.b> getPath=//A/a.b -> host A
+     any <HTTPS://example.com//evil.example/.;/é> getPath=//evil.example/.;/é -> host evil.example
+     any <https://example.com//a/%20> getPath=//a/  -> host a
+     any <HTTPS://a.example.com//a/.%2e;/3F/%2e%2e;/;> getPath=//a/..;/3F/..;/; -> host a
+     any <https://a.example.com//a> getPath=//a -> host a
+  == H2-like (getPath resolves to another host), entry point prefix: 214
+     prefix <https://EXAMPLE.com//product/> getPath=//product/ -> host product
+     prefix <http://example.com//product/-/)?q=//evil.example> getPath=//product/-/) -> host product
+     prefix <https://a.example.com//product//;/evil.example;?x=%2B> getPath=//product//;/evil.example; -> host product
+     prefix <https://example.com//product//;jsessionid=abc?x=/> getPath=//product//;jsessionid=abc -> host product
+     prefix <HTTPS://example.com//product/%3B/=/@/%3F/?x=%2B> getPath=//product/;/=/@/?/ -> host product
+     prefix <http://EXAMPLE.com//product/&/?a=/> getPath=//product/&/ -> host product

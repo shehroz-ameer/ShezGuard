@@ -41,3 +41,27 @@ tasks.test {
         ?: System.getenv("ANDROID_HOME")
     if (sdkDir != null) environment("ANDROID_HOME", sdkDir)
 }
+
+// Step 15: adversarial hardening tests for the Lint rule (docs/HARDENING.md). A separate source set and task,
+// not wired into `test` or `check`; some tests fail on purpose to demonstrate a finding.
+// Run: ./gradlew :shezguard-lint:hardeningTest
+val hardeningTestSourceSet: SourceSet = sourceSets.create("hardeningTest") {
+    compileClasspath += sourceSets.main.get().output + sourceSets.test.get().output
+    runtimeClasspath += sourceSets.main.get().output + sourceSets.test.get().output
+}
+configurations[hardeningTestSourceSet.implementationConfigurationName].extendsFrom(configurations.testImplementation.get())
+configurations[hardeningTestSourceSet.runtimeOnlyConfigurationName].extendsFrom(configurations.testRuntimeOnly.get())
+tasks.register<Test>("hardeningTest") {
+    group = "verification"
+    description = "Step 15 adversarial hardening tests for the Lint rule. Not part of test/check."
+    testClassesDirs = hardeningTestSourceSet.output.classesDirs
+    classpath = hardeningTestSourceSet.runtimeClasspath
+    val sdkDir = rootProject.file("local.properties").takeIf { it.exists() }
+        ?.readLines()?.firstOrNull { it.startsWith("sdk.dir=") }?.substringAfter("=")
+        ?: System.getenv("ANDROID_HOME")
+    if (sdkDir != null) environment("ANDROID_HOME", sdkDir)
+    testLogging {
+        events("passed", "failed", "skipped")
+        exceptionFormat = org.gradle.api.tasks.testing.logging.TestExceptionFormat.SHORT
+    }
+}
