@@ -5,9 +5,11 @@ import java.time.Duration
 plugins {
     `java-library`
     alias(libs.plugins.kotlin.jvm)
+    `maven-publish` // step 17: Gradle's built-in plugin (no version); mavenLocal only
 }
 
 java {
+    withSourcesJar() // step 17
     sourceCompatibility = JavaVersion.VERSION_11
     targetCompatibility = JavaVersion.VERSION_11
 }
@@ -70,3 +72,32 @@ tasks.register<Test>("hardeningTest") {
 
 // Step 16 safety net: no test task may hang a build.
 tasks.withType<Test>().configureEach { timeout.set(Duration.ofMinutes(20)) }
+
+// Step 17: Maven publication of the Lint rule jar. Consumers normally get it inside the shezguard-core AAR
+// (lint.jar via lintPublish); this artifact exists for completeness. lint-api is compileOnly, so not in the POM.
+publishing {
+    publications {
+        create<MavenPublication>("maven") {
+            from(components["java"])
+            groupId = providers.gradleProperty("shezguard.group").get()
+            artifactId = "shezguard-lint"
+            version = providers.gradleProperty("shezguard.version").get()
+            pom {
+                name.set("ShezGuard Lint rule")
+                description.set("Build-time coverage check for ShezGuard entry points (Android Lint).")
+                url.set("https://github.com/shehroz-ameer/ShezGuard")
+                licenses {
+                    license {
+                        name.set("The Apache License, Version 2.0")
+                        url.set("https://www.apache.org/licenses/LICENSE-2.0.txt")
+                    }
+                }
+                developers { developer { id.set("shehroz-ameer") } }
+                scm {
+                    url.set("https://github.com/shehroz-ameer/ShezGuard")
+                    connection.set("scm:git:https://github.com/shehroz-ameer/ShezGuard.git")
+                }
+            }
+        }
+    }
+}
