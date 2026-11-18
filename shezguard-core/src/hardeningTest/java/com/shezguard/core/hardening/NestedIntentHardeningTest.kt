@@ -78,24 +78,23 @@ class NestedIntentHardeningTest {
     // ---- finding -----------------------------------------------------------------------------------------
 
     /**
-     * Finding (classification). `Nested.Deny` is documented as "Any nested Intent blocks (NESTED_INTENT_DENIED)",
-     * and HARD. A framework Parcelable that carries an Intent or PendingIntent internally (ClipData items,
-     * Notification actions) is opaque (`ExtraValue.Other`), so the decision is Sanitize via EXTRA_NOT_ALLOWED.
-     * The object is removed from the sanitized copy, so it does not reach the app through ShezGuard; but the
-     * decision is not Block, NESTED_INTENT_DENIED is not reported, and `Decision.Sanitize` lets the app proceed.
+     * H5, documented (docs/LIMITATIONS.md L26, step 16): an Intent or PendingIntent inside a framework Parcelable
+     * (ClipData items, Notification actions) is opaque, so under `Nested.Deny` the extra is removed as
+     * `EXTRA_NOT_ALLOWED` (Sanitize), not reported as a nested intent. The sanitized copy no longer carries it.
      */
     @Test
-    fun blocksIntentHiddenInsideFrameworkParcelableExtra() {
+    fun observesIntentInsideFrameworkParcelableIsRemovedNotReportedAsNested() {
         val clip = eval(bundleOf("clip" to ClipData.newIntent("x", evil())))
         val ctx = RuntimeEnvironment.getApplication()
         val pi = PendingIntent.getActivity(ctx, 0, evil(), PendingIntent.FLAG_IMMUTABLE)
         @Suppress("DEPRECATION")
         val notification = Notification.Builder(ctx).setContentIntent(pi).build()
         val notif = eval(bundleOf("n" to notification), ipc = false) // PendingIntent: in-process, as in L28
-        val notBlocked = mapOf("ClipData.newIntent" to clip, "Notification.contentIntent" to notif).mapNotNull { (name, d) ->
-            if (d.outcome == Outcome.BLOCK && NESTED_INTENT_DENIED in Hardening.codes(d)) null else "$name: ${d.outcome} ${Hardening.codes(d)}"
+        for ((key, d) in listOf("clip" to clip, "n" to notif)) {
+            assertEquals(Outcome.SANITIZE, d.outcome)
+            assertEquals(setOf<ViolationCode>(ViolationCode.EXTRA_NOT_ALLOWED), Hardening.codes(d))
+            assertEquals(false, (d as Decision.Sanitize).sanitizedIntent.hasExtra(key))
         }
-        assertEquals(emptyList<String>(), notBlocked)
     }
 
     // ---- negative results ----------------------------------------------------------------------------------

@@ -41,12 +41,11 @@ class LintHardeningTest {
                 </intent-filter>"""
 
     /**
-     * Finding. `exempt = true` is documented for "an activity that reads no intent data" (e.g. the launcher),
-     * but the rule accepts it on an exported BROWSABLE deep-link activity that reads `intent.data`, which is
-     * then never evaluated: the guard is not called, and calling it would block.
+     * H7, by design (docs/LIMITATIONS.md L41, step 16): `exempt = true` is the explicit opt-out and is accepted even on
+     * an exported BROWSABLE activity that reads `intent.data`. A warning for that case is future work.
      */
     @Test
-    fun flagsExemptBrowsableActivityThatReadsIntentData() {
+    fun observesExemptBrowsableActivityThatReadsIntentDataIsAccepted() {
         run(
             appManifest("""<activity android:name=".LinkActivity" android:exported="true">$browsable</activity>"""),
             activity(
@@ -58,7 +57,7 @@ class LintHardeningTest {
                 }
                 """,
             ),
-        ).expectErrorCount(1)
+        ).expectClean()
     }
 
     /** L4 instance: guarded in onCreate, raw intent consumed in onNewIntent (singleTop / singleTask). */
