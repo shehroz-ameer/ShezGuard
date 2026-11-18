@@ -1,0 +1,3 @@
+[clean] api=24 DeepNestingEvaluateDeviceTest: PASS (last status -)
+[clean] api=24 DeepNestingNestedIntentDeviceTest: PASS (last status -)
+[clean] api=24 DeepNestingOnNewIntentDeviceTest: PASS (last status -)

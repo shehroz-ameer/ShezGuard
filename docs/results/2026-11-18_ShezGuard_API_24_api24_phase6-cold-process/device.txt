@@ -1,0 +1,1 @@
+avd=ShezGuard_API_24 api=24 fingerprint=google/sdk_google_phone_arm64/generic_arm64:7.0/NYC/8695085:userdebug/dev-keys

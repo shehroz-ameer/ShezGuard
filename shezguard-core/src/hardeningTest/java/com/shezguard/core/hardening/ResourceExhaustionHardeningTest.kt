@@ -103,10 +103,20 @@ class ResourceExhaustionHardeningTest {
         val rejected = try { policy(maxUri = 1_000_000); false } catch (e: com.shezguard.core.policy.PolicyDefinitionException) { true }
         lines += "H8 after: limits(maxUriLength = 1_000_000) rejected at build: $rejected"
         val p = policy(maxUri = 8192)
-        var n = 1
-        while (distinctParams(n + 1).length <= 8192) n++
-        val uri = distinctParams(n)
-        assertEquals(Outcome.ALLOW, ShezGuard.evaluate(view(uri), p, "any").outcome)
+        // Densest URI: 1- and 2-char names from [A-Za-z0-9_.-] without values (same generator as the benchmark's
+        // h8_cap_worst scenario). 4 000 distinct names do not fit in 8 192 chars.
+        val alphabet = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_.-"
+        val names = (alphabet.map { "$it" } + alphabet.flatMap { a -> alphabet.map { b -> "$a$b" } }).filter { it != "q" } // q is declared
+        val sb = StringBuilder("https://example.com/x?")
+        var n = 0
+        for (name in names) {
+            val piece = (if (n == 0) "" else "&") + name
+            if (sb.length + piece.length > 8192) break
+            sb.append(piece); n++
+        }
+        val uri = sb.toString()
+        val d0 = ShezGuard.evaluate(view(uri), p, "any")
+        assertEquals(d0.violations.map { it.code }.toSet().toString(), Outcome.ALLOW, d0.outcome)
         measure("H8 after: bound 8192, ${uri.length}-char URI, $n distinct params (Allow)", reps = 21) { ShezGuard.evaluate(view(uri), p, "any") }
     }
 
@@ -178,5 +188,34 @@ class ResourceExhaustionHardeningTest {
         // docs/HARDENING.md). Step 15's JVM numbers are kept there as historical; the depths come from the emulators.
         found.forEach { println("[resource] $it") }
         lines += found
+    }
+
+    /** H8 detail: where the time goes at the bound (canonicaliser, parser-mismatch check, policy validator), JVM. */
+    @Test
+    fun measuresH8BreakdownAtTheBound() {
+        val alphabet = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_.-"
+        val names = (alphabet.map { "$it" } + alphabet.flatMap { a -> alphabet.map { b -> "$a$b" } }).filter { it != "q" }
+        for ((bound, valued) in listOf(8192 to false, 8192 to true, 2048 to false, 2048 to true)) {
+            val label = "limit $bound, " + if (valued) "with =1 values" else "no values"
+            val sb = StringBuilder("https://example.com/x?")
+            var n = 0
+            for (name in names) {
+                val piece = (if (n == 0) "" else "&") + name + (if (valued) "=1" else "")
+                if (sb.length + piece.length > bound) break
+                sb.append(piece); n++
+            }
+            val uri = sb.toString()
+            val ep = policy(maxUri = bound)["any"]!!
+            val c = (com.shezguard.core.canon.UriCanonicalizer.canonicalize(uri, ep.limits) as com.shezguard.core.canon.CanonResult.Ok).uri
+            val view = com.shezguard.core.android.AndroidUriView(android.net.Uri.parse(uri))
+            measure("H8 breakdown ($label, $n params): canonicalize", reps = 5) { com.shezguard.core.canon.UriCanonicalizer.canonicalize(uri, ep.limits) }
+            measure("H8 breakdown ($label, $n params): ParserMismatch.check", reps = 5) { com.shezguard.core.eval.ParserMismatch.check(c, view, ep) }
+            measure("H8 breakdown ($label, $n params): getQueryParameter per name only", reps = 5) {
+                val u = android.net.Uri.parse(uri); c.query.forEach { u.getQueryParameter(it.first) }
+            }
+            measure("H8 breakdown ($label, $n params): UriPolicyValidator.validate", reps = 5) { com.shezguard.core.validate.UriPolicyValidator.validate(c, ep) }
+            val pol = policy(maxUri = bound)
+            measure("H8 breakdown ($label, $n params): full ShezGuard.evaluate", reps = 5) { ShezGuard.evaluate(view(uri), pol, "any") }
+        }
     }
 }

@@ -28,7 +28,10 @@ case "$LABEL" in *[!A-Za-z0-9._-]*) echo "run label: letters, digits, . _ - only
 PORT="${3:-5584}"
 PERCALL_RUNS="${PERCALL_RUNS:-5}"
 MICRO_RUNS="${MICRO_RUNS:-3}"
-WARMUP=2000; SAMPLES=10000; SETTLE=60; MICRO_EXTRA=()
+WARMUP="${BENCH_WARMUP:-2000}"; SAMPLES="${BENCH_SAMPLES:-10000}"; SETTLE=60; MICRO_EXTRA=()
+# Step 16: BENCH_SCENARIOS (comma-separated) runs only those per-call scenarios; BENCH_WARMUP / BENCH_SAMPLES override
+# the counts (for the slow h8_cap_worst scenario). All three are written to device.txt.
+SCENARIO_ARGS=(); [ -n "${BENCH_SCENARIOS:-}" ] && SCENARIO_ARGS=(-e scenarios "$BENCH_SCENARIOS")
 if [ "${BENCH_SCRIPT_CHECK:-0}" = 1 ]; then
   case "$LABEL" in *scripts-check*) ;; *) echo "BENCH_SCRIPT_CHECK needs a label containing 'scripts-check'" >&2; exit 2 ;; esac
   PERCALL_RUNS=1; MICRO_RUNS=1; WARMUP=50; SAMPLES=200; SETTLE=10
@@ -123,6 +126,7 @@ a shell input keyevent 82 >/dev/null 2>&1
   echo "androidx_benchmark=1.5.0; suppressErrors=$SUPPRESS"
   [ "${BENCH_SCRIPT_CHECK:-0}" = 1 ] && echo "purpose=SCRIPT CHECK ONLY: reduced runs and samples, dry-run microbenchmark; these numbers are NOT RESULTS"
   echo "percall=warmup $WARMUP + $SAMPLES timed calls per scenario per run; runs=$PERCALL_RUNS (one process each)"
+  echo "percall_scenarios=${BENCH_SCENARIOS:-all}"
   echo "micro_runs=$MICRO_RUNS (one process each)${MICRO_EXTRA[*]:+; ${MICRO_EXTRA[*]}}"
   echo "commit=$(git -C "$REPO" rev-parse HEAD)$(git -C "$REPO" diff --quiet HEAD -- shezguard-core benchmark || echo ' + uncommitted changes in shezguard-core or benchmark')"
   echo "date=$(date -u +%Y-%m-%dT%H:%M:%SZ)"
@@ -133,7 +137,7 @@ a logcat -G 16M >/dev/null 2>&1
 : > "$OUT/percall_lines.txt"
 for k in $(seq 1 "$PERCALL_RUNS"); do
   a logcat -c
-  a shell am instrument -w -r -e class com.shezguard.benchmark.PerCallBenchmark -e run "$k" -e warmup "$WARMUP" -e samples "$SAMPLES" \
+  a shell am instrument -w -r -e class com.shezguard.benchmark.PerCallBenchmark -e run "$k" -e warmup "$WARMUP" -e samples "$SAMPLES" ${SCENARIO_ARGS[@]+"${SCENARIO_ARGS[@]}"} \
     -e androidx.benchmark.suppressErrors "$SUPPRESS" "$RUNNER" > "$WORK/percall_run${k}_instrument.txt" 2>&1
   echo "percall run $k: $(grep -E '^(OK \(|FAILURES|Tests run|INSTRUMENTATION_CODE)' "$WORK/percall_run${k}_instrument.txt" | tr '\n' ' ')" >> "$OUT/instrument_status.txt"
   a logcat -d -v raw -s System.out:I | tr -d '\r' | grep '^\[BENCH-PERCALL\]' >> "$OUT/percall_lines.txt"

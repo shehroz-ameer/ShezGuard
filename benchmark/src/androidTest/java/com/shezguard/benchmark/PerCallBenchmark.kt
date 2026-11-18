@@ -39,10 +39,12 @@ class PerCallBenchmark {
         val run = args.getString("run") ?: "0"
         val warmupCount = args.getString("warmup")?.toInt() ?: DEFAULT_WARMUP
         val sampleCount = args.getString("samples")?.toInt() ?: DEFAULT_SAMPLES
+        // Step 16: optional comma-separated scenario filter (e.g. for the slow h8_cap_worst scenario).
+        val only = args.getString("scenarios")?.split(',')?.map { it.trim() }?.toSet()
         val ctx = InstrumentationRegistry.getInstrumentation().targetContext
         @Suppress("DEPRECATION")
         val dir = File(ctx.externalMediaDirs.first(), "percall").apply { mkdirs() }
-        for (s in Scenarios.all) {
+        for (s in Scenarios.all.filter { only == null || it.name in only }) {
             val template = s.template()
             var outcome = ""
             repeat(warmupCount) { i ->
