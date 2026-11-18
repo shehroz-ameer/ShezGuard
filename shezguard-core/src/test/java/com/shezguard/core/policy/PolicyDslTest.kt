@@ -430,6 +430,7 @@ class PolicyDslTest {
         assertProblem("limits(", "positive") { entryPoint("p") { limits(maxUriLength = 0) } }
         // Step 16, H8: rejected when the policy is built, with a message naming the bound.
         assertProblem("limits(", "at most 8192") { entryPoint("p") { limits(maxUriLength = 1_000_000) } }
+        assertProblem("limits(", "maxParameters must be at most 256") { entryPoint("p") { limits(maxParameters = 1_000) } }
         assertProblem("param(\"id\")", "maxLength", "positive") {
             entryPoint("p") { validData(); param("id") { digitsOnly(maxLength = 0) } }
         }

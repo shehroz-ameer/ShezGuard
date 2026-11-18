@@ -94,9 +94,12 @@ decision is Block.
 
 ### 4.2 Default limits [DECIDED]
 - Maximum URI length: 2048 characters (overridable per entry point). **[DECIDED]** (step 16, `docs/HARDENING.md` H8)
-  An override may not exceed 8192, checked when the policy is built: the parser-mismatch check grows faster than
-  quadratically with the number of distinct (value-less) parameters. 8192 is a chosen limit, not derived, and does not
-  keep the worst case small (about 5.2 s per call at 8192, emulator API 34; L46, open).
+  An override may not exceed 8192, checked when the policy is built.
+- **[DECIDED]** (step 16, H8) Maximum number of query parameters: 64 (`Limits.maxParameters`, overridable up to 256,
+  checked when the policy is built). Counted linearly on the raw query before any `android.net.Uri` accessor runs;
+  more is `PARAM_TOO_MANY` (HARD). Reason: `Uri.getQueryParameter`, which the parser-mismatch check calls per name,
+  costs about the cube of the number of value-less parameters (5.2 s per call for 2 745 of them, emulator API 34).
+  64, 256 and 8192 are chosen limits, not derived (L46).
 - Maximum parameter value length: 256 characters (overridable per parameter).
 - Maximum parameter name length: 64 characters, fixed (step 4 decision).
 

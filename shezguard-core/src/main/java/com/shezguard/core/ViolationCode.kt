@@ -190,6 +190,13 @@ public enum class ViolationCode(
     /** An undeclared parameter, left in place under `Unknown.Ignore` and scored. */
     PARAM_UNKNOWN_IGNORED("PARAM_UNKNOWN_IGNORED", Tier.SOFT, Severity.LOW),
 
+    /**
+     * The query has more parameters (pieces between `&`) than `Limits.maxParameters` (default 64). Counted on the raw
+     * query before any `android.net.Uri` accessor runs, so a flood of parameters cannot make the parser-mismatch check
+     * slow (step 16, `docs/HARDENING.md` H8).
+     */
+    PARAM_TOO_MANY("PARAM_TOO_MANY", Tier.HARD, Severity.MEDIUM),
+
     // ---- Extras and nested intents (SPEC section 5, step 4) ----------------------
 
     /** Reading the extras threw (malformed or hostile Bundle). The intent cannot be inspected safely. */

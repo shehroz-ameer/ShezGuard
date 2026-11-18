@@ -141,7 +141,7 @@ public class EntryPointBuilder internal constructor(internal val name: String) {
     private var extras: ExtrasBuilder? = null
     private val callerCalls = mutableListOf<Pair<String, () -> Caller?>>()
     private var threshold: Int? = null
-    private var limits: Pair<Int, Int>? = null
+    private var limits: Triple<Int, Int, Int>? = null
     private val weights = mutableListOf<Pair<ViolationCode, Int>>()
 
     private fun <T : Any> once(label: String, current: T?, value: T): T {
@@ -274,14 +274,16 @@ public class EntryPointBuilder internal constructor(internal val name: String) {
     }
 
     /**
-     * Overrides the length limits for this entry point. A parameter without its own
-     * `maxLength` uses [maxParamLength]; an explicit `maxLength` may not exceed it.
+     * Overrides the limits for this entry point. A parameter without its own
+     * `maxLength` uses [maxParamLength]; an explicit `maxLength` may not exceed it. [maxParameters] (default 64, at
+     * most 256) caps the number of query parameters before any `android.net.Uri` accessor runs (step 16, H8).
      */
     public fun limits(
         maxUriLength: Int = Limits.DEFAULT_MAX_URI_LENGTH,
         maxParamLength: Int = Limits.DEFAULT_MAX_PARAM_LENGTH,
+        maxParameters: Int = Limits.DEFAULT_MAX_PARAMETERS,
     ) {
-        limits = once("limits(...)", limits, maxUriLength to maxParamLength)
+        limits = once("limits(...)", limits, Triple(maxUriLength, maxParamLength, maxParameters))
     }
 
     internal fun build(problems: MutableList<String>): EntryPointPolicy? {
@@ -300,8 +302,11 @@ public class EntryPointBuilder internal constructor(internal val name: String) {
         setTwice.forEach { problem("$it is set more than once. Set it once; a second call is an error, not an override.") }
 
         // Limits and threshold.
-        val (maxUri, maxParam) = limits ?: (Limits.DEFAULT_MAX_URI_LENGTH to Limits.DEFAULT_MAX_PARAM_LENGTH)
-        val builtLimits = attempt(Pending("limits(maxUriLength = $maxUri, maxParamLength = $maxParam)") { Limits(maxUri, maxParam) })
+        val (maxUri, maxParam, maxParams) = limits
+            ?: Triple(Limits.DEFAULT_MAX_URI_LENGTH, Limits.DEFAULT_MAX_PARAM_LENGTH, Limits.DEFAULT_MAX_PARAMETERS)
+        val builtLimits = attempt(
+            Pending("limits(maxUriLength = $maxUri, maxParamLength = $maxParam, maxParameters = $maxParams)") { Limits(maxUri, maxParam, maxParams) },
+        )
         val effectiveMaxParam = builtLimits?.maxParamLength ?: Limits.DEFAULT_MAX_PARAM_LENGTH
         val builtThreshold = threshold?.let {
             if (it in 1..100) Threshold(it) else null.also { _ -> problem("threshold(block = $it): the block threshold must be in 1..100.") }
