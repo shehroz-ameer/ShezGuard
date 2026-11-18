@@ -1,0 +1,24 @@
+run_label=phase6-bench
+figures=emulator, indicative only
+avd=Pixel_8
+emulator=yes (ro.kernel.qemu/ro.boot.qemu=11)
+emulator_version=Android emulator version 35.4.9.0 (build_id 13025442) (CL:N/A)
+model=sdk_gphone64_arm64
+api=34
+release=14
+fingerprint=google/sdk_gphone64_arm64/emu64a:14/UE1A.230829.036.A4/12096271:user/release-keys
+security_patch=2023-09-05
+abi=arm64-v8a
+device_cpus_possible=0-3
+device_mem=MemTotal: 2025912 kB
+host_cpu=Apple M4
+host_cores=10
+host_mem_bytes=17179869184
+host_os=macOS 26.2
+build=:benchmark release test APK (testBuildType release: not debuggable, not minified), :shezguard-core release variant
+compilation=cmd package compile -m speed -f: Success 
+androidx_benchmark=1.5.0; suppressErrors=EMULATOR
+percall=warmup 2000 + 10000 timed calls per scenario per run; runs=5 (one process each)
+micro_runs=0 (one process each)
+commit=bce230b70f0fb3311af3e5b1d163c654a56da00b
+date=2026-11-18T16:09:25Z

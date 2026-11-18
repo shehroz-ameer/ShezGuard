@@ -1,0 +1,16 @@
+run_label=phase6-fixes
+avd=ShezGuard_API_24
+emulator=yes (ro.kernel.qemu/ro.boot.qemu=1)
+model=Android SDK built for arm64
+api=24
+release=7.0
+fingerprint=google/sdk_google_phone_arm64/generic_arm64:7.0/NYC/8695085:userdebug/dev-keys
+security_patch=2017-10-05
+abi=arm64-v8a
+hidden_api_policy_before=not read (API < 28, setting not changed)
+hidden_api_policy_during_run=null
+attacker_installed_before=no
+commit=bce230b70f0fb3311af3e5b1d163c654a56da00b
+date=2026-11-18T16:07:42Z
+attacker_installed_after=0
+test_apk_installed_after=0

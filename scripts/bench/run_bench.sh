@@ -144,7 +144,7 @@ a pull "$MEDIA/percall" "$RAW/" >/dev/null
 COPYFILE_DISABLE=1 tar -czf "$OUT/percall_raw.tar.gz" -C "$RAW" percall
 rm -rf "$RAW"
 
-for k in $(seq 1 "$MICRO_RUNS"); do
+for k in $([ "$MICRO_RUNS" -gt 0 ] && seq 1 "$MICRO_RUNS"); do # step 16: MICRO_RUNS=0 skips method B (macOS seq 1 0 counts down)
   a shell rm -rf "$MEDIA/additional_test_output"
   a shell am instrument -w -r -e class com.shezguard.benchmark.MicroBenchmark \
     -e androidx.benchmark.suppressErrors "$SUPPRESS" ${MICRO_EXTRA[@]+"${MICRO_EXTRA[@]}"} \

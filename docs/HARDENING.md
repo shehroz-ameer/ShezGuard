@@ -36,6 +36,43 @@ scripts/device/run_shared_tests.sh <AVD> <label>   # emulator; includes Hardenin
   binder IPC from another app in these three tests, and not a physical device. "JVM/Robolectric" means HotSpot 17
   with Robolectric SDK 34 (some tests also SDK 29).
 
+## Step 16 status (part 1: fixes)
+
+| ID | Status | Commit | Change | Test now in the normal suite | Mutants |
+|---|---|---|---|---|---|
+| H2 | **fixed** | `b7da5a1` | `getPath()` compared exactly in the parser-mismatch check (HARD `URI_PARSER_MISMATCH@uri.path`) | `PathAccessorAgreementTest` (`src/sharedTest`: JVM and emulators) | h2 caught (JVM) |
+| H1 | **fixed** | `bfdb6dd` | `StackOverflowError` (only) caught at ShezGuard's extras read sites → `EXTRAS_UNPARCEL_FAILED` / denied nested intent | `DeepNesting{Evaluate,NestedIntent,OnNewIntent}DeviceTest` (`src/androidTest`, device-only by the standing rule) | h1a, h1b, h1c: each caught on at least one emulator level (by hand) |
+| H3 | **fixed** | `b07627c` | Part of a segment before `;` checked as a dot segment (`..;`, `.;`, encoded) | `ShezGuardEvaluateTest.blocksMatrixParamDotDotSegmentEscapingPathPrefix`, `UriCanonicalizerTest.blocksMatrixParam*` | h3 caught (JVM) |
+| H6 | **fixed, residual** | `a01bf5c` | Unmodifiable copies in `IntentPolicy`, `EntryPointPolicy`, `Nested.AllowSanitized`, `ScoreWeights` and all DSL-built collections. Residual: data classes constructed directly (L45) | `PolicyImmutabilityTest` | h6a, h6b, h6c caught (JVM) |
+| H8 | **mitigated** | `9f5f952` | `maxUriLength` bounded at 8192 when the policy is built (a linear check would re-implement `getQueryParameter`) | `PolicyModelTest.limitsRejectNonPositiveValues`, `PolicyDslTest.rejectsOutOfRangeNumbers` | h8 caught (JVM) |
+| H5 | documented (L26) | `bce230b` | none | — (`observesIntentInsideFrameworkParcelableIsRemovedNotReportedAsNested` in hardeningTest) | — |
+| H7 | documented, by design (L41); warning is future work | `bce230b` | none | — (`observesExemptBrowsableActivityThatReadsIntentDataIsAccepted` in lint hardeningTest) | — |
+| H4 | documented: JVM-only, not reproduced on device | `bce230b` | none | — | — |
+
+**Before and after on the emulators** (`docs/results/2026-11-18_*_phase5-hardening/` before, `*_phase6-fixes/` after;
+full instrumented suite, 94 tests, 0 failures on both levels after):
+
+| | API 34, before | API 34, after | API 24, before | API 24, after |
+|---|---|---|---|---|
+| H1, deep List extra on the main thread | `StackOverflowError` at depth 1 750 | **Block** `EXTRAS_UNPARCEL_FAILED` (depth 1 750, 26 093, 60 000) | `StackOverflowError` at depth 26 093 | **Block**: `EXTRAS_TOO_DEEP` at 1 750 and 26 093 (no overflow there in that process), `EXTRAS_UNPARCEL_FAILED` at 60 000 |
+| H1, nested intent / `onNewIntent` (depth 60 000) | not run | **Block** / **Block (`null`)** | not run | **Block** / **Block (`null`)** |
+| H2, `//evil.example/landing` | **Allow** `[URI_NON_CANONICAL]` | **Block** `[URI_NON_CANONICAL, URI_PARSER_MISMATCH]` | **Allow** | **Block** |
+
+The cold-process check (each `DeepNesting*DeviceTest` class alone in its own `am instrument` process: the overflow is
+the first evaluation, then a benign intent is allowed, then the overflow blocks again) passed on API 34 and API 24, with
+no `LinkageError`.
+
+**Overhead (emulator, indicative only).** Per-call loop (method A), `simple_link`, API 34, 5 runs × 10 000 calls:
+median per run 11.9–18.1 µs after the fixes (`docs/results/2026-11-18_Pixel_8_api34_phase6-bench/`), against
+12.2–23.6 µs in phase 3. The microbenchmark (method B) was not re-run (`MICRO_RUNS=0`).
+
+**Changed existing tests** (all toward the stricter rule; each still asserts that its input is flagged or blocked):
+
+| Test | Before | After |
+|---|---|---|
+| `ShezGuardEvaluateTest.allowsDuplicateSlashesButListsNonCanonicalSignal` | `/product//1` → Allow with `URI_NON_CANONICAL` | renamed `blocksDuplicateSlashesAsParserMismatchAndKeepsNonCanonicalSignal`: Block, `URI_PARSER_MISMATCH@uri.path`, `URI_NON_CANONICAL` still listed |
+| `ScoringEvaluateTest` (`blocksOnScoreAloneAtThresholdAndExplainsIt`, `allowsOneBelowThreshold`, `defaultWeightsCannotChangeAnOutcomeBeforeStep8`, `zeroWeightsKeepSignalsListedButScoreNothing`) | soft-signal input `/a//b` (and `/a//b//c`) | the same soft `URI_NON_CANONICAL` on the path from a needless escape, `/a/%62` (`/a/%62/%63`); assertions unchanged. `//` is now HARD, so it could no longer carry a soft-only score test |
+
 ## Standing rule: overflow tests never run under Robolectric (step 16)
 
 No test that deliberately overflows the stack runs on the JVM, in `test` or in `hardeningTest`. Under Robolectric an
