@@ -296,6 +296,28 @@ class UriCanonicalizerTest {
         assertRejected("$base/%2e/a", URI_PATH_DOT_SEGMENT)
     }
 
+    /** Step 16, H3 (`docs/HARDENING.md`): servlet-style sinks strip `;params`, then resolve `..`. */
+    @Test
+    fun blocksMatrixParamDotDotSegment() {
+        for (p in listOf("/product/..;/admin", "/product/..;jsessionid=1/admin", "/product/%2e%2e;/admin", "/product/..%3B/admin", "/product/.%2E;x=1/admin")) {
+            assertRejected("$base$p", URI_PATH_TRAVERSAL)
+        }
+    }
+
+    /** Step 16, H3: the single-dot form, `.;` and its encodings. */
+    @Test
+    fun blocksMatrixParamSingleDotSegment() {
+        for (p in listOf("/product/.;/admin", "/product/.;x=1/a", "/product/%2e;/a", "/product/.%3b/a")) {
+            assertRejected("$base$p", URI_PATH_DOT_SEGMENT)
+        }
+    }
+
+    /** Step 16, H3: `;` is not banned in general; only a dot segment before it is (L47 documents the rest). */
+    @Test
+    fun keepsSemicolonOutsideDotSegmentsLiteral() {
+        for (p in listOf("/a;b", "/product/;x=1/a", "/product/..a;b", "/product/a.;b", "/product/;")) ok("$base$p")
+    }
+
     @Test // 33
     fun blocksFullwidthDotTraversal() {
         assertRejected("$base/%EF%BC%8E%EF%BC%8E/", URI_PATH_UNICODE_SEPARATOR)

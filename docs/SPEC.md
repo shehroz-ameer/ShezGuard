@@ -269,6 +269,9 @@ Author approval of the step 6 proposal, 2026-11-11 (`docs/RESPONSE.md`).
   (Known false positives, see `docs/LIMITATIONS.md`.)
 - Reject control characters, null bytes, backslashes in paths, `..` segments (raw and encoded).
   **[DECIDED]** single `.` segments (raw and encoded) are rejected the same way as `..`.
+  **[DECIDED]** (step 16, `docs/HARDENING.md` H3) a segment whose part before the first `;` is `..` or `.`
+  (`..;`, `.;`, raw or encoded) is rejected the same way, because servlet-style sinks strip `;params` before
+  resolving dot segments. Other `;` stay literal (`docs/LIMITATIONS.md` L47).
 - **[DECIDED]** Reject Unicode format characters (general category Cf: bidi controls,
   zero-width characters, and the rest) in every component, after decoding. This includes
   query values (see `docs/LIMITATIONS.md`).

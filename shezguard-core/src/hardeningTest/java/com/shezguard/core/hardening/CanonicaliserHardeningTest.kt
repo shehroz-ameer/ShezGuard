@@ -45,26 +45,8 @@ class CanonicaliserHardeningTest {
     private fun notBlocked(cases: List<String>, ep: String): List<String> =
         cases.filter { eval(it, ep).outcome != Outcome.BLOCK }
 
-    // ---- H: path prefix vs `;` path parameters ------------------------------------------------------------
-
-    /**
-     * Finding. A prefix pattern is documented as confining the path to a segment boundary, and `..` segments
-     * (raw and encoded) are rejected. A segment `..;` (or `..;jsessionid=x`) is not `..` to ShezGuard or to
-     * `android.net.Uri`, but servlet-style path normalisation (Tomcat, Spring, many Java backends) strips the
-     * `;...` path parameter and then resolves `..`. An app that loads the allowed path on its own origin in a
-     * WebView or forwards it to such a backend therefore escapes `/product/`.
-     */
-    @Test
-    fun blocksMatrixParamDotDotSegmentEscapingPathPrefix() {
-        val cases = listOf(
-            "https://example.com/product/..;/admin",
-            "https://example.com/product/..;jsessionid=1/admin",
-            "https://example.com/product/%2e%2e;/admin",
-            "https://example.com/product/..%3B/admin",
-            "https://example.com/product/.;/..;/admin",
-        )
-        assertEquals("allowed under prefix(\"/product/\"), but resolve outside it in a servlet-style sink", emptyList<String>(), notBlocked(cases, "product"))
-    }
+    // H3 (blocksMatrixParamDotDotSegmentEscapingPathPrefix) moved in step 16 to ShezGuardEvaluateTest, with
+    // canonicaliser-level tests in UriCanonicalizerTest.
 
     // ---- negative results ---------------------------------------------------------------------------------
 

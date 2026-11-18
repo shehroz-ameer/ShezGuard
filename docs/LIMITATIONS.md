@@ -913,3 +913,20 @@ check was cut by author decision; `ActivityGuardTest`):
   (`docs/HARDENING.md` H8).
 - **Status:** open, decision in step 16 (e.g. an upper bound on `maxUriLength`, or a linear check). Behaviour not
   changed in step 15.
+
+## L47. `;` path parameters are literal, except before a dot segment (step 16)
+- **What:** ShezGuard treats `;` in a path segment as an ordinary character, like `android.net.Uri` and `java.io.File`
+  do. Since step 16 (`docs/HARDENING.md` H3) one case is rejected: a segment whose part before the first `;` is `..` or
+  `.` (`..;`, `..;jsessionid=x`, `.;`, and encoded forms such as `%2e%2e;` and `..%3B`) is `URI_PATH_TRAVERSAL` /
+  `URI_PATH_DOT_SEGMENT` (HARD). Every other `;` stays.
+- **Residual risk:** a sink with path-parameter semantics (Tomcat, Spring, other servlet-style back ends) strips
+  `;params` before routing, so it can see a different path from the one ShezGuard checked. Example from the step 15
+  sink fuzz: `/product/;` passes `prefix("/product/")` and normalises to `/product` (the prefix without its slash; about
+  700 Allows per 400 000-input seed after the fix). `/product/a;x=1` reaches `/product/a` with a parameter the policy
+  never saw. Path parameters are not validated.
+- **Why not banned:** `;` is a legitimate sub-delimiter in paths (RFC 3986), and Android's own parser keeps it. A ban
+  would break links that use it, and the escape found (H3) needed a dot segment.
+- **Workaround:** use exact path patterns, or strip/reject `;` in the app before forwarding a path to such a back end.
+- **Shown by:** `UriCanonicalizerTest.keepsSemicolonOutsideDotSegmentsLiteral`; `SinkOracleFuzzHardeningTest`
+  (class "H3-boundary", JVM).
+- **Source:** step 16, author decision.

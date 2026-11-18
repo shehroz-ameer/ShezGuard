@@ -216,9 +216,13 @@ internal object UriCanonicalizer {
         if ('/' in d) f.add(URI_PATH_ENCODED_SEPARATOR, PATH)
         if ('\\' in d) f.add(URI_BACKSLASH, PATH)
         // Check what each side of an encoded separator would become, e.g. `%2e%2e%2fetc`.
+        // Step 16 (H3): servlet-style sinks strip a `;params` suffix before resolving dot segments, so the part
+        // before the first `;` counts as the segment too: `..;`, `..;jsessionid=x`, `.;` (also `%2e%2e;`, `..%3B`,
+        // which decode to the same text). `;` elsewhere stays literal (docs/LIMITATIONS.md L47).
         for (piece in d.split('/', '\\')) {
-            if (piece == "..") f.add(URI_PATH_TRAVERSAL, PATH)
-            if (piece == ".") f.add(URI_PATH_DOT_SEGMENT, PATH)
+            val beforeParams = piece.substringBefore(';')
+            if (piece == ".." || beforeParams == "..") f.add(URI_PATH_TRAVERSAL, PATH)
+            if (piece == "." || beforeParams == ".") f.add(URI_PATH_DOT_SEGMENT, PATH)
         }
         if (d.indexOfAny(UNICODE_SEPARATORS) >= 0) f.add(URI_PATH_UNICODE_SEPARATOR, PATH)
         return d
