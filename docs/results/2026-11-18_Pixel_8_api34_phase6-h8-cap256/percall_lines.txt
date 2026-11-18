@@ -1,0 +1,10 @@
+[BENCH-PERCALL] run=1 sdk=34 scenario=simple_link outcome=ALLOW[] warmup=200 n=1000 median_ns=22542 p95_ns=216875 p99_ns=411375 max_ns=2842667 mean_ns=49086 gc_before=0 gc_after=0
+[BENCH-PERCALL] run=1 sdk=34 scenario=h8_cap256 outcome=ALLOW[PARAM_UNKNOWN_IGNORED] warmup=200 n=1000 median_ns=5048625 p95_ns=5833958 p99_ns=8029666 max_ns=15370000 mean_ns=5198594 gc_before=9 gc_after=134
+[BENCH-PERCALL] run=2 sdk=34 scenario=simple_link outcome=ALLOW[] warmup=200 n=1000 median_ns=25166 p95_ns=82959 p99_ns=377875 max_ns=1940167 mean_ns=41561 gc_before=0 gc_after=0
+[BENCH-PERCALL] run=2 sdk=34 scenario=h8_cap256 outcome=ALLOW[PARAM_UNKNOWN_IGNORED] warmup=200 n=1000 median_ns=5138667 p95_ns=5988833 p99_ns=8145375 max_ns=15727375 mean_ns=5303094 gc_before=0 gc_after=118
+[BENCH-PERCALL] run=3 sdk=34 scenario=simple_link outcome=ALLOW[] warmup=200 n=1000 median_ns=20500 p95_ns=45125 p99_ns=86834 max_ns=2974208 mean_ns=29458 gc_before=0 gc_after=0
+[BENCH-PERCALL] run=3 sdk=34 scenario=h8_cap256 outcome=ALLOW[PARAM_UNKNOWN_IGNORED] warmup=200 n=1000 median_ns=5195083 p95_ns=5918416 p99_ns=6887833 max_ns=18067042 mean_ns=5323823 gc_before=0 gc_after=119
+[BENCH-PERCALL] run=4 sdk=34 scenario=simple_link outcome=ALLOW[] warmup=200 n=1000 median_ns=21709 p95_ns=54584 p99_ns=188542 max_ns=3554042 mean_ns=34236 gc_before=0 gc_after=0
+[BENCH-PERCALL] run=4 sdk=34 scenario=h8_cap256 outcome=ALLOW[PARAM_UNKNOWN_IGNORED] warmup=200 n=1000 median_ns=5127250 p95_ns=5694084 p99_ns=5921042 max_ns=7289125 mean_ns=5176013 gc_before=0 gc_after=116
+[BENCH-PERCALL] run=5 sdk=34 scenario=simple_link outcome=ALLOW[] warmup=200 n=1000 median_ns=11292 p95_ns=19750 p99_ns=34458 max_ns=938458 mean_ns=15123 gc_before=0 gc_after=0
+[BENCH-PERCALL] run=5 sdk=34 scenario=h8_cap256 outcome=ALLOW[PARAM_UNKNOWN_IGNORED] warmup=200 n=1000 median_ns=5159542 p95_ns=5706083 p99_ns=5958917 max_ns=6275416 mean_ns=5200207 gc_before=0 gc_after=115

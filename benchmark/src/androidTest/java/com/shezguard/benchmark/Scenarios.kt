@@ -71,6 +71,13 @@ internal object Scenarios {
             unknownParams(Unknown.Ignore)
             limits(maxUriLength = 8192)
         }
+        entryPoint("cap256") { // step 16, H8: the highest parameter cap an app can configure
+            allowSchemes("https")
+            allowHosts("example.com")
+            anyPath()
+            unknownParams(Unknown.Ignore)
+            limits(maxUriLength = 8192, maxParameters = 256)
+        }
         entryPoint("dflt") { // step 16, H8: default limits
             allowSchemes("https")
             allowHosts("example.com")
@@ -126,6 +133,7 @@ internal object Scenarios {
     val capUri: String = denseUri(8192)
     private val defaultWorstUri: String = denseUri(2048)
     private val cap64Uri: String = denseUri(8192, count = 64)
+    private val cap256Uri: String = denseUri(8192, count = 256)
 
     private val simpleUri = "https://example.com/product/123?id=123&ref=home"
 
@@ -157,6 +165,7 @@ internal object Scenarios {
         Scenario("early_block_scheme", "http instead of https on the deep-link entry point (Block; all violations still collected)", { view("http://example.com/product/123?id=123&ref=home") }, guard("link")),
         Scenario("h8_cap_worst", "step 16 H8: 8 192-char URI, most distinct value-less params that fit (2 745)", { view(capUri) }, guard("cap")),
         Scenario("h8_default_worst", "step 16 H8: 2 048-char URI, most distinct value-less params that fit (697), default limits", { view(defaultWorstUri) }, guard("dflt")),
+        Scenario("h8_cap256", "step 16 H8: 256 distinct value-less params (maxParameters = 256, the maximum)", { view(cap256Uri) }, guard("cap256")),
         Scenario("h8_cap64", "step 16 H8: 64 distinct value-less params (the default parameter cap)", { view(cap64Uri) }, guard("cap")),
         // Baselines: no ShezGuard.
         Scenario("baseline_app_reads_link", "no guard: the app reads id and ref from the delivered simple link", { view(simpleUri) }) {
