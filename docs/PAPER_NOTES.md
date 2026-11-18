@@ -852,3 +852,18 @@ In the step 15 fuzz (seed `0x5EED0015`, 40 000 inputs) this was the only accesso
 **Consequence for the design (step 16).** "Agree with the platform" has to be checked per accessor the app may use, not
 per component: two accessors of the same component can disagree with each other. `getPath()` is now compared exactly,
 which blocks every URI with an empty path segment (`docs/HARDENING.md` H2).
+
+## N17. A guard that reads every extra can introduce a crash the app would not have (step 15 H1, fixed in step 16)
+
+**Observation (confirmed (emulator, API 34, 24), steps 15 and 16).** The platform reads nested `List` values
+recursively (`Parcel.readValue → readArrayListInternal → readListInternal`, 3–4 frames per level on ART). A List nested
+about 1 750 levels deep (a 21 KB parcel) overflowed an API 34 main thread, and about 26 000 levels (209 KB) an API 24
+one. On API 33+ the value is lazy: an app that never reads that extra does not crash. ShezGuard reads every extra to
+find nested intents, so it was the code that triggered the overflow. The recursion was entirely in the framework;
+ShezGuard's own depth-limited walk never started.
+
+**Design consequence.** Catching `Error`s is normally wrong, but here the one `Error` is caught at the read sites ShezGuard
+owns, and it fails closed (`EXTRAS_UNPARCEL_FAILED`). After the overflow, the same process still evaluates benign
+intents correctly (cold-process device test). **Method note:** the overflow could not be tested reliably under
+Robolectric. Robolectric doubles every `Parcel` frame and once poisoned class initialisation, and four JVM test runs
+hung after overflows. So the evidence is device-only.
