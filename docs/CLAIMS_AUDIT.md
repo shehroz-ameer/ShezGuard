@@ -72,7 +72,7 @@ Audit date: 2026-11-18. Scope: `README.md`; public KDoc of `ShezGuard`, `Decisio
 |---|---|
 | 0.1.0 is published to `mavenLocal` only, not to Maven Central | `./gradlew publishToMavenLocal`; no remote repository or signing configured (`shezguard-core/build.gradle.kts`, `shezguard-lint/build.gradle.kts`) |
 | The AAR contains `lint.jar` and the consumer R8 rules | `unzip -l` of `shezguard-core-0.1.0.aar`: `lint.jar`, `proguard.txt` with the three `-keep` rules (step 17, `docs/REPRODUCE.md`) |
-| Runtime dependencies are `androidx.core:core:1.9.0` and `kotlin-stdlib:2.0.21` only | the published `.pom` and `.module` (release API and runtime variants list exactly these two) |
+| Runtime dependencies: androidx.core (`androidx.core:core:1.9.0`), plus kotlin-stdlib (`kotlin-stdlib:2.0.21`, required by any Kotlin library); no others | the published `.pom` and `.module` (release API and runtime variants list exactly these two) |
 | A consumer resolves it from `mavenLocal`, its unit tests pass, the Lint rule fires, an R8-minified build works | consumer project outside the repo (AGP 8.10.1, compileSdk 34): 2 Robolectric tests passed; `ShezGuardUnguardedEntryPoint` on the unannotated exported activity; minified APK on emulator API 34: valid link Allow, traversal and unknown-parameter links Block (step 17, not committed; procedure in `docs/REPRODUCE.md`) |
 | Older AGP untested | design statement: only 8.10.1 was available offline (L41) |
 | Apache-2.0; no NOTICE needed | `LICENSE` (canonical Apache-2.0 text, SHA-256 `cfc7749b…3d30`); no bundled third-party code |
