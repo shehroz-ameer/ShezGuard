@@ -417,12 +417,14 @@ are Robolectric-only. Nothing else is claimed.
 **Not protected or not shown:**
 - **Deserialisation side effects** of a hostile `Parcelable` or `Serializable` run before ShezGuard
   sees the result (L1, L27). ShezGuard stops the crash, not the side effect.
-- **`Error`s are not caught.** A parcel that makes unparcelling throw `StackOverflowError` (deeply
-  nested lists, which the platform reads recursively) or `OutOfMemoryError` crashes the app. This is
-  **not** the same as without ShezGuard: ShezGuard reads every extra, so it also crashes an app that
-  never reads that extra (on API 33+ even one that reads other extras, because the list is lazy there).
-  Shown in step 15 as `docs/HARDENING.md` H1 (corrected wording; the earlier text claimed the behaviour
-  was the same as without ShezGuard and was untested).
+- **`Error`s are not caught, except `StackOverflowError` while ShezGuard reads extras.** Since step 16
+  (`docs/HARDENING.md` H1), a deeply nested `List`/`Map`/object-array extra that overflows the platform's recursive
+  read is caught at ShezGuard's read site and gives `EXTRAS_UNPARCEL_FAILED` (Block), also inside a nested intent
+  under `AllowSanitized` (denied). Before step 16 it crashed the app, including an app that never reads that extra
+  (confirmed (emulator, API 34): overflow at about 1 750 levels, a 21 KB parcel; confirmed (emulator, API 24): about
+  26 000 levels). **Still not protected:** an app that reads that extra itself overflows as it would without
+  ShezGuard (after a Block it must not read the intent); `OutOfMemoryError` and every other `Error` still crash the
+  app; a `StackOverflowError` thrown by something other than ShezGuard's own reads is not caught.
 - **String content of extras is not validated**: only type and length. A `STRING` extra may hold
   control characters, bidi overrides or a URL; apply the app's own validation before using it.
 - **A `null` value under an allowed key is accepted** as absent (author decision 5): `hasExtra` is

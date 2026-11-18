@@ -27,7 +27,16 @@ import com.shezguard.core.policy.ExtrasRule
  * 4. The same for nested Bundles, up to [ExtrasRule.MAX_NESTING_DEPTH] containers.
  *
  * Every read catches `RuntimeException` (including `BadParcelableException`) and records the
- * part as unreadable. A failed Bundle is never read again (N6). `Error`s are not caught.
+ * part as unreadable. A failed Bundle is never read again (N6).
+ *
+ * **`StackOverflowError` is caught too, and only that `Error`** (step 16, `docs/HARDENING.md` H1). The platform
+ * reads nested containers (`List`, `Map`, object arrays) recursively; a sender can nest them so deeply that reading
+ * one extra overflows the stack (confirmed on emulators: about 1 750 levels, a 21 KB parcel, on API 34's main
+ * thread). ShezGuard reads every extra, so without this catch it would crash an app that never reads that extra.
+ * The catch sits around ShezGuard's own reads only (`keySet`, `get`, nested Bundles, the referrer extra, and
+ * `IntentSanitizer.sanitize` on a nested intent); the part is reported as unreadable (`EXTRAS_UNPARCEL_FAILED`,
+ * Block) or the nested intent is denied. `OutOfMemoryError` and every other `Error` still propagate. An app that
+ * reads the same extra itself still overflows: ShezGuard stops causing the crash, not the platform behaviour.
  */
 internal class AndroidExtras(private val intent: Intent) : ExtrasSource {
 
@@ -41,6 +50,8 @@ internal class AndroidExtras(private val intent: Intent) : ExtrasSource {
             bundle = intent.extras ?: return ExtrasRead.Absent
             keys = ArrayList(bundle.keySet())
         } catch (e: RuntimeException) {
+            return ExtrasRead.Unreadable
+        } catch (e: StackOverflowError) { // H1: on API 24-32, keySet() unparcels every value eagerly
             return ExtrasRead.Unreadable
         }
         if (keys.size > maxKeys) return ExtrasRead.TooMany(keys.size)
@@ -63,6 +74,8 @@ internal class AndroidExtras(private val intent: Intent) : ExtrasSource {
                 ?: (b.get(Intent.EXTRA_REFERRER_NAME) as? String)
         } catch (e: RuntimeException) {
             null
+        } catch (e: StackOverflowError) { // H1
+            null
         }
     }
 
@@ -78,6 +91,8 @@ internal class AndroidExtras(private val intent: Intent) : ExtrasSource {
                 else -> NestedResult.Sanitized(output)
             }
         } catch (e: RuntimeException) {
+            NestedResult.Denied
+        } catch (e: StackOverflowError) { // H1: IntentSanitizer reads the nested intent's extras
             NestedResult.Denied
         }
     }
@@ -98,6 +113,8 @@ internal class AndroidExtras(private val intent: Intent) : ExtrasSource {
         private fun valueAt(bundle: Bundle, key: String?, depth: Int): ExtraValue = try {
             classify(bundle.get(key), depth)
         } catch (e: RuntimeException) {
+            ExtraValue.Unreadable
+        } catch (e: StackOverflowError) { // H1: the platform's recursive read of a deeply nested container
             ExtraValue.Unreadable
         }
 
@@ -138,6 +155,8 @@ internal class AndroidExtras(private val intent: Intent) : ExtrasSource {
                 },
             )
         } catch (e: RuntimeException) {
+            ExtraValue.Unreadable
+        } catch (e: StackOverflowError) { // H1: a nested Bundle's keySet() can overflow the same way
             ExtraValue.Unreadable
         }
 
