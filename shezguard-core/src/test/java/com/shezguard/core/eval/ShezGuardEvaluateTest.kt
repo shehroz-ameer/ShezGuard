@@ -8,6 +8,7 @@ import com.shezguard.core.Outcome
 import com.shezguard.core.ShezGuard
 import com.shezguard.core.UriComponent
 import com.shezguard.core.Violation
+import com.shezguard.core.ViolationCode.URI_PARSER_MISMATCH
 import com.shezguard.core.ViolationCode
 import com.shezguard.core.ViolationCode.DATA_FORBIDDEN
 import com.shezguard.core.ViolationCode.DATA_MISSING
@@ -240,12 +241,13 @@ class ShezGuardEvaluateTest {
         assertTrue(d.violations.isEmpty())
     }
 
+    /** Step 16 (H2): `getPath()` keeps the `//` that the canonicaliser collapses, so this is now a HARD mismatch. */
     @Test
-    fun allowsDuplicateSlashesButListsNonCanonicalSignal() {
+    fun blocksDuplicateSlashesAsParserMismatchAndKeepsNonCanonicalSignal() {
         val d = eval("https://example.com/product//1?id=1")
-        assertEquals(Outcome.ALLOW, d.outcome)
-        assertEquals(listOf(URI_NON_CANONICAL), d.violations.map { it.code })
-        assertEquals(listOf("product", "1"), (d as Decision.Allow).data!!.pathSegments)
+        assertEquals(Outcome.BLOCK, d.outcome)
+        assertTrue(d.violations.toString(), Violation(URI_PARSER_MISMATCH, "product", Field.UriPart(UriComponent.PATH)) in d.violations)
+        assertTrue(d.violations.toString(), URI_NON_CANONICAL in d.violations.map { it.code })
     }
 
     // ---- Threats 2 and 3: attacker-controlled URLs and open redirect ----------------

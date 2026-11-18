@@ -185,8 +185,10 @@ decision is Block.
   component reported once:
   1. canonical vs `android.net.Uri`: `isHierarchical` true; `getScheme`, `getHost` equal
      after ASCII-only lowercasing; `getPort` equal after mapping `-1` and the scheme default
-     to "none"; `getUserInfo` null; `getPathSegments` equal; trailing slash (from `getPath`)
-     equal; `getFragment` equal; `getQueryParameterNames` the same set; each value via
+     to "none"; `getUserInfo` null; `getPathSegments` equal; `getPath` equal to the canonical
+     path (an empty path may be `null`, `""` or `"/"`; **[DECIDED]** step 16, `docs/HARDENING.md` H2: before,
+     only the trailing slash was compared, so `//evil.example/x` passed with a soft signal);
+     `getFragment` equal; `getQueryParameterNames` the same set; each value via
      `getQueryParameter` (singular only, L11) equal to the first canonical value.
   2. `android.net.Uri` vs itself: `getAuthority`, `getPath`, `getQuery`, `getFragment` each
      equal `Uri.decode` of the encoded counterpart (crafted parcels, `docs/PAPER_NOTES.md` N4).
@@ -266,7 +268,9 @@ Author approval of the step 6 proposal, 2026-11-11 (`docs/RESPONSE.md`).
   query values (see `docs/LIMITATIONS.md`).
 - Normalise path separators and duplicate slashes. **[DECIDED]** If the raw URI differs from
   the canonical one in more than scheme / host case, record a low-severity violation; the
-  app must read data from the `Decision`, never from `getIntent()`.
+  app must read data from the `Decision`, never from `getIntent()`. **[DECIDED]** (step 16, H2)
+  Duplicate slashes still record that soft signal, but `Uri.getPath()` keeps them, so they are also a
+  HARD `URI_PARSER_MISMATCH` on the path (section 5.3): a URI with an empty path segment is blocked.
 - Enforce maximum URI and parameter lengths (section 4.2).
 - Reject userinfo (`user:pass@host`) tricks.
 - **[DECIDED]** Use a small pure-Kotlin parser (JVM-testable). A Robolectric differential

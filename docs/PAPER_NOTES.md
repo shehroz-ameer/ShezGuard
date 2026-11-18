@@ -838,3 +838,17 @@ behaviour and not a docs claim; the tests were corrected after the first API 34 
    and `android-app://com.android.shell` on API 33, 34 and 36
    (`newIntentFromTheShellKeepsTheLaunchIdentity`, `[N12d]` lines in `docs/results/2026-11-17_*_phase2/`).
    ShezGuard ignores the system referrer for `Delivery.NEW_INTENT`, so its decision is the same.
+
+## N16. `getPath()` and `getPathSegments()` disagree about duplicate slashes (step 15 H2, fixed in step 16)
+
+**Observation (JVM/Robolectric SDK 34; confirmed (emulator, API 34, 24), step 15 phase 5).** For
+`https://example.com//evil.example/landing`, `Uri.getPathSegments()` is `[evil.example, landing]` (empty segments are
+skipped) but `Uri.getPath()` is `//evil.example/landing`. ShezGuard's parser-mismatch check compared the segments and
+only the trailing slash of `getPath()`, so it agreed with the platform while the path an app reads with `getPath()` was
+a network-path reference: `java.net.URI("https://example.com/").resolve(path)` is `https://evil.example/landing`.
+In the step 15 fuzz (seed `0x5EED0015`, 40 000 inputs) this was the only accessor disagreement besides the documented
+`+` case (L11) and host case.
+
+**Consequence for the design (step 16).** "Agree with the platform" has to be checked per accessor the app may use, not
+per component: two accessors of the same component can disagree with each other. `getPath()` is now compared exactly,
+which blocks every URI with an empty path segment (`docs/HARDENING.md` H2).

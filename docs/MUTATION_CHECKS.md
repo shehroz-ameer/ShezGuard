@@ -198,3 +198,12 @@ true` was set in `:app`): `exit=1`, "Lint found errors in the project; aborting 
   copy. Same result.
 - **Before the fallback existed:** the same run reported the issue at the `app` directory with no
   line. That is how the missing mapping was found.
+
+## Step 16: fixes for the step 15 hardening findings (`docs/HARDENING.md`)
+
+One mutant per new rule: each removes the rule, and the test that the fix moved into the normal suite must fail.
+Run with `scripts/mutation/run_mutants.py` (JVM/Robolectric only), 2026-11-18.
+
+| Mutant | Script | Change | Result | Caught by |
+|---|---|---|---|---|
+| h2 | `step16_h2_get_path.py` | `getPath()` no longer compared in `ParserMismatch` (segments only), so `//` is a soft signal again | caught | `PathAccessorAgreementTest.blocksNetworkPathReferenceThatOnlyGetPathSees` |

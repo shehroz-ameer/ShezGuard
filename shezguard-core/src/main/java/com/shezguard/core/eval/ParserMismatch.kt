@@ -18,7 +18,10 @@ import com.shezguard.core.policy.EntryPointPolicy
  *    host are compared after ASCII-only lowercasing (no Unicode case folding: U+212A KELVIN
  *    SIGN must not turn into `k`). The port is compared after mapping `-1` and the scheme's
  *    default port to "none". `getUserInfo` must be `null`. `getPathSegments` must equal the
- *    canonical segments, and the trailing slash (from `getPath`) must agree.
+ *    canonical segments, and `getPath` must equal the canonical path exactly (step 16, H2): an empty
+ *    path may be `null`, `""` or `"/"`, and anything else must be the canonical path, so duplicate
+ *    slashes that the canonicaliser collapses (`//evil.example/x`, a network-path reference for code
+ *    that resolves `getPath()` against a base URL) are a mismatch, not only a soft signal.
  *    `getFragment` must equal the canonical fragment. `getQueryParameterNames` must be the
  *    same set as the canonical names; inside the allowed name set all accessors agree
  *    (`docs/PAPER_NOTES.md` N3). Each value is read with `getQueryParameter` (singular,
@@ -56,8 +59,9 @@ internal object ParserMismatch {
 
         val segments = u.pathSegments()
         if (segments != c.pathSegments) add(UriComponent.PATH)
-        val trailingSlash = segments.isNotEmpty() && u.path()?.endsWith("/") == true
-        if (trailingSlash != c.hasTrailingSlash) add(UriComponent.PATH)
+        val path = u.path()
+        val emptyPath = c.pathSegments.isEmpty() && !c.hasTrailingSlash
+        if (if (emptyPath) path != null && path != "" && path != "/" else path != c.path) add(UriComponent.PATH)
 
         if (u.fragment() != c.fragment) add(UriComponent.FRAGMENT)
 

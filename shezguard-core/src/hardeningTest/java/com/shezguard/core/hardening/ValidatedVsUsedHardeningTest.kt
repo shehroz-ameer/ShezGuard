@@ -59,35 +59,8 @@ class ValidatedVsUsedHardeningTest {
         }
     }
 
-    // ---- finding -----------------------------------------------------------------------------------------
-
-    /**
-     * Finding. `ParserMismatch` promises "on any difference the intent is blocked", and `getPath()` is one of
-     * the accessors it reads. Duplicate slashes are collapsed in ShezGuard's view (`/evil.example/landing`) and
-     * only scored (URI_NON_CANONICAL, weight 5), but `Uri.getPath()` keeps them (`//evil.example/landing`):
-     * a network-path reference. Code that resolves the path against the app's origin, e.g.
-     * `URI("https://example.com/").resolve(uri.path)` or `URL(base, path)`, lands on another host: an open
-     * redirect (threat 3) through an Allowed intent.
-     */
-    @Test
-    fun allowedIntentUriGetPathMustAgreeWithCheckedPath() {
-        val cases = listOf(
-            "https://example.com//evil.example/landing",
-            "https://example.com/a//b",
-            "https://example.com///evil.example",
-        )
-        val disagreements = cases.mapNotNull { s ->
-            val d = ShezGuard.evaluate(view(s), policy, "any")
-            if (d !is Decision.Allow) return@mapNotNull null
-            val appPath = d.intent.data!!.path
-            val checked = d.data!!.path
-            if (appPath == checked) null else {
-                val resolved = java.net.URI("https://example.com/").resolve(appPath)
-                "<$s> Allow ${Hardening.codes(d)}: checked=$checked getPath=$appPath -> resolves to $resolved"
-            }
-        }
-        assertEquals(emptyList<String>(), disagreements)
-    }
+    // H2 (allowedIntentUriGetPathMustAgreeWithCheckedPath) moved in step 16 to
+    // src/sharedTest/.../eval/PathAccessorAgreementTest.kt, after the fix.
 
     // ---- outside the stated scope (L26): recorded, passing ----------------------------------------------
 
