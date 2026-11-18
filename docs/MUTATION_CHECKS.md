@@ -210,6 +210,7 @@ Run with `scripts/mutation/run_mutants.py` (JVM/Robolectric only), 2026-11-18.
 | h1a | `step16_h1_stack_overflow.py` (by hand, device) | `AndroidExtras.valueAt` (the `Bundle.get` read site) no longer catches `StackOverflowError` | **caught (emulator, API 34)**: `DeepNestingEvaluateDeviceTest`, `DeepNestingOnNewIntentDeviceTest` threw `StackOverflowError`. Survived (emulator, API 24): there `keySet()` overflows first, so `h1c`'s site catches it | device tests |
 | h1b | same | `sanitizeNested` (`IntentSanitizer.sanitize` on a nested intent) no longer catches `StackOverflowError` | **caught (emulator, API 34 and API 24)**: `DeepNestingNestedIntentDeviceTest` | device tests |
 | h1c | same | `read()` (the `keySet()` read site) no longer catches `StackOverflowError` | **caught (emulator, API 24)**: `DeepNestingEvaluateDeviceTest`, `DeepNestingOnNewIntentDeviceTest`. Survived (emulator, API 34): `keySet()` leaves List values lazy on API 33+ | device tests |
+| h3 | `step16_h3_matrix_dot.py` | The part before `;` no longer counted as a dot segment in `UriCanonicalizer.checkSegment` | caught (JVM) | `UriCanonicalizerTest.blocksMatrixParamDotDotSegment`, `blocksMatrixParamSingleDotSegment`, `ShezGuardEvaluateTest.blocksMatrixParamDotDotSegmentEscapingPathPrefix` |
 
 H1 mutants are device-only: the proving tests live in `src/androidTest`, because overflow tests never run under
 Robolectric (standing rule, `docs/HARDENING.md`), and `run_mutants.py` runs JVM tests only. Procedure (2026-11-18,

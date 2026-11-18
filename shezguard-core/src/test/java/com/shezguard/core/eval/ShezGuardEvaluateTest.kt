@@ -9,6 +9,7 @@ import com.shezguard.core.ShezGuard
 import com.shezguard.core.UriComponent
 import com.shezguard.core.Violation
 import com.shezguard.core.ViolationCode.URI_PARSER_MISMATCH
+import com.shezguard.core.ViolationCode.URI_PATH_DOT_SEGMENT
 import com.shezguard.core.ViolationCode
 import com.shezguard.core.ViolationCode.DATA_FORBIDDEN
 import com.shezguard.core.ViolationCode.DATA_MISSING
@@ -239,6 +240,23 @@ class ShezGuardEvaluateTest {
         val d = eval("HTTPS://EXAMPLE.COM/product/1?id=1")
         assertEquals(Outcome.ALLOW, d.outcome)
         assertTrue(d.violations.isEmpty())
+    }
+
+    /** Step 16 (H3), moved from `CanonicaliserHardeningTest`: `..;` segments no longer pass `prefix("/product/")`. */
+    @Test
+    fun blocksMatrixParamDotDotSegmentEscapingPathPrefix() {
+        val cases = listOf(
+            "https://example.com/product/..;/admin?id=1",
+            "https://example.com/product/..;jsessionid=1/admin?id=1",
+            "https://example.com/product/%2e%2e;/admin?id=1",
+            "https://example.com/product/..%3B/admin?id=1",
+            "https://example.com/product/.;/..;/admin?id=1",
+        )
+        for (s in cases) {
+            val d = eval(s)
+            assertEquals(s, Outcome.BLOCK, d.outcome)
+            assertTrue("$s ${d.violations}", d.violations.any { it.code == URI_PATH_TRAVERSAL || it.code == URI_PATH_DOT_SEGMENT })
+        }
     }
 
     /** Step 16 (H2): `getPath()` keeps the `//` that the canonicaliser collapses, so this is now a HARD mismatch. */
