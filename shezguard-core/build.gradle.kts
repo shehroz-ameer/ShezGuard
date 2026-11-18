@@ -3,6 +3,7 @@ import java.time.Duration
 plugins {
     alias(libs.plugins.android.library)
     alias(libs.plugins.kotlin.android)
+    `maven-publish` // step 17: Gradle's built-in plugin (no version); mavenLocal only
 }
 
 android {
@@ -46,6 +47,14 @@ android {
     sourceSets {
         getByName("test").java.srcDir("src/sharedTest/java")
         getByName("androidTest").java.srcDir("src/sharedTest/java")
+    }
+}
+
+android {
+    // Step 17: publish the release variant (AAR with lint.jar from lintPublish and the consumer R8 rules) plus a
+    // sources jar. No Javadoc/Dokka.
+    publishing {
+        singleVariant("release") { withSourcesJar() }
     }
 }
 
@@ -110,4 +119,34 @@ dependencies {
     androidTestCompileOnly(libs.robolectric.annotations)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
+}
+
+// Step 17: Maven publication (`./gradlew publishToMavenLocal`). No signing, no remote repository.
+afterEvaluate {
+    publishing {
+        publications {
+            create<MavenPublication>("release") {
+                from(components["release"])
+                groupId = providers.gradleProperty("shezguard.group").get()
+                artifactId = "shezguard-core"
+                version = providers.gradleProperty("shezguard.version").get()
+                pom {
+                    name.set("ShezGuard core")
+                    description.set("Declarative validation of incoming Intents and deep links at Android entry points (research prototype).")
+                    url.set("https://github.com/shehroz-ameer/ShezGuard")
+                    licenses {
+                        license {
+                            name.set("The Apache License, Version 2.0")
+                            url.set("https://www.apache.org/licenses/LICENSE-2.0.txt")
+                        }
+                    }
+                    developers { developer { id.set("shehroz-ameer") } }
+                    scm {
+                        url.set("https://github.com/shehroz-ameer/ShezGuard")
+                        connection.set("scm:git:https://github.com/shehroz-ameer/ShezGuard.git")
+                    }
+                }
+            }
+        }
+    }
 }

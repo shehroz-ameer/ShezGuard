@@ -10,8 +10,8 @@ matter more here than features.
 
 ## Status
 
-- **Research prototype, pre-1.0, not published.** No release exists on Maven Central or any other repository. The API
-  may still change.
+- **Research prototype, version 0.1.0, pre-1.0.** Published to `mavenLocal` only, **not to Maven Central** or any other
+  remote repository. The API may still change (`CHANGELOG.md`).
 - Activities only (v1). `ShezGuard.evaluate` accepts any `Intent`, but the Activity helper, the demo app and the
   evaluation cover activities. Services, receivers and providers are out of scope (the Lint rule lists exported ones).
 - Known limitations: `docs/LIMITATIONS.md` (L1–L47, with an index and per-item status). Hardening review and fixes:
@@ -19,20 +19,39 @@ matter more here than features.
 
 ## Install
 
-Until step 17 the only supported way is a **Gradle project dependency** on a local checkout: copy or include
-`:shezguard-core` (and `:shezguard-lint`, which it ships as its Lint rule) in your build, then
+Version **0.1.0** is published to your **local Maven repository only**. It is **not on Maven Central** or any other remote
+repository. Build and publish it from a checkout:
+
+```sh
+./gradlew publishToMavenLocal   # io.github.shehroz-ameer:shezguard-core:0.1.0 and :shezguard-lint:0.1.0
+```
+
+Then, in the consuming project:
 
 ```kotlin
 // settings.gradle.kts
-include(":shezguard-core", ":shezguard-lint")
+dependencyResolutionManagement {
+    repositories {
+        mavenLocal { content { includeGroup("io.github.shehroz-ameer") } }
+        google()
+        mavenCentral()
+    }
+}
 
 // app/build.gradle.kts
-dependencies { implementation(project(":shezguard-core")) }
+dependencies { implementation("io.github.shehroz-ameer:shezguard-core:0.1.0") }
 ```
 
-No Maven publication is configured yet, so `publishToMavenLocal` is not available either. Requirements: minSdk 24;
-`androidx.core:core` 1.9.0 (the only runtime dependency, for `IntentSanitizer`), which needs compileSdk ≥ 33 in the
-consuming app; the Lint rule targets AGP 8.10.1 (see "Build-time coverage check").
+- The AAR contains the Lint rule (`lint.jar`) and the consumer R8 rules; you do not add `shezguard-lint` yourself.
+- Runtime dependencies in the POM: `androidx.core:core:1.9.0` (for `IntentSanitizer`) and the Kotlin standard library
+  (`kotlin-stdlib:2.0.21`, as for any Kotlin library). Nothing else.
+- Requirements: minSdk 24; compileSdk ≥ 33 in the consuming app (`androidx.core` 1.9.0).
+- **Checked in step 17** with a separate consumer project (`docs/REPRODUCE.md`): AGP 8.10.1, Kotlin 2.0.21,
+  compileSdk 34. It resolved the artifact from `mavenLocal`, its Robolectric unit tests passed, the Lint rule reported an
+  unguarded exported activity, and an R8-minified build ran on an API 34 emulator with the guard allowing a valid link
+  and blocking a traversal. No AGP older than the repository's 8.10.1 was available offline, so older AGP versions are
+  untested (L41).
+- A Gradle project dependency (`implementation(project(":shezguard-core"))`) also works, as in the demo app.
 
 ## Minimal usage
 
@@ -352,8 +371,14 @@ printable file name, the deserialisation gadget or link hijacking. The step 15 r
 protections not in this table (`docs/HARDENING.md`): a path that `getPath()` reads as `//other.host` is blocked
 (H2), and `..;` path segments are blocked (H3).
 
+## Licence
+
+Apache License 2.0 (`LICENSE`). Copyright 2026 Shehroz Ameer. Source files carry no per-file licence header; the
+`LICENSE` file at the repository root covers the whole repository. No `NOTICE` file is needed: no third-party code is
+bundled (`androidx.core` and the Kotlin standard library are dependencies, not included).
+
 ## Further reading
 
-`docs/SPEC.md` (design), `docs/LIMITATIONS.md`, `docs/ATTACK_MATRIX.md`, `docs/HARDENING.md`, `docs/BENCHMARK.md`
+`docs/SPEC.md` (design), `CHANGELOG.md`, `docs/REPRODUCE.md` (rerun every test and measurement), `docs/LIMITATIONS.md`, `docs/ATTACK_MATRIX.md`, `docs/HARDENING.md`, `docs/BENCHMARK.md`
 (overhead, emulator, indicative only), `docs/CLAIMS_AUDIT.md` (every claim in this README and the public KDoc, with
 its evidence).
