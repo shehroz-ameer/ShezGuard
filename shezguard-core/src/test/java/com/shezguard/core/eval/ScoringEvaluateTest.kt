@@ -44,8 +44,12 @@ class ScoringEvaluateTest {
         entryPoint("allZero") { browse(); scoreWeight(URI_NON_CANONICAL, 0); scoreWeight(PARAM_UNKNOWN_IGNORED, 0) }
     }
 
-    /** One non-canonical path (`//`) and two undeclared parameters. */
-    private val link = "https://example.com/a//b?q=shoes&utm_source=x&gclid=y"
+    /**
+     * One non-canonical path (a needless escape, `%62` for `b`) and two undeclared parameters. Step 16 (H2): this was
+     * `/a//b`; duplicate slashes are now a HARD parser mismatch (`getPath()` keeps them), so a needless escape, the
+     * other source of the same soft `URI_NON_CANONICAL` on the path, carries the soft signal instead.
+     */
+    private val link = "https://example.com/a/%62?q=shoes&utm_source=x&gclid=y"
 
     @Test
     fun blocksOnScoreAloneAtThresholdAndExplainsIt() {
@@ -70,7 +74,7 @@ class ScoringEvaluateTest {
 
     @Test
     fun defaultWeightsCannotChangeAnOutcomeBeforeStep8() {
-        val many = "https://example.com/a//b//c?q=x&" + (1..20).joinToString("&") { "t$it=v" }
+        val many = "https://example.com/a/%62/%63?q=x&" + (1..20).joinToString("&") { "t$it=v" }
         val d = ShezGuard.evaluate(viewIntent(many), policy, "defaults")
         assertEquals(Outcome.ALLOW, d.outcome)
         assertEquals(10, d.score.total)

@@ -348,3 +348,16 @@ configuration, now set). The threat 4 findings below were identical in all four 
 | `ClipData` of the incoming intent (including `ClipData.Item` intents and URIs) | 1 | Only extras are inspected; ClipData is checked only on nested intents, by `IntentSanitizer` | L26 |
 | The selector of the incoming intent (`Intent.getSelector()`) | 1 | Not inspected | L26 |
 | URI-permission grant flags (`FLAG_GRANT_*_URI_PERMISSION`) on the incoming intent | 1 | Flags are not inspected; on nested intents they depend on the developer's `IntentSanitizer` | L26 |
+
+## Step 16: open redirect through a network-path reference in the path (`docs/HARDENING.md` H2)
+
+Not a demo-app script: found by the step 15 review. A deep link `https://example.com//evil.example/landing` on an
+`anyPath()` entry point: ShezGuard's checked path is `/evil.example/landing`, but `Uri.getPath()` returns
+`//evil.example/landing`, which code that resolves it against the app's origin turns into
+`https://evil.example/landing` (threat 3).
+
+| Attack | Before (step 15) | After (step 16) | Library test | Device evidence |
+|---|---|---|---|---|
+| `//evil.example/landing` read through `getPath()` and resolved against the origin | **Allow**, only `URI_NON_CANONICAL` (soft, weight 5) | **Block**, `URI_PARSER_MISMATCH@uri.path` | `PathAccessorAgreementTest.blocksNetworkPathReferenceThatOnlyGetPathSees` (`src/sharedTest`) | `[H2]` lines, `docs/results/2026-11-18_*_phase5-hardening/` (before) and `*_phase6-fixes/` (after) |
+
+The `?next=` open-redirect row above (t3) is unaffected: it is blocked by `PARAM_URL_NOT_ALLOWED`.

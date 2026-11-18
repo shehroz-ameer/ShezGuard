@@ -266,8 +266,8 @@ reliable or a signature-level permission protects the component.
 
 ## L19. The parser-mismatch check compares a fixed list of `Uri` accessors
 - **What:** `URI_PARSER_MISMATCH` compares the canonical URI with `isHierarchical`,
-  `getScheme`, `getHost`, `getPort`, `getUserInfo`, `getPathSegments`, `getPath` (trailing
-  slash), `getFragment`, `getQueryParameterNames` and `getQueryParameter`, and checks that
+  `getScheme`, `getHost`, `getPort`, `getUserInfo`, `getPathSegments`, `getPath` (exactly, since
+  step 16, `docs/HARDENING.md` H2; before, only its trailing slash), `getFragment`, `getQueryParameterNames` and `getQueryParameter`, and checks that
   `getAuthority`, `getPath`, `getQuery` and `getFragment` equal `Uri.decode` of their encoded
   forms. Other accessors, such as `getQueryParameters` (plural, L11),
   `getBooleanQueryParameter`, `getSchemeSpecificPart` and `normalizeScheme()`, are not
