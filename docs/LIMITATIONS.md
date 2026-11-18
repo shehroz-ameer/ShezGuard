@@ -999,7 +999,8 @@ check was cut by author decision; `ActivityGuardTest`):
   `docs/results/2026-11-18_Pixel_8_api34_phase6-h8-cap/` (8192 case, 3 × 30 calls) and `*_phase6-h8-before/` (2048 and
   64 cases, 3 × 30 calls); after `*_phase6-h8-after/` (5 × 10 000 calls). Emulator, indicative only.
 - **Residual:** below the cap the check is still superlinear: 64 value-less parameters cost about 0.14 ms on the
-  emulator; 256 (the maximum an app can configure) was not measured on a device. Links with more than 64 query
+  emulator, and 256 (the maximum an app can configure, `maxParameters = 256`) cost 5.05–5.20 ms median per call (API 34,
+  5 × 1 000 calls, `docs/results/2026-11-18_Pixel_8_api34_phase6-h8-cap256/`; emulator, indicative only). Links with more than 64 query
   parameters (some tracking-heavy URLs) are blocked unless the entry point raises `maxParameters`.
 - **History:** step 16 first bounded only `maxUriLength` and reported 7.1 ms at the bound (measured with valued
   parameters); that understated the worst case by about 700× on the device (`docs/CLAIMS_AUDIT.md`).
