@@ -27,7 +27,7 @@ public class IntentPolicy(
     init {
         val duplicates = entryPoints.groupBy { it.name }.filterValues { it.size > 1 }.keys
         require(duplicates.isEmpty()) { "duplicate entry point names: $duplicates" }
-        this.entryPoints = entryPoints.associateBy { it.name }
+        this.entryPoints = entryPoints.associateBy { it.name }.frozen() // step 16, H6
     }
 
     /** Returns the policy for [name], or `null` if none is registered. */
@@ -66,12 +66,12 @@ public class IntentPolicy(
 public class EntryPointPolicy(
     public val name: String,
     public val data: Data = Data.Forbidden,
-    public val schemes: Set<String> = emptySet(),
-    public val hosts: Set<HostPattern> = emptySet(),
-    public val ports: Set<Int> = emptySet(),
-    public val paths: List<PathPattern> = emptyList(),
+    schemes: Set<String> = emptySet(),
+    hosts: Set<HostPattern> = emptySet(),
+    ports: Set<Int> = emptySet(),
+    paths: List<PathPattern> = emptyList(),
     public val allowFragment: Boolean = false,
-    public val params: List<ParamRule> = emptyList(),
+    params: List<ParamRule> = emptyList(),
     public val unknownParams: Unknown = Unknown.Block,
     public val allowRepeatedParams: Boolean = false,
     public val nestedIntents: Nested = Nested.Deny,
@@ -81,6 +81,14 @@ public class EntryPointPolicy(
     public val limits: Limits = Limits.DEFAULT,
     public val scoreWeights: ScoreWeights = ScoreWeights.DEFAULT,
 ) {
+    // Step 16 (H6): unmodifiable copies, taken before the checks below, so neither a cast nor a later change to the
+    // caller's collection can change the policy or get around the checks.
+    public val schemes: Set<String> = schemes.frozen()
+    public val hosts: Set<HostPattern> = hosts.frozen()
+    public val ports: Set<Int> = ports.frozen()
+    public val paths: List<PathPattern> = paths.frozen()
+    public val params: List<ParamRule> = params.frozen()
+
     init {
         require(ENTRY_POINT_NAME.matches(name)) { "invalid entry point name" }
         schemes.forEach { require(SCHEME.matches(it)) { "invalid or non-lowercase scheme: $it" } }

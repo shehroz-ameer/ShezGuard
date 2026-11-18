@@ -100,9 +100,12 @@ public sealed class Nested {
      * @property sanitizer the wrapped `androidx.core.content.IntentSanitizer` to apply.
      */
     public class AllowSanitized(
-        public val keys: Set<String>,
+        keys: Set<String>,
         public val sanitizer: NestedIntentSanitizer,
     ) : Nested() {
+        /** Unmodifiable copy (step 16, H6). */
+        public val keys: Set<String> = keys.frozen()
+
         init {
             require(keys.isNotEmpty()) { "AllowSanitized needs at least one key" }
             require(keys.none { it.isEmpty() }) { "nested intent keys must not be empty" }
