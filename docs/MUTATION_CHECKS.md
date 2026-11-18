@@ -207,3 +207,16 @@ Run with `scripts/mutation/run_mutants.py` (JVM/Robolectric only), 2026-11-18.
 | Mutant | Script | Change | Result | Caught by |
 |---|---|---|---|---|
 | h2 | `step16_h2_get_path.py` | `getPath()` no longer compared in `ParserMismatch` (segments only), so `//` is a soft signal again | caught | `PathAccessorAgreementTest.blocksNetworkPathReferenceThatOnlyGetPathSees` |
+| h1a | `step16_h1_stack_overflow.py` (by hand, device) | `AndroidExtras.valueAt` (the `Bundle.get` read site) no longer catches `StackOverflowError` | **caught (emulator, API 34)**: `DeepNestingEvaluateDeviceTest`, `DeepNestingOnNewIntentDeviceTest` threw `StackOverflowError`. Survived (emulator, API 24): there `keySet()` overflows first, so `h1c`'s site catches it | device tests |
+| h1b | same | `sanitizeNested` (`IntentSanitizer.sanitize` on a nested intent) no longer catches `StackOverflowError` | **caught (emulator, API 34 and API 24)**: `DeepNestingNestedIntentDeviceTest` | device tests |
+| h1c | same | `read()` (the `keySet()` read site) no longer catches `StackOverflowError` | **caught (emulator, API 24)**: `DeepNestingEvaluateDeviceTest`, `DeepNestingOnNewIntentDeviceTest`. Survived (emulator, API 34): `keySet()` leaves List values lazy on API 33+ | device tests |
+
+H1 mutants are device-only: the proving tests live in `src/androidTest`, because overflow tests never run under
+Robolectric (standing rule, `docs/HARDENING.md`), and `run_mutants.py` runs JVM tests only. Procedure (2026-11-18,
+emulators Pixel_8 API 34 and ShezGuard_API_24): record the SHA-256 of `AndroidExtras.kt`
+(`4886c3cbba7de7dcb743095c78d47f92f08d6a0af2929fd5ef90b08e48adb43e`), apply one edit from the script, build and install
+the test APK, run each `DeepNesting*DeviceTest` class in its own `am instrument` process, copy the original back, and
+verify the hash. All six restores were byte-identical. Each catch site is needed on at least one API level; no mutant
+survived on both. **A first attempt was void:** its edits also deleted the `}` closing the preceding catch block, so
+no mutant compiled. The stale clean APK stayed installed and "passed". The driver now refuses to run a mutant whose
+build or install failed (BUILD ERROR, never counted as caught).

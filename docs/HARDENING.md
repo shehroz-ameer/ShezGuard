@@ -36,6 +36,19 @@ scripts/device/run_shared_tests.sh <AVD> <label>   # emulator; includes Hardenin
   binder IPC from another app in these three tests, and not a physical device. "JVM/Robolectric" means HotSpot 17
   with Robolectric SDK 34 (some tests also SDK 29).
 
+## Standing rule: overflow tests never run under Robolectric (step 16)
+
+No test that deliberately overflows the stack runs on the JVM, in `test` or in `hardeningTest`. Under Robolectric an
+overflow is not trustworthy: Robolectric instruments `Parcel`, so every frame is doubled (8 frames per nesting level
+instead of 3–4 on ART); a first overflow once poisoned class initialisation (`NoClassDefFoundError` afterwards); and
+four test runs hung after overflows. In three, Gradle's test worker deadlocked. In the fourth, the test finished but
+Robolectric's non-daemon main thread kept the worker JVM from exiting. Overflow behaviour (H1) is tested only on
+emulators (`DeepNesting*DeviceTest`, one class per cold `am instrument` process). As a safety net, every `Test` task
+has a 20-minute timeout, and `hardeningTest` forks one JVM per test class. The JVM overflow numbers of step 15 (H1
+depths and frames, H4's regex overflow) are kept below as **historical**; the tests that produced them
+(`evaluateMustNotCrashOnDeeplyNestedListExtraTheAppNeverReads`, the overflow grid of
+`measuresH1OverflowDepthAndRecursingFrames`, `CallerReferrerHardeningTest`) were removed.
+
 ## Ranking
 
 | Rank | ID | Severity / class | Finding | Where shown |
@@ -118,8 +131,10 @@ understated its effect.
   false for this intent: a 21 KB attacker parcel is enough. At minimum the KDoc and SPEC should state that an
   attacker-chosen extra can make the extras read throw `StackOverflowError`. If step 16 catches it (plan below), the
   carve-out itself changes. L28's wording "as it would without ShezGuard" has already been corrected.
-- **Tests.** JVM: `ResourceExhaustionHardeningTest.evaluateMustNotCrashOnDeeplyNestedListExtraTheAppNeverReads` (red);
-  `measuresH1OverflowDepthAndRecursingFrames` (numbers). Device: `HardeningDeviceTest.recordsH1DeepListOverflowOnMainThread`.
+- **Tests.** Step 15 (historical, removed in step 16 under the standing rule): JVM
+  `ResourceExhaustionHardeningTest.evaluateMustNotCrashOnDeeplyNestedListExtraTheAppNeverReads` and the overflow grid
+  of `measuresH1OverflowDepthAndRecursingFrames` (its overflow-free frame probe remains). Device:
+  `HardeningDeviceTest.recordsH1DeepListOverflowOnMainThread`; after the fix, `DeepNesting*DeviceTest`.
 
 ### H3 (rank 3, Medium, sink-dependent). `..;` segments escape a path prefix in servlet-style sinks
 - **Claim it breaks.** `PathPattern.Prefix` KDoc: "matching stops at a segment boundary: `/product/` matches `/product/42`
@@ -165,8 +180,8 @@ understated its effect.
   normally for referrers up to 240 015 chars; `evaluate` returned a decision.
 - **No library fix proposed.** Optional, for JVM users of the pure-Kotlin parts only: a length pre-check before the
   regex (a package name is short).
-- **Tests.** `CallerReferrerHardeningTest.characterisesH4LongReferrerOnTheJvm` (passes, records);
-  `HardeningDeviceTest.recordsH4LongReferrer`.
+- **Tests.** `HardeningDeviceTest.recordsH4LongReferrer`. The JVM characterisation
+  (`CallerReferrerHardeningTest`) was removed in step 16 under the standing rule; its result above is historical.
 
 ---
 

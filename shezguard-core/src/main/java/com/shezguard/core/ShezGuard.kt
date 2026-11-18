@@ -46,7 +46,10 @@ public object ShezGuard {
      * - [intent] is never modified. A Sanitize decision carries a modified **copy**.
      * - The same input always gives the same decision.
      * - This function does not throw for any intent: a `RuntimeException` during evaluation
-     *   becomes a Block with `EVALUATION_FAILED`. `Error`s are not caught.
+     *   becomes a Block with `EVALUATION_FAILED`, and a `StackOverflowError` while ShezGuard reads the
+     *   extras (a sender can nest containers deeply enough to overflow the platform's recursive read)
+     *   becomes a Block with `EXTRAS_UNPARCEL_FAILED` (step 16, `docs/HARDENING.md` H1). No other `Error`
+     *   is caught: `OutOfMemoryError`, for example, propagates.
      *
      * Read the URI's data from `Decision.Allow.data` / `Decision.Sanitize.data`, never from
      * `intent.getData()`. After a Sanitize, read extras and nested intents from

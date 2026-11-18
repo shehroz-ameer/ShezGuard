@@ -1,3 +1,5 @@
+import java.time.Duration
+
 // Step 13: build-time coverage check (docs/SPEC.md section 9). A custom Android Lint rule, shipped to
 // consumers inside the :shezguard-core AAR via `lintPublish`. Not a runtime dependency of anything.
 plugins {
@@ -65,3 +67,6 @@ tasks.register<Test>("hardeningTest") {
         exceptionFormat = org.gradle.api.tasks.testing.logging.TestExceptionFormat.SHORT
     }
 }
+
+// Step 16 safety net: no test task may hang a build.
+tasks.withType<Test>().configureEach { timeout.set(Duration.ofMinutes(20)) }

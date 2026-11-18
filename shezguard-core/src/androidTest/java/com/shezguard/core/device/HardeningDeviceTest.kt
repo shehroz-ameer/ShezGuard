@@ -93,29 +93,32 @@ class HardeningDeviceTest {
         } else {
             println("[H1] sdk=$sdk leaf probe CREATOR did not run (depth 50: ${t50 != null}, depth 100: ${t100 != null})")
         }
+        // Step 16: the overflow depth is bracketed with the framework read alone (Bundle.get), and evaluate's decision
+        // is recorded separately, so the line reads the same before and after the H1 fix.
+        @Suppress("DEPRECATION")
+        fun crashes(d: Int) = onMain { deepIntent(d).first.extras!!.get("deep") } is StackOverflowError
         onMain { ShezGuard.evaluate(deepIntent(10).first, policy, "any") } // warm-up
-        fun crashes(d: Int) = onMain { ShezGuard.evaluate(deepIntent(d).first, policy, "any") } is StackOverflowError
         var lo = 10
         val grid = listOf(500, 1_000, 2_000, 5_000, 10_000, 20_000, 40_000, 80_000)
         val firstCrash = grid.firstOrNull { crashes(it).also { c -> if (!c) lo = it } }
         if (firstCrash == null) {
-            println("[H1] sdk=$sdk evaluate did not overflow up to depth ${grid.last()} (parcel ${deepIntent(grid.last()).second} bytes)")
-            return
+            println("[H1] sdk=$sdk main thread: Bundle.get alone did not overflow up to depth ${grid.last()}")
+        } else {
+            var hi: Int = firstCrash
+            var steps = 0
+            while (hi - lo > maxOf(10, lo / 100) && steps++ < 8) {
+                val mid = (lo + hi) / 2
+                if (crashes(mid)) hi = mid else lo = mid
+            }
+            println("[H1] sdk=$sdk main thread: Bundle.get alone ok at depth $lo, StackOverflowError at depth $hi (parcel ${deepIntent(hi).second} bytes)")
         }
-        var hi: Int = firstCrash
-        var steps = 0
-        while (hi - lo > maxOf(10, lo / 100) && steps++ < 8) {
-            val mid = (lo + hi) / 2
-            if (crashes(mid)) hi = mid else lo = mid
+        for (depth in listOf(1_750, 26_093, 60_000)) {
+            val (intent, bytes) = deepIntent(depth)
+            var d: Decision? = null
+            val t = onMain { d = ShezGuard.evaluate(intent, policy, "any") }
+            val appData = onMain { deepIntent(depth).first.let { it.data; it.action } }
+            println("[H1] sdk=$sdk main thread, depth $depth (parcel $bytes bytes): evaluate ${t?.let { name(it) } ?: "${d?.outcome} ${d?.violations?.map { it.code }}"}; app reads data/action ${name(appData)}")
         }
-        val (intent, bytes) = deepIntent(hi)
-        val soe = onMain { ShezGuard.evaluate(intent, policy, "any") }
-        @Suppress("DEPRECATION")
-        val bundleGet = onMain { deepIntent(hi).first.extras!!.get("deep") }
-        val appData = onMain { deepIntent(hi).first.let { it.data; it.action } }
-        val appOther = onMain { deepIntent(hi).first.getStringExtra("other") }
-        println("[H1] sdk=$sdk main thread: evaluate ok at depth $lo, ${name(soe)} at depth $hi (parcel $bytes bytes)")
-        println("[H1] sdk=$sdk at depth $hi: Bundle.get alone ${name(bundleGet)}; app reads data/action ${name(appData)}; app reads another extra ${name(appOther)}")
     }
 
     /** H2: Allow with a getPath() that keeps `//`, and what URL resolution makes of it. */

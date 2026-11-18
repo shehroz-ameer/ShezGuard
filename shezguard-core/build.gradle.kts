@@ -1,3 +1,5 @@
+import java.time.Duration
+
 plugins {
     alias(libs.plugins.android.library)
     alias(libs.plugins.kotlin.android)
@@ -63,6 +65,9 @@ if (hardeningRequested) {
 }
 val hardeningPackage = "com.shezguard.core.hardening.*"
 tasks.withType<Test>().configureEach {
+    // Step 16 safety net: no test task may hang a build. Three Gradle test-worker deadlocks followed
+    // StackOverflowErrors under Robolectric (steps 15, 16); overflow tests must never run repeatedly in one worker.
+    timeout.set(Duration.ofMinutes(20))
     if (name != "hardeningTest") {
         filter.excludeTestsMatching(hardeningPackage)
     }
@@ -75,6 +80,7 @@ tasks.register<Test>("hardeningTest") {
     classpath = unit.classpath
     filter.includeTestsMatching(hardeningPackage)
     maxHeapSize = "2g"
+    forkEvery = 1 // one JVM per test class: at most one deliberate stack overflow per worker
     systemProperty("shezguard.hardening.out", layout.buildDirectory.dir("hardening").get().asFile.absolutePath)
     testLogging {
         events("passed", "failed", "skipped")

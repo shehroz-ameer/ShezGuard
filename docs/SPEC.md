@@ -207,7 +207,10 @@ decision is Block.
 - **Outcome rule** as in 5.1. Until step 7 the score is always 0, so rule 2 never fires.
 - **Fail closed.** Any `RuntimeException` during evaluation gives Block with a single
   `EVALUATION_FAILED` (HARD, CRITICAL) violation, with no exception message and no other
-  violations. `Error`s are not caught. A fixed-seed fuzz test asserts `EVALUATION_FAILED`
+  violations. `Error`s are not caught, with one exception: **[DECIDED]** (step 16, `docs/HARDENING.md` H1) a
+  `StackOverflowError` raised while ShezGuard reads the extras is caught at the read site and reported as
+  `EXTRAS_UNPARCEL_FAILED` (section 5.4). `OutOfMemoryError` and all other `Error`s propagate. A fixed-seed fuzz
+  test asserts `EVALUATION_FAILED`
   never occurs on its corpus, so the safety net cannot hide library bugs.
 
 ### 5.4 Extras and nested intents (step 6) [DECIDED]
@@ -218,7 +221,10 @@ Author approval of the step 6 proposal, 2026-11-11 (`docs/RESPONSE.md`).
   are read the same way. Each read catches `RuntimeException` only: a failed `keySet()` gives
   one `EXTRAS_UNPARCEL_FAILED` on `Field.Extras` and ends the stage; a failed value gives
   `EXTRAS_UNPARCEL_FAILED` on that key. A failed Bundle is never re-read (`docs/PAPER_NOTES.md`
-  N6). An extras failure does not discard the URI violations. No restrictive class loader in
+  N6). An extras failure does not discard the URI violations. **[DECIDED]** (step 16, H1) The same reads,
+  and `IntentSanitizer.sanitize` on a nested intent, also catch `StackOverflowError` (only that `Error`): the
+  platform reads nested `List`/`Map`/object-array values recursively, and a 21 KB parcel was enough to overflow an
+  API 34 main thread. The part is unreadable (`EXTRAS_UNPARCEL_FAILED`) or the nested intent is denied. No restrictive class loader in
   v1 (revisit in step 14).
 - **Order.** The stage always runs, even when the URI stages already block (author decision 1),
   so the violation list is complete. `ENTRY_POINT_UNKNOWN` still reads nothing.
