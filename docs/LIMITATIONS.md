@@ -908,7 +908,7 @@ check was cut by author decision; `ActivityGuardTest`):
   change, not made). Use the DSL, or pass collections that are not changed afterwards
   (`PolicyHardeningTest.observesDirectlyConstructedDataClassesAliasTheCallersCollection`).
 
-## L46. Parser-mismatch cost is quadratic in distinct parameters; `maxUriLength` has no upper bound (open, decision in step 16)
+## L46. Parser-mismatch cost is quadratic in distinct parameters (bounded in step 16: `maxUriLength` at most 8192)
 - **What:** for each distinct query parameter name, the parser-mismatch check calls `Uri.getQueryParameter`, which
   scans the query from its start (and looks up the first canonical value linearly). The cost is O(N²) in the number
   of distinct names. At the default `maxUriLength` (2048) the worst case is about 1 ms on the JVM (305 parameters).
@@ -918,8 +918,13 @@ check was cut by author decision; `ActivityGuardTest`):
   that machine, enough for an ANR on the main thread. Not measured on a device.
 - **Shown by:** `ResourceExhaustionHardeningTest.measuresQuadraticParserMismatchWithARaisedUriLimit`
   (`docs/HARDENING.md` H8).
-- **Status:** open, decision in step 16 (e.g. an upper bound on `maxUriLength`, or a linear check). Behaviour not
-  changed in step 15.
+- **Status: mitigated in step 16 by a bound, not removed.** A linear check would mean re-implementing
+  `getQueryParameter` instead of comparing with it, so `maxUriLength` is now bounded at 8192, checked when the policy is
+  built (`Limits` init; the DSL reports it as a `PolicyDefinitionException`). Worst case at the bound (JVM, indicative):
+  8 191-char URI with 1 160 distinct parameters, 7.1 ms median (13.5 ms max, 21 runs); before, an unbounded limit
+  allowed 16 000 parameters at 1 100 ms. The cost is still quadratic below the bound. An app that needs URIs longer than
+  8192 characters cannot use ShezGuard's URI checks for them (public behaviour change: `Limits(maxUriLength > 8192)`
+  now throws). Tests: `PolicyModelTest.limitsRejectNonPositiveValues`, `PolicyDslTest.rejectsOutOfRangeNumbers`.
 
 ## L47. `;` path parameters are literal, except before a dot segment (step 16)
 - **What:** ShezGuard treats `;` in a path segment as an ordinary character, like `android.net.Uri` and `java.io.File`

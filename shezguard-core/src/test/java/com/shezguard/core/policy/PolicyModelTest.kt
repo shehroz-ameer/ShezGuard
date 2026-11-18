@@ -95,6 +95,10 @@ class PolicyModelTest {
     @Test
     fun limitsRejectNonPositiveValues() {
         rejects { Limits(maxUriLength = 0) }
+        // Step 16, H8 (quadratic parser-mismatch cost): an upper bound, checked when the policy is built.
+        rejects { Limits(maxUriLength = 8193) }
+        rejects { Limits(maxUriLength = 1_000_000) }
+        assertEquals(8192, Limits(maxUriLength = 8192).maxUriLength)
         rejects { Limits(maxParamLength = 0) }
     }
 
