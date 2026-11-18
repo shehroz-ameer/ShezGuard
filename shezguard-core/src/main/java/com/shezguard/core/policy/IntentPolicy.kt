@@ -160,8 +160,10 @@ public data class Threshold(public val block: Int) {
  *
  * @property maxUriLength the maximum raw URI length, in characters. At most 8192 (step 16, `docs/HARDENING.md` H8):
  * the parser-mismatch check calls `Uri.getQueryParameter` once per distinct parameter name, and each call scans the
- * query from its start, so its cost grows with the square of the URI length. 8192 keeps the worst case to a few
- * milliseconds; a larger value is rejected when the policy is built.
+ * query from its start; for value-less parameters each scan also searches to the end of the query for `=`, so the
+ * cost grows faster than quadratically. 8192 is a chosen limit, not a derived one, and it does **not** keep the worst
+ * case small: at 8192, value-less distinct parameters took about 5.2 s per call (emulator, API 34, indicative only).
+ * See `docs/LIMITATIONS.md` L46 (open). A larger value is rejected when the policy is built.
  * @property maxParamLength the maximum decoded length of any parameter value. A [ParamRule]
  * may set a lower limit for its own value. Parameter names have a fixed limit of 64
  * characters, the same as [ParamRule.name], which this setting does not change.

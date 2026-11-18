@@ -64,6 +64,13 @@ internal object Scenarios {
         entryPoint("nested") {
             nestedIntents(Nested.AllowSanitized(setOf("next"), NestedIntentSanitizer(sanitizer())))
         }
+        entryPoint("cap") { // step 16, H8: the maxUriLength bound
+            allowSchemes("https")
+            allowHosts("example.com")
+            anyPath()
+            unknownParams(Unknown.Ignore)
+            limits(maxUriLength = 8192)
+        }
         entryPoint("bundle") {
             extras {
                 maxKeys(64)
@@ -96,6 +103,19 @@ internal object Scenarios {
         return Intent().putExtra("next", inner)
     }
 
+    /** Step 16, H8: the most distinct parameter names that fit in 8 192 chars (1- and 2-char names, no values). */
+    val capUri: String = run {
+        val alphabet = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_.-"
+        val names = alphabet.map { "$it" } + alphabet.flatMap { a -> alphabet.map { b -> "$a$b" } }
+        val sb = StringBuilder("https://example.com/x?")
+        for (n in names) {
+            val piece = (if (sb.last() == '?') "" else "&") + n
+            if (sb.length + piece.length > 8192) break
+            sb.append(piece)
+        }
+        sb.toString()
+    }
+
     private val simpleUri = "https://example.com/product/123?id=123&ref=home"
 
     private val bundleTemplate: () -> Intent = {
@@ -124,6 +144,7 @@ internal object Scenarios {
         Scenario("large_bundle", "64 extras: 60 Strings of 256 chars, 4 String arrays of 64 x 32 chars (Allow)", bundleTemplate, guard("bundle")),
         Scenario("early_block_unregistered", "entry point not in the policy: Block before reading the intent", { view(simpleUri) }, guard("notRegistered")),
         Scenario("early_block_scheme", "http instead of https on the deep-link entry point (Block; all violations still collected)", { view("http://example.com/product/123?id=123&ref=home") }, guard("link")),
+        Scenario("h8_cap_worst", "step 16 H8: 8 192-char URI, most distinct params that fit (Allow)", { view(capUri) }, guard("cap")),
         // Baselines: no ShezGuard.
         Scenario("baseline_app_reads_link", "no guard: the app reads id and ref from the delivered simple link", { view(simpleUri) }) {
             it.data?.getQueryParameter("id"); it.data?.getQueryParameter("ref")

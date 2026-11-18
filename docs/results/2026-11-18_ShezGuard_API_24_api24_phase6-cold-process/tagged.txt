@@ -1,0 +1,9 @@
+[clean] [H1] sdk=24 evaluate depth 60000 (first evaluation in process): BLOCK [EXTRAS_UNPARCEL_FAILED]
+[clean] [H1] sdk=24 evaluate benign after overflow: ALLOW []
+[clean] [H1] sdk=24 evaluate depth 60000 again: BLOCK [EXTRAS_UNPARCEL_FAILED]
+[clean] [H1] sdk=24 nested intent depth 60000 (first evaluation in process): BLOCK [NESTED_INTENT_DENIED]
+[clean] [H1] sdk=24 evaluate benign after nested overflow: ALLOW []
+[clean] [H1] sdk=24 nested intent depth 60000 again: BLOCK [NESTED_INTENT_DENIED]
+[clean] [H1] sdk=24 onNewIntent depth 60000 (first evaluation in process): Block (null)
+[clean] [H1] sdk=24 onNewIntent benign after overflow: ALLOW
+[clean] [H1] sdk=24 onNewIntent depth 60000 again: Block (null)

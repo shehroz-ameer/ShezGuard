@@ -94,8 +94,9 @@ decision is Block.
 
 ### 4.2 Default limits [DECIDED]
 - Maximum URI length: 2048 characters (overridable per entry point). **[DECIDED]** (step 16, `docs/HARDENING.md` H8)
-  An override may not exceed 8192, checked when the policy is built: the parser-mismatch check is quadratic in the
-  number of distinct parameters.
+  An override may not exceed 8192, checked when the policy is built: the parser-mismatch check grows faster than
+  quadratically with the number of distinct (value-less) parameters. 8192 is a chosen limit, not derived, and does not
+  keep the worst case small (about 5.2 s per call at 8192, emulator API 34; L46, open).
 - Maximum parameter value length: 256 characters (overridable per parameter).
 - Maximum parameter name length: 64 characters, fixed (step 4 decision).
 
