@@ -4,6 +4,60 @@ This file lists what ShezGuard does **not** protect against, or protects against
 partially. Each entry says what the limitation is, why it exists, and what ShezGuard does
 about it. New limitations are appended as soon as they are found.
 
+## Index
+
+Status after the step 15 review and step 16 fixes (`docs/HARDENING.md`). **open**: unresolved, a decision is pending; **documented**: a known, accepted limit; **mitigated**: partly addressed, a residual remains; **fixed**: no longer applies. L-numbers are stable: entries are never renumbered or deleted.
+
+| ID | Title | Status | Finding / see also |
+|---|---|---|---|
+| L1 | Catching unparcelling exceptions does not prevent unsafe deserialisation | documented | —; see L27, L28 |
+| L2 | Double-encoding detection has false positives | documented | — |
+| L3 | Caller identity is only as reliable as its source | documented | —; see L30, L43, L44 |
+| L4 | The build-time check proves a policy is declared, not enforced | documented | —; see L41 |
+| L5 | `subdomainsOf` cannot detect public suffixes | documented | — |
+| L6 | Parcelable, Serializable and Bundle extras cannot be allow-listed | documented | — |
+| L7 | Non-ASCII hosts cannot be allowed | documented | — |
+| L8 | Unicode format characters rejected everywhere | documented | — |
+| L9 | IPv6 literal hosts unsupported | documented | — |
+| L10 | Opaque URIs unsupported | documented | — |
+| L11 | Android's query accessors disagree about `+` | documented | —; see L19 |
+| L12 | `getQueryParameter` does not find percent-encoded names | fixed (step 4 name rule) | —; see L16 |
+| L13 | Empty query pieces (trailing `&`) are blocked | documented | — |
+| L14 | Unicode lookalikes of `/` and `.` outside a small set are accepted | documented | —; see L37 |
+| L15 | Non-ASCII whitespace rejected everywhere | documented | — |
+| L16 | Parameter names restricted to `[A-Za-z0-9_.-]{1,64}` | documented | —; see L12 |
+| L17 | URL-typed parameters cannot carry escapes or non-default ports | documented | — |
+| L18 | Declared parameters cannot be empty | documented | — |
+| L19 | Parser-mismatch check compares a fixed list of accessors | mitigated (`getPath` added, step 16) | H2; see L11 |
+| L20 | `Unknown.Ignore` parameters stay in the original intent | documented | — |
+| L21 | Copying the intent touches a private flag on API 33+ | documented | — |
+| L22 | `EVALUATION_FAILED` discards the other violations | documented | — |
+| L23 | A failed unparcel leaves the Bundle truncated (platform) | documented | — |
+| L24 | `IntentSanitizer` rejections are counted, not explained | documented | — |
+| L25 | A nested intent whose component `IntentSanitizer` rejects cannot be sanitized | documented | — |
+| L26 | Not covered: nested intents outside extras, opaque objects, grant flags | documented (framework Parcelables added, step 16) | H5; see L28 |
+| L27 | Inspecting extras adds deserialisation the app might not do | documented | —; see L1, L28, L42 |
+| L28 | What the extras stage protects, and what it does not | mitigated (`StackOverflowError` caught, step 16) | H1; see L1, L27, L40 |
+| L29 | The risk score is small and hand-tuned | documented | — |
+| L30 | Caller signals: what is and is not established | documented | —; see L3, L43, L44 |
+| L31 | `Activity.getReferrer()` unparcels the caller's extras (platform) | documented | — |
+| L32 | `requireVerifiedDomain` needs exact hosts | documented | — |
+| L33 | Audit events: what is and is not protected | documented | — |
+| L34 | The Activity helper: what it does and does not protect | documented | —; see L35, L36 |
+| L35 | Deep link consumers must run after the guard | documented (not verified) | — |
+| L36 | `@GuardedEntryPoint` is read by reflection | documented | — |
+| L37 | No parameter type admits a file name but rejects `..` | documented | —; see L14, L47 |
+| L38 | Numeric extras cannot be range-limited | documented | — |
+| L39 | Schemes and hosts are a cross-product | documented | — |
+| L40 | A native crash during extras inspection cannot be caught | documented | —; see L28 |
+| L41 | Lint rule: version coupling, heuristics, blind spots | documented (`exempt` added, step 16) | H7; see L4 |
+| L42 | `AllowSanitized` blocks nested intents carrying app Parcelables (false positive) | open (decision pending) | —; see L27 |
+| L43 | On API 34+ an app's own launches carry a reliable identity | open (decision pending) | —; see L3, L30 |
+| L44 | From API 33 the system referrer is hidden unless the launcher is visible | documented | —; see L3, L30 |
+| L45 | A built policy could be changed after it was built | mitigated (fixed except directly built data classes) | H6 |
+| L46 | Parser-mismatch cost grows faster than quadratically; bound 8192 does not keep it small | open (decision needed) | H8 |
+| L47 | `;` path parameters literal, except before a dot segment | documented (the `..;` case fixed) | H3; see L37 |
+
 ## L1. Catching unparcelling exceptions does not prevent unsafe deserialisation
 - **What:** to check an extra, the Bundle has to be unparcelled. Before API 33, reading any
   extra (or even `keySet()`) deserialises the whole Bundle. From API 33, values are
@@ -710,6 +764,7 @@ check was cut by author decision; `ActivityGuardTest`):
   sink.
 - **Possible v2 change (not made; library changes are out of scope for step 12):** a file-name class,
   for example `[A-Za-z0-9_-]+(\.[A-Za-z0-9_-]+)*`, which admits `readme.txt` and rejects `..`, `/`, `\`.
+- **See also:** L47 (`;` path parameters; the `..;` form is rejected since step 16, H3).
 - **Source:** step 12 (author decision 1).
 
 ## L38. Numeric extras cannot be range-limited
@@ -919,23 +974,37 @@ check was cut by author decision; `ActivityGuardTest`):
   change, not made). Use the DSL, or pass collections that are not changed afterwards
   (`PolicyHardeningTest.observesDirectlyConstructedDataClassesAliasTheCallersCollection`).
 
-## L46. Parser-mismatch cost is quadratic in distinct parameters (bounded in step 16: `maxUriLength` at most 8192)
+## L46. Parser-mismatch cost grows faster than quadratically with distinct parameters (open; `maxUriLength` bounded at 8192 in step 16)
 - **What:** for each distinct query parameter name, the parser-mismatch check calls `Uri.getQueryParameter`, which
-  scans the query from its start (and looks up the first canonical value linearly). The cost is O(N²) in the number
-  of distinct names. At the default `maxUriLength` (2048) the worst case is about 1 ms on the JVM (305 parameters).
-  `limits(maxUriLength = ...)` accepts any positive value, so an entry point with a raised limit can be slowed down.
-- **Measured (JVM only, single runs):** with `maxUriLength = 1_000_000`: 2 000 distinct parameters 19 ms, 4 000 75 ms,
-  8 000 299 ms, 16 000 1 100 ms (×3.7 per doubling). About 55 000 fit in a 1 MB transaction; extrapolated ~13 s on
-  that machine, enough for an ANR on the main thread. Not measured on a device.
-- **Shown by:** `ResourceExhaustionHardeningTest.measuresQuadraticParserMismatchWithARaisedUriLimit`
-  (`docs/HARDENING.md` H8).
-- **Status: mitigated in step 16 by a bound, not removed.** A linear check would mean re-implementing
-  `getQueryParameter` instead of comparing with it, so `maxUriLength` is now bounded at 8192, checked when the policy is
-  built (`Limits` init; the DSL reports it as a `PolicyDefinitionException`). Worst case at the bound (JVM, indicative):
-  8 191-char URI with 1 160 distinct parameters, 7.1 ms median (13.5 ms max, 21 runs); before, an unbounded limit
-  allowed 16 000 parameters at 1 100 ms. The cost is still quadratic below the bound. An app that needs URIs longer than
-  8192 characters cannot use ShezGuard's URI checks for them (public behaviour change: `Limits(maxUriLength > 8192)`
-  now throws). Tests: `PolicyModelTest.limitsRejectNonPositiveValues`, `PolicyDslTest.rejectsOutOfRangeNumbers`.
+  scans the query from its start. For a piece without `=`, the platform's scan also searches to the end of the query
+  for `=` (`query.indexOf('=', start)`), so with value-less parameters each call is O(pieces × length) and the whole
+  check is roughly cubic. The time is spent in the platform accessor itself (JVM breakdown: canonicaliser 1.4 ms,
+  policy validator 1.5 ms, `getQueryParameter` calls 717 ms at the bound).
+- **Step 16:** `maxUriLength` is bounded at **8192**, checked when the policy is built (`Limits` init; the DSL reports a
+  `PolicyDefinitionException`). **The bound is a chosen limit, not derived from a cost target, and it does not keep
+  the worst case small.** A linear check would mean re-implementing `getQueryParameter` instead of comparing with it,
+  so it was not done.
+- **Measured worst case** (densest URI: 1- and 2-character names from `[A-Za-z0-9_.-]`, no values; 4 000 distinct
+  names do not fit in 8192 characters):
+
+  | Limit | URI | Distinct params | JVM, full `evaluate` (median of 5) | Emulator API 34, per-call loop (median per run, 3 runs × 30 calls) |
+  |---|---|---|---|---|
+  | 8192 (bound), no values | 8 192 chars | 2 745 | 724 ms | **5.20–5.21 s** |
+  | 8192, `=1` values | 8 191 chars | 1 647 | 11.4 ms | not measured |
+  | 2048 (default), no values | 2 048 chars | 697 | 16.2 ms | not measured |
+  | 2048 (default), `=1` values | 2 048 chars | 418 | 1.0 ms | not measured |
+
+  JVM: Robolectric SDK 34, HotSpot 17 (`ResourceExhaustionHardeningTest.measuresH8BreakdownAtTheBound`). Emulator:
+  `docs/results/2026-11-18_Pixel_8_api34_phase6-h8-cap/` (scenario `h8_cap_worst`, control `simple_link` 11.8–42.9 µs in
+  the same runs), emulator, indicative only. About 5 s on the main thread is enough for an ANR, and any app or link
+  that can reach an entry point with a raised limit can send it. At the default 2048 the JVM worst case is 16 ms; the
+  device figure there was not measured (the JVM-to-device ratio at 8192 was about 7).
+- **Correction:** step 16's first measurement at the bound (7.1 ms, 1 160 parameters of the form `pN=1`) used valued
+  parameters and understated the worst case by about 100× (`docs/CLAIMS_AUDIT.md`).
+- **Before step 16** (no bound): 16 000 valued parameters took 1 100 ms on the JVM; value-less ones were not measured.
+- **Status: open, decision needed** (`docs/HARDENING.md` H8): a lower bound, a cap on distinct parameter names, or a
+  different check. Tests for the bound: `PolicyModelTest.limitsRejectNonPositiveValues`,
+  `PolicyDslTest.rejectsOutOfRangeNumbers`.
 
 ## L47. `;` path parameters are literal, except before a dot segment (step 16)
 - **What:** ShezGuard treats `;` in a path segment as an ordinary character, like `android.net.Uri` and `java.io.File`
@@ -952,4 +1021,5 @@ check was cut by author decision; `ActivityGuardTest`):
 - **Workaround:** use exact path patterns, or strip/reject `;` in the app before forwarding a path to such a back end.
 - **Shown by:** `UriCanonicalizerTest.keepsSemicolonOutsideDotSegmentsLiteral`; `SinkOracleFuzzHardeningTest`
   (class "H3-boundary", JVM).
+- **See also:** L37 (parameter values that reach a path sink).
 - **Source:** step 16, author decision.

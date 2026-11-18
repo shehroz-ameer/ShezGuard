@@ -361,3 +361,15 @@ Not a demo-app script: found by the step 15 review. A deep link `https://example
 | `//evil.example/landing` read through `getPath()` and resolved against the origin | **Allow**, only `URI_NON_CANONICAL` (soft, weight 5) | **Block**, `URI_PARSER_MISMATCH@uri.path` | `PathAccessorAgreementTest.blocksNetworkPathReferenceThatOnlyGetPathSees` (`src/sharedTest`) | `[H2]` lines, `docs/results/2026-11-18_*_phase5-hardening/` (before) and `*_phase6-fixes/` (after) |
 
 The `?next=` open-redirect row above (t3) is unaffected: it is blocked by `PARAM_URL_NOT_ALLOWED`.
+
+## Step 16: path traversal through `..;` path segments (`docs/HARDENING.md` H3)
+
+Not a demo-app script: found by the step 15 review. Servlet-style back ends strip `;params` from a path segment and
+then resolve dot segments, so `/product/..;/admin` passed `prefix("/product/")` but reaches `/admin` there.
+
+| Attack | Before (step 15) | After (step 16) | Library test | Evidence |
+|---|---|---|---|---|
+| `/product/..;/admin`, `..;jsessionid=1`, `%2e%2e;`, `..%3B`, `.;/..;` under `prefix("/product/")` | **Allow** | **Block**, `URI_PATH_TRAVERSAL` / `URI_PATH_DOT_SEGMENT` | `ShezGuardEvaluateTest.blocksMatrixParamDotDotSegmentEscapingPathPrefix`, `UriCanonicalizerTest.blocksMatrixParam*` (Robolectric-only / JVM) | sink-model fuzz, seeds `0x514B0001`/`0x514B0002`: H3-like cases 10 058 / 9 782 before, 0 after (servlet-style model only; no real server was run) |
+
+The traversal rows above (t2c, t6) are unchanged: they put `../` in a **query parameter** value, which H3 does not
+touch (L37). Other `;` uses stay literal (L47).

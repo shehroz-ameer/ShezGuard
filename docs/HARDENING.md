@@ -44,7 +44,7 @@ scripts/device/run_shared_tests.sh <AVD> <label>   # emulator; includes Hardenin
 | H1 | **fixed** | `bfdb6dd` | `StackOverflowError` (only) caught at ShezGuard's extras read sites → `EXTRAS_UNPARCEL_FAILED` / denied nested intent | `DeepNesting{Evaluate,NestedIntent,OnNewIntent}DeviceTest` (`src/androidTest`, device-only by the standing rule) | h1a, h1b, h1c: each caught on at least one emulator level (by hand) |
 | H3 | **fixed** | `b07627c` | Part of a segment before `;` checked as a dot segment (`..;`, `.;`, encoded) | `ShezGuardEvaluateTest.blocksMatrixParamDotDotSegmentEscapingPathPrefix`, `UriCanonicalizerTest.blocksMatrixParam*` | h3 caught (JVM) |
 | H6 | **fixed, residual** | `a01bf5c` | Unmodifiable copies in `IntentPolicy`, `EntryPointPolicy`, `Nested.AllowSanitized`, `ScoreWeights` and all DSL-built collections. Residual: data classes constructed directly (L45) | `PolicyImmutabilityTest` | h6a, h6b, h6c caught (JVM) |
-| H8 | **mitigated** | `9f5f952` | `maxUriLength` bounded at 8192 when the policy is built (a linear check would re-implement `getQueryParameter`) | `PolicyModelTest.limitsRejectNonPositiveValues`, `PolicyDslTest.rejectsOutOfRangeNumbers` | h8 caught (JVM) |
+| H8 | **open** (bound added, insufficient) | `9f5f952` | `maxUriLength` bounded at 8192 when the policy is built. **Not sufficient:** value-less parameters at the bound take about 5.2 s per call (emulator API 34); the first figure (7.1 ms) was wrong, see L46 | `PolicyModelTest.limitsRejectNonPositiveValues`, `PolicyDslTest.rejectsOutOfRangeNumbers` | h8 caught (JVM) |
 | H5 | documented (L26) | `bce230b` | none | — (`observesIntentInsideFrameworkParcelableIsRemovedNotReportedAsNested` in hardeningTest) | — |
 | H7 | documented, by design (L41); warning is future work | `bce230b` | none | — (`observesExemptBrowsableActivityThatReadsIntentDataIsAccepted` in lint hardeningTest) | — |
 | H4 | documented: JVM-only, not reproduced on device | `bce230b` | none | — | — |
@@ -60,7 +60,9 @@ full instrumented suite, 94 tests, 0 failures on both levels after):
 
 The cold-process check (each `DeepNesting*DeviceTest` class alone in its own `am instrument` process: the overflow is
 the first evaluation, then a benign intent is allowed, then the overflow blocks again) passed on API 34 and API 24, with
-no `LinkageError`.
+no `LinkageError`: `docs/results/2026-11-18_Pixel_8_api34_phase6-cold-process/` and
+`docs/results/2026-11-18_ShezGuard_API_24_api24_phase6-cold-process/` (tagged lines and per-class results, scrubbed;
+no raw logcat).
 
 **Overhead (emulator, indicative only).** Per-call loop (method A), `simple_link`, API 34, 5 runs × 10 000 calls:
 median per run 11.9–18.1 µs after the fixes (`docs/results/2026-11-18_Pixel_8_api34_phase6-bench/`), against
@@ -252,7 +254,8 @@ entry point and empty allow-lists fail closed; the DSL rejects 11 empty or unsaf
 never reach another policy.
 
 ### Area 5: resource exhaustion (JVM numbers, indicative)
-Findings H1 and H8; H4 is JVM-only. **Held at default limits:** 2 046-char URI with 305 distinct parameters 1.0 ms /
+Findings H1 and H8; H4 is JVM-only. **Held at default limits** (step 15 figure, **valued** `pN=1` parameters; the
+value-less worst case at 2048 is 16 ms on the JVM, step 16, L46): 2 046-char URI with 305 distinct parameters 1.0 ms /
 0.5 MB; 438 911-char URI (over the limit, still parsed in full) 8.7 ms / 24.4 MB, linear; one unknown `IntArray(240000)`
 9.7 ms / 34.6 MB; 50 000 int extras 54 ms / 37.7 MB (L28: read before removal). No ReDoS by time: the regexes on attacker
 input are `UUID` (anchored, fixed length) and `PACKAGE_NAME` (13 ms on 1 MB).

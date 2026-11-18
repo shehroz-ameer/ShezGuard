@@ -43,7 +43,8 @@ public object ShezGuard {
      *
      * - An unregistered entry point name is blocked (`ENTRY_POINT_UNKNOWN`, deny by default).
      * - All violations are collected, not just the first.
-     * - [intent] is never modified. A Sanitize decision carries a modified **copy**.
+     * - No public state of [intent] is modified. A Sanitize decision carries a modified **copy**. (On API 33+ the
+     *   platform's copy constructor clears a private flag of the caller's extras: `docs/LIMITATIONS.md` L21.)
      * - The same input always gives the same decision.
      * - This function does not throw for any intent: a `RuntimeException` during evaluation
      *   becomes a Block with `EVALUATION_FAILED`, and a `StackOverflowError` while ShezGuard reads the
