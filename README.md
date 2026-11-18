@@ -43,8 +43,8 @@ dependencies { implementation("io.github.shehroz-ameer:shezguard-core:0.1.0") }
 ```
 
 - The AAR contains the Lint rule (`lint.jar`) and the consumer R8 rules; you do not add `shezguard-lint` yourself.
-- Runtime dependencies in the POM: `androidx.core:core:1.9.0` (for `IntentSanitizer`) and the Kotlin standard library
-  (`kotlin-stdlib:2.0.21`, as for any Kotlin library). Nothing else.
+- Runtime dependencies in the POM: androidx.core (`androidx.core:core:1.9.0`, for `IntentSanitizer`), plus kotlin-stdlib
+  (`kotlin-stdlib:2.0.21`, required by any Kotlin library). Nothing else.
 - Requirements: minSdk 24; compileSdk ≥ 33 in the consuming app (`androidx.core` 1.9.0).
 - **Checked in step 17** with a separate consumer project (`docs/REPRODUCE.md`): AGP 8.10.1, Kotlin 2.0.21,
   compileSdk 34. It resolved the artifact from `mavenLocal`, its Robolectric unit tests passed, the Lint rule reported an

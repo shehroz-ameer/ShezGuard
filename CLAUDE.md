@@ -38,8 +38,8 @@ Activity helper and the demo cover Activities only (Services and Receivers are o
 
 ## Hard rules
 - Kotlin only. `explicitApi()` is on: every declaration is deliberately `public` or `internal`.
-- `:shezguard-core` has NO third-party runtime dependencies. androidx.core is the only
-  allowed one (for `IntentSanitizer`). Test deps (JUnit, Robolectric) are fine.
+- `:shezguard-core` runtime dependencies: androidx.core (for `IntentSanitizer`), plus kotlin-stdlib
+  (required by any Kotlin library). No others. Test deps (JUnit, Robolectric) are fine.
 - minSdk 24. Do not use APIs above that without a guard.
 - Deny by default: an entry point with no policy is blocked.
 - Collect ALL violation reasons for an intent, not just the first.
