@@ -211,6 +211,9 @@ Run with `scripts/mutation/run_mutants.py` (JVM/Robolectric only), 2026-11-18.
 | h1b | same | `sanitizeNested` (`IntentSanitizer.sanitize` on a nested intent) no longer catches `StackOverflowError` | **caught (emulator, API 34 and API 24)**: `DeepNestingNestedIntentDeviceTest` | device tests |
 | h1c | same | `read()` (the `keySet()` read site) no longer catches `StackOverflowError` | **caught (emulator, API 24)**: `DeepNestingEvaluateDeviceTest`, `DeepNestingOnNewIntentDeviceTest`. Survived (emulator, API 34): `keySet()` leaves List values lazy on API 33+ | device tests |
 | h3 | `step16_h3_matrix_dot.py` | The part before `;` no longer counted as a dot segment in `UriCanonicalizer.checkSegment` | caught (JVM) | `UriCanonicalizerTest.blocksMatrixParamDotDotSegment`, `blocksMatrixParamSingleDotSegment`, `ShezGuardEvaluateTest.blocksMatrixParamDotDotSegmentEscapingPathPrefix` |
+| h6a | `step16_h6_policy_copies.py` | `IntentPolicy.entryPoints` is the mutable map from `associateBy` again | caught (JVM) | `PolicyImmutabilityTest.builtPolicyCollectionsRejectMutationThroughACast` |
+| h6b | same | `EntryPointPolicy.hosts` keeps the caller's set (no copy) | caught (JVM) | `PolicyImmutabilityTest.laterChangesToTheCallersCollectionsDoNotReachThePolicy` |
+| h6c | `step16_h6_dsl_copies.py` | The DSL builds `ParamType.OneOf` from a mutable set again | caught (JVM) | `PolicyImmutabilityTest.builtPolicyCollectionsRejectMutationThroughACast` |
 
 H1 mutants are device-only: the proving tests live in `src/androidTest`, because overflow tests never run under
 Robolectric (standing rule, `docs/HARDENING.md`), and `run_mutants.py` runs JVM tests only. Procedure (2026-11-18,

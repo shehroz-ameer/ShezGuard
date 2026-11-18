@@ -891,7 +891,7 @@ check was cut by author decision; `ActivityGuardTest`):
   enforced depends on it. It does mean a default (advisory) allow-list scores fewer launches on API 33+.
 - **Source:** step 14 phase 2 (emulator runs of 2026-11-17). API 31-32 not run (no image).
 
-## L45. A built policy can be changed after it is built (open, decision in step 16)
+## L45. A built policy could be changed after it was built (fixed in step 16, residual for data classes)
 - **What:** `IntentPolicy.entryPoints` is a `LinkedHashMap` exposed as `Map`; code holding the policy can cast it and
   register an entry point under a name that is not its own. The public `EntryPointPolicy` and `ExtrasRule`
   constructors keep the caller's own collections, so a caller that later changes the `Set`/`Map` it passed in changes
@@ -899,7 +899,14 @@ check was cut by author decision; `ActivityGuardTest`):
 - **Scope:** needs code inside the app (outside the threat model) or a developer who passes a collection and then
   mutates it. No immutability is claimed; SPEC 4 says the same input gives the same decision.
 - **Shown by:** `PolicyHardeningTest.builtPolicyCannotBeChangedAfterBuild` (JVM/Robolectric; `docs/HARDENING.md` H6).
-- **Status:** open, decision in step 16 (e.g. defensive, unmodifiable copies). Behaviour not changed in step 15.
+- **Status: fixed in step 16, with a residual.** `IntentPolicy`, `EntryPointPolicy`, `Nested.AllowSanitized` and
+  `ScoreWeights` store unmodifiable copies taken before their checks, and every collection the DSL builds is an
+  unmodifiable copy, including those it passes into data classes (`PolicyImmutabilityTest`). **Residual:** the data
+  classes `ExtrasRule`, `ParamType.OneOf`, `ParamType.Url` and `Caller.AllowedPackages`, when an app constructs them
+  directly with its own mutable collection, still keep that collection: a data class stores its constructor parameter,
+  and copying it would mean turning them into regular classes, which removes `copy()`/`componentN()` (a public API
+  change, not made). Use the DSL, or pass collections that are not changed afterwards
+  (`PolicyHardeningTest.observesDirectlyConstructedDataClassesAliasTheCallersCollection`).
 
 ## L46. Parser-mismatch cost is quadratic in distinct parameters; `maxUriLength` has no upper bound (open, decision in step 16)
 - **What:** for each distinct query parameter name, the parser-mismatch check calls `Uri.getQueryParameter`, which

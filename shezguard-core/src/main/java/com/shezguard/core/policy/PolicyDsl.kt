@@ -490,7 +490,7 @@ public class ParamBuilder internal constructor(internal val name: String) {
                     tooLong.forEach {
                         problem("oneOf(...): value \"$it\" is longer than maxLength $max and can never match. Raise maxLength or remove it.")
                     }
-                    if (tooLong.isEmpty()) ParamType.OneOf(list.toSet()) else null
+                    if (tooLong.isEmpty()) ParamType.OneOf(list.toSet().frozen()) else null
                 }
             }
         }
@@ -592,7 +592,7 @@ public class UrlBuilder internal constructor() {
                 null
             }
         }
-        return if (ok) ParamType.Url(schemes.toSet(), built.toSet()) else null
+        return if (ok) ParamType.Url(schemes.toSet().frozen(), built.toSet().frozen()) else null
     }
 }
 
@@ -637,7 +637,7 @@ public class ExtrasBuilder internal constructor() {
         }
         val rule = try {
             ExtrasRule(
-                allowed = allowed.toMap(),
+                allowed = allowed.toMap().frozen(),
                 maxKeys = maxKeys ?: ExtrasRule.DEFAULT_MAX_KEYS,
                 maxStringLength = maxStringLength ?: ExtrasRule.DEFAULT_MAX_STRING_LENGTH,
                 maxArrayLength = maxArrayLength ?: ExtrasRule.DEFAULT_MAX_ARRAY_LENGTH,
@@ -698,9 +698,9 @@ public class AllowedPackagesBuilder internal constructor(private val requireReli
                     }
                 }
             }
-            map[pkg] = normalised.map { CertificateDigest(it) }.toSet()
+            map[pkg] = normalised.map { CertificateDigest(it) }.toSet().frozen()
         }
-        return if (problems.size > before) null else Caller.AllowedPackages(map, requireReliableIdentity)
+        return if (problems.size > before) null else Caller.AllowedPackages(map.frozen(), requireReliableIdentity)
     }
 
     private fun normaliseDigest(d: String): String? = when {

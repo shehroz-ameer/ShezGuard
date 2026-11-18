@@ -41,38 +41,19 @@ class PolicyHardeningTest {
 
     private fun outcome(p: IntentPolicy, uri: String, ep: String = "product") = ShezGuard.evaluate(view(uri), p, ep).outcome
 
+    // H6 (builtPolicyCannotBeChangedAfterBuild) moved in step 16 to src/test/.../policy/PolicyImmutabilityTest.kt.
+
     /**
-     * Finding (hardening). A built policy is presented as read-only (`Set`, `List`, `Map`), but the DSL stores
-     * `LinkedHashSet`/`LinkedHashMap` instances that any code holding the policy can cast and change after
-     * `intentPolicy {}` returned, bypassing every build-time check. The public `EntryPointPolicy` and
-     * `ExtrasRule` constructors keep the caller's own collections, so later changes to them change the policy.
+     * Residual of H6, documented in docs/LIMITATIONS.md L45: the data classes `ExtrasRule`, `ParamType.OneOf`,
+     * `ParamType.Url` and `Caller.AllowedPackages` keep the caller's collection when constructed directly (a data class
+     * stores its constructor parameter; a copy would change the public API). DSL-built instances are unmodifiable.
      */
     @Test
-    fun builtPolicyCannotBeChangedAfterBuild() {
-        val changed = mutableListOf<String>()
-
-        val p1 = productPolicy()
-        if (runCatching { @Suppress("UNCHECKED_CAST") (p1["product"]!!.hosts as MutableSet<HostPattern>).add(HostPattern.Exact("evil.example")) }.getOrDefault(false) &&
-            outcome(p1, "https://evil.example/product/1") == Outcome.ALLOW
-        ) changed += "DSL hosts set: evil.example allowed after build"
-
-        val p2 = productPolicy()
-        if (runCatching { @Suppress("UNCHECKED_CAST") (p2.entryPoints as MutableMap<String, EntryPointPolicy>)["admin"] = p2["product"]!! }.isSuccess &&
-            p2["admin"] != null
-        ) changed += "entryPoints map: an entry point added under a name that is not its own"
-
-        val hosts = mutableSetOf<HostPattern>(HostPattern.Exact("example.com"))
-        val ep = EntryPointPolicy("ctor", data = Data.Required, schemes = setOf("https"), hosts = hosts, paths = listOf(PathPattern.AnyPath))
-        val p3 = IntentPolicy(listOf(ep))
-        hosts += HostPattern.Exact("evil.example")
-        if (outcome(p3, "https://evil.example/x", "ctor") == Outcome.ALLOW) changed += "constructor aliasing: caller's hosts set changed the policy"
-
+    fun observesDirectlyConstructedDataClassesAliasTheCallersCollection() {
         val allowed = mutableMapOf("k" to ExtraType.STRING)
         val rule = ExtrasRule(allowed)
-        allowed[""] = ExtraType.STRING // bypasses ExtrasRule's own init check
-        if (rule.allowed.containsKey("")) changed += "ExtrasRule aliasing: an empty key added after its init check"
-
-        assertEquals(emptyList<String>(), changed)
+        allowed[""] = ExtraType.STRING // after ExtrasRule's own init check
+        assertEquals(true, rule.allowed.containsKey(""))
     }
 
     /** Shared policy, 8 threads: every decision equals the single-threaded one. */

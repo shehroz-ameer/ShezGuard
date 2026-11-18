@@ -32,7 +32,7 @@ import com.shezguard.core.ViolationCode
 public class ScoreWeights(overrides: Map<ViolationCode, Int> = emptyMap()) {
 
     /** The overridden weights, by code. Codes not listed use their default. */
-    public val overrides: Map<ViolationCode, Int> = overrides.toMap()
+    public val overrides: Map<ViolationCode, Int> = overrides.frozen() // unmodifiable copy (step 16, H6)
 
     init {
         this.overrides.forEach { (code, w) ->
