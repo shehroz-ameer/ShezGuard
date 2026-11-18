@@ -162,20 +162,29 @@ public data class Threshold(public val block: Int) {
  * the parser-mismatch check calls `Uri.getQueryParameter` once per distinct parameter name, and each call scans the
  * query from its start; for value-less parameters each scan also searches to the end of the query for `=`, so the
  * cost grows faster than quadratically. 8192 is a chosen limit, not a derived one, and it does **not** keep the worst
- * case small: at 8192, value-less distinct parameters took about 5.2 s per call (emulator, API 34, indicative only).
- * See `docs/LIMITATIONS.md` L46 (open). A larger value is rejected when the policy is built.
+ * case small on its own: at 8192, 2 745 value-less distinct parameters took about 5.2 s per call (emulator, API 34,
+ * indicative only). [maxParameters] is what bounds that cost (`docs/LIMITATIONS.md` L46). A larger value is rejected
+ * when the policy is built.
  * @property maxParamLength the maximum decoded length of any parameter value. A [ParamRule]
  * may set a lower limit for its own value. Parameter names have a fixed limit of 64
  * characters, the same as [ParamRule.name], which this setting does not change.
+ * @property maxParameters the maximum number of query parameters (pieces between `&`), counted linearly on the raw
+ * query **before** any `android.net.Uri` accessor runs; more gives `PARAM_TOO_MANY` (HARD). Default 64, at most 256,
+ * checked when the policy is built. Both numbers are **chosen, not derived** (step 16, `docs/HARDENING.md` H8): the
+ * platform's `Uri.getQueryParameter`, which the parser-mismatch check calls once per name, costs about the cube of the
+ * number of value-less parameters, so the count, not the URI length, must be bounded.
  */
 public data class Limits(
     public val maxUriLength: Int = DEFAULT_MAX_URI_LENGTH,
     public val maxParamLength: Int = DEFAULT_MAX_PARAM_LENGTH,
+    public val maxParameters: Int = DEFAULT_MAX_PARAMETERS,
 ) {
     init {
         require(maxUriLength > 0) { "maxUriLength must be positive" }
         require(maxUriLength <= MAX_URI_LENGTH_BOUND) { "maxUriLength must be at most $MAX_URI_LENGTH_BOUND" }
         require(maxParamLength > 0) { "maxParamLength must be positive" }
+        require(maxParameters > 0) { "maxParameters must be positive" }
+        require(maxParameters <= MAX_PARAMETERS_BOUND) { "maxParameters must be at most $MAX_PARAMETERS_BOUND" }
     }
 
     /** Defaults. */
@@ -186,10 +195,16 @@ public data class Limits(
         /** Default maximum decoded parameter length: 256 characters. */
         public const val DEFAULT_MAX_PARAM_LENGTH: Int = 256
 
+        /** Default maximum number of query parameters: 64 (step 16, H8; chosen, not derived). */
+        public const val DEFAULT_MAX_PARAMETERS: Int = 64
+
         /** The default limits. */
         public val DEFAULT: Limits = Limits()
 
         /** Upper bound for [maxUriLength] (step 16, H8). Internal: documented in KDoc, not new public API. */
         internal const val MAX_URI_LENGTH_BOUND: Int = 8192
+
+        /** Upper bound for [maxParameters] (step 16, H8; chosen, not derived). */
+        internal const val MAX_PARAMETERS_BOUND: Int = 256
     }
 }

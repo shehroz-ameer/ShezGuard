@@ -867,3 +867,21 @@ owns, and it fails closed (`EXTRAS_UNPARCEL_FAILED`). After the overflow, the sa
 intents correctly (cold-process device test). **Method note:** the overflow could not be tested reliably under
 Robolectric. Robolectric doubles every `Parcel` frame and once poisoned class initialisation, and four JVM test runs
 hung after overflows. So the evidence is device-only.
+
+## N18. `Uri.getQueryParameter` costs about the cube of the number of value-less parameters (step 16, H8)
+
+**Observation.** `getQueryParameter(name)` scans the encoded query from its start and, for each piece, searches for the
+next `=` with `query.indexOf('=', start)`. For a piece without `=` that search runs to the end of the query, so one call
+costs O(pieces × length), and calling it once per distinct name (as a parser-differential check must) costs about the
+cube of the number of value-less parameters. Densest flood (1- and 2-character value-less names): 2 745 parameters in
+8 192 characters took **724 ms on the JVM** (Robolectric SDK 34, 717 ms of it in `getQueryParameter`) and **5.2 s per call
+on an API 34 emulator**; 697 parameters in 2 048 characters (the default limit) took 16 ms on the JVM and **91 ms** on the
+emulator. With `=1` values the same check at 8192 took 11 ms on the JVM. Emulator figures are indicative only
+(`docs/results/2026-11-18_Pixel_8_api34_phase6-h8-*`).
+
+**Design consequence.** A differential check against the platform parser inherits the platform parser's cost. Bounding
+the URI length is not enough, because the cost depends on how many pieces the length is cut into. ShezGuard therefore
+caps the **number of parameters** (default 64), counted linearly on the raw query before any `android.net.Uri` accessor
+runs. After the cap the worst flood costs 483–494 µs per call on the emulator (blocked as `PARAM_TOO_MANY`). A first
+step-16 measurement with valued parameters (7.1 ms) hid this: worst cases must be generated adversarially, not from a
+convenient shape.

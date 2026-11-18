@@ -55,7 +55,7 @@ Status after the step 15 review and step 16 fixes (`docs/HARDENING.md`). **open*
 | L43 | On API 34+ an app's own launches carry a reliable identity | open (decision pending) | —; see L3, L30 |
 | L44 | From API 33 the system referrer is hidden unless the launcher is visible | documented | —; see L3, L30 |
 | L45 | A built policy could be changed after it was built | mitigated (fixed except directly built data classes) | H6 |
-| L46 | Parser-mismatch cost grows faster than quadratically; bound 8192 does not keep it small | open (decision needed) | H8 |
+| L46 | Parser-mismatch cost grows with the cube of value-less parameters | mitigated (parameter cap 64, max 256, step 16) | H8 |
 | L47 | `;` path parameters literal, except before a dot segment | documented (the `..;` case fixed) | H3; see L37 |
 
 ## L1. Catching unparcelling exceptions does not prevent unsafe deserialisation
@@ -974,37 +974,38 @@ check was cut by author decision; `ActivityGuardTest`):
   change, not made). Use the DSL, or pass collections that are not changed afterwards
   (`PolicyHardeningTest.observesDirectlyConstructedDataClassesAliasTheCallersCollection`).
 
-## L46. Parser-mismatch cost grows faster than quadratically with distinct parameters (open; `maxUriLength` bounded at 8192 in step 16)
+## L46. Parser-mismatch cost grows with the cube of value-less parameters (mitigated in step 16: parameter-count cap)
 - **What:** for each distinct query parameter name, the parser-mismatch check calls `Uri.getQueryParameter`, which
-  scans the query from its start. For a piece without `=`, the platform's scan also searches to the end of the query
-  for `=` (`query.indexOf('=', start)`), so with value-less parameters each call is O(pieces × length) and the whole
-  check is roughly cubic. The time is spent in the platform accessor itself (JVM breakdown: canonicaliser 1.4 ms,
-  policy validator 1.5 ms, `getQueryParameter` calls 717 ms at the bound).
-- **Step 16:** `maxUriLength` is bounded at **8192**, checked when the policy is built (`Limits` init; the DSL reports a
-  `PolicyDefinitionException`). **The bound is a chosen limit, not derived from a cost target, and it does not keep
-  the worst case small.** A linear check would mean re-implementing `getQueryParameter` instead of comparing with it,
-  so it was not done.
-- **Measured worst case** (densest URI: 1- and 2-character names from `[A-Za-z0-9_.-]`, no values; 4 000 distinct
-  names do not fit in 8192 characters):
+  scans the query from its start; for a piece without `=` the platform also searches to the end of the query for `=`
+  (`query.indexOf('=', start)`). With value-less parameters each call is O(pieces × length) and the whole check is
+  roughly cubic in the parameter count. The time was spent in the platform accessor itself (JVM, at 8192: canonicaliser
+  1.4 ms, policy validator 1.5 ms, `getQueryParameter` calls 717 ms).
+- **Step 16 fix:** `Limits.maxParameters` (default **64**, at most **256**, checked when the policy is built) caps the
+  number of query parameters. It is counted linearly on the raw query (pieces between `&`) **before** any
+  `android.net.Uri` accessor runs; more gives `PARAM_TOO_MANY` (HARD), the canonical result is rejected and the
+  parser-mismatch check never runs (`ParameterFloodTest`, with a platform view that fails if touched). `maxUriLength`
+  is also bounded at 8192. **All three numbers (64, 256, 8192) are chosen, not derived** from a cost target.
+- **Measured** (densest flood: 1- and 2-character value-less names; 4 000 distinct names do not fit in 8192 chars):
 
-  | Limit | URI | Distinct params | JVM, full `evaluate` (median of 5) | Emulator API 34, per-call loop (median per run, 3 runs × 30 calls) |
+  | Case | JVM `evaluate`, before | JVM, after | Emulator API 34 per call, before | Emulator API 34, after |
   |---|---|---|---|---|
-  | 8192 (bound), no values | 8 192 chars | 2 745 | 724 ms | **5.20–5.21 s** |
-  | 8192, `=1` values | 8 191 chars | 1 647 | 11.4 ms | not measured |
-  | 2048 (default), no values | 2 048 chars | 697 | 16.2 ms | not measured |
-  | 2048 (default), `=1` values | 2 048 chars | 418 | 1.0 ms | not measured |
+  | limit 8192, 2 745 value-less params | 724 ms (Allow) | 0.27 ms (Block `PARAM_TOO_MANY`) | 5.20–5.21 s | 483–494 µs (Block) |
+  | limit 2048 (default), 697 value-less | 16.2 ms (Allow) | 0.10 ms (Block) | 90.6–92.2 ms | 121–126 µs (Block) |
+  | 64 value-less params (at the cap) | — | 0.37 ms (Allow) | 137–235 µs (n=30 per run) | 140–143 µs (Allow) |
+  | `many_params` (50 params, Sanitize) | — | — | phase 3: 147.5–166.0 µs | 133.7–146.2 µs |
 
-  JVM: Robolectric SDK 34, HotSpot 17 (`ResourceExhaustionHardeningTest.measuresH8BreakdownAtTheBound`). Emulator:
-  `docs/results/2026-11-18_Pixel_8_api34_phase6-h8-cap/` (scenario `h8_cap_worst`, control `simple_link` 11.8–42.9 µs in
-  the same runs), emulator, indicative only. About 5 s on the main thread is enough for an ANR, and any app or link
-  that can reach an entry point with a raised limit can send it. At the default 2048 the JVM worst case is 16 ms; the
-  device figure there was not measured (the JVM-to-device ratio at 8192 was about 7).
-- **Correction:** step 16's first measurement at the bound (7.1 ms, 1 160 parameters of the form `pN=1`) used valued
-  parameters and understated the worst case by about 100× (`docs/CLAIMS_AUDIT.md`).
-- **Before step 16** (no bound): 16 000 valued parameters took 1 100 ms on the JVM; value-less ones were not measured.
-- **Status: open, decision needed** (`docs/HARDENING.md` H8): a lower bound, a cap on distinct parameter names, or a
-  different check. Tests for the bound: `PolicyModelTest.limitsRejectNonPositiveValues`,
-  `PolicyDslTest.rejectsOutOfRangeNumbers`.
+  JVM: Robolectric SDK 34, HotSpot 17, median of 21 runs (`ResourceExhaustionHardeningTest.measuresH8FloodsAfterTheParameterCap`;
+  before: `measuresH8BreakdownAtTheBound`, step 16 part 2). Emulator: per-call loop, median per run; before
+  `docs/results/2026-11-18_Pixel_8_api34_phase6-h8-cap/` (8192 case, 3 × 30 calls) and `*_phase6-h8-before/` (2048 and
+  64 cases, 3 × 30 calls); after `*_phase6-h8-after/` (5 × 10 000 calls). Emulator, indicative only.
+- **Residual:** below the cap the check is still superlinear: 64 value-less parameters cost about 0.14 ms on the
+  emulator; 256 (the maximum an app can configure) was not measured on a device. Links with more than 64 query
+  parameters (some tracking-heavy URLs) are blocked unless the entry point raises `maxParameters`.
+- **History:** step 16 first bounded only `maxUriLength` and reported 7.1 ms at the bound (measured with valued
+  parameters); that understated the worst case by about 700× on the device (`docs/CLAIMS_AUDIT.md`).
+- **Status: mitigated** (`docs/HARDENING.md` H8, Medium). Tests: `ParameterFloodTest`,
+  `UriCanonicalizerTest.blocksQueryParameterFlood`, `PolicyModelTest.limitsRejectNonPositiveValues`,
+  `PolicyDslTest.rejectsOutOfRangeNumbers`; mutant h8b.
 
 ## L47. `;` path parameters are literal, except before a dot segment (step 16)
 - **What:** ShezGuard treats `;` in a path segment as an ordinary character, like `android.net.Uri` and `java.io.File`

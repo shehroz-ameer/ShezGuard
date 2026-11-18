@@ -44,7 +44,7 @@ scripts/device/run_shared_tests.sh <AVD> <label>   # emulator; includes Hardenin
 | H1 | **fixed** | `bfdb6dd` | `StackOverflowError` (only) caught at ShezGuard's extras read sites → `EXTRAS_UNPARCEL_FAILED` / denied nested intent | `DeepNesting{Evaluate,NestedIntent,OnNewIntent}DeviceTest` (`src/androidTest`, device-only by the standing rule) | h1a, h1b, h1c: each caught on at least one emulator level (by hand) |
 | H3 | **fixed** | `b07627c` | Part of a segment before `;` checked as a dot segment (`..;`, `.;`, encoded) | `ShezGuardEvaluateTest.blocksMatrixParamDotDotSegmentEscapingPathPrefix`, `UriCanonicalizerTest.blocksMatrixParam*` | h3 caught (JVM) |
 | H6 | **fixed, residual** | `a01bf5c` | Unmodifiable copies in `IntentPolicy`, `EntryPointPolicy`, `Nested.AllowSanitized`, `ScoreWeights` and all DSL-built collections. Residual: data classes constructed directly (L45) | `PolicyImmutabilityTest` | h6a, h6b, h6c caught (JVM) |
-| H8 | **open** (bound added, insufficient) | `9f5f952` | `maxUriLength` bounded at 8192 when the policy is built. **Not sufficient:** value-less parameters at the bound take about 5.2 s per call (emulator API 34); the first figure (7.1 ms) was wrong, see L46 | `PolicyModelTest.limitsRejectNonPositiveValues`, `PolicyDslTest.rejectsOutOfRangeNumbers` | h8 caught (JVM) |
+| H8 | **mitigated** (re-ranked **Medium**) | `9f5f952`, then the parameter-cap commit | `maxUriLength` bounded at 8192 (insufficient alone: 5.2 s per call at the bound on emulator API 34); then `Limits.maxParameters` (default 64, max 256) counted before any `Uri` accessor, new code `PARAM_TOO_MANY` (HARD). After: 483–494 µs per call for the worst flood (emulator API 34) | `PolicyModelTest.limitsRejectNonPositiveValues`, `PolicyDslTest.rejectsOutOfRangeNumbers` | h8 caught (JVM) |
 | H5 | documented (L26) | `bce230b` | none | — (`observesIntentInsideFrameworkParcelableIsRemovedNotReportedAsNested` in hardeningTest) | — |
 | H7 | documented, by design (L41); warning is future work | `bce230b` | none | — (`observesExemptBrowsableActivityThatReadsIntentDataIsAccepted` in lint hardeningTest) | — |
 | H4 | documented: JVM-only, not reproduced on device | `bce230b` | none | — | — |
@@ -96,7 +96,7 @@ depths and frames, H4's regex overflow) are kept below as **historical**; the te
 | 2 | H1 | Medium, bypass | A deeply nested `List` extra makes `evaluate` throw `StackOverflowError`. The guarded app crashes even if it never reads that extra. | confirmed (emulator, API 34, 24); JVM |
 | 3 | H3 | Medium, bypass, sink-dependent | `..;` path segments pass `prefix("/product/")`; servlet-style normalisation resolves them as `..` | JVM; sink model only |
 | 4 | H6 | Low, outside stated claims (L45) | A built policy can be changed after build | JVM |
-| 5 | H8 | Low, outside stated claims (L46) | Parser-mismatch check is O(N²) when `maxUriLength` is raised | JVM, measurement |
+| 5 | H8 | **Medium** (re-ranked in step 16): denial of service. A link or app could stall the main thread for about 5 s (emulator API 34) at the 8192 bound, about 91 ms at the default 2048 (L46) | `Uri.getQueryParameter` costs about the cube of the number of value-less parameters | JVM and emulator API 34, measurement |
 | 6 | H5 | Low, **consistency issue** | Intent inside a framework Parcelable gives Sanitize instead of Block; the object is removed either way | JVM (SDK 29, 34) |
 | 7 | H7 | **By design, possible extra warning** | Lint accepts `exempt = true` on a data-reading BROWSABLE activity | lint-tests |
 | — | H4 | **Not reproduced on device** (emulator API 34, 24); JVM-only | Long referrer, `java.util.regex` recursion in `PACKAGE_NAME` | JVM characterisation |
@@ -191,7 +191,14 @@ understated its effect.
   developer who mutates a collection after passing it in.
 - **Test.** `PolicyHardeningTest.builtPolicyCannotBeChangedAfterBuild` (red).
 
-### H8 (rank 5, Low, outside stated claims: L46). Quadratic parser-mismatch cost with a raised `maxUriLength`
+### H8 (rank 5, re-ranked Medium in step 16: L46). Parser-mismatch cost with many value-less parameters
+
+**Step 16 update:** the original measurement below used valued parameters. With value-less ones the platform's
+`Uri.getQueryParameter` is roughly cubic: 5.2 s per call at 8192 and 91 ms at the default 2048 (emulator API 34). Fixed
+by `Limits.maxParameters` (default 64), which leads to the new code **`PARAM_TOO_MANY`** (for the CHANGELOG, together
+with `Limits.maxParameters`, `Limits.DEFAULT_MAX_PARAMETERS` and the `maxParameters` argument of the DSL's `limits(...)`).
+Full numbers in L46.
+
 - JVM only, single runs, `maxUriLength = 1_000_000`: 2 000 distinct parameters 19 ms, 4 000 75 ms, 8 000 299 ms,
   16 000 1 100 ms (×3.7 per doubling). About 55 000 fit in a 1 MB transaction, extrapolated to ~13 s. At the default
   limit the worst case is ~1 ms.

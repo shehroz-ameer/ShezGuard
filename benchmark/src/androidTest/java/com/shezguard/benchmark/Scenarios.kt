@@ -71,6 +71,12 @@ internal object Scenarios {
             unknownParams(Unknown.Ignore)
             limits(maxUriLength = 8192)
         }
+        entryPoint("dflt") { // step 16, H8: default limits
+            allowSchemes("https")
+            allowHosts("example.com")
+            anyPath()
+            unknownParams(Unknown.Ignore)
+        }
         entryPoint("bundle") {
             extras {
                 maxKeys(64)
@@ -103,18 +109,23 @@ internal object Scenarios {
         return Intent().putExtra("next", inner)
     }
 
-    /** Step 16, H8: the most distinct parameter names that fit in 8 192 chars (1- and 2-char names, no values). */
-    val capUri: String = run {
+    /** Step 16, H8: the most distinct value-less parameter names (1- and 2-char) that fit in [maxLength] chars, or [count]. */
+    private fun denseUri(maxLength: Int, count: Int = Int.MAX_VALUE): String {
         val alphabet = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_.-"
         val names = alphabet.map { "$it" } + alphabet.flatMap { a -> alphabet.map { b -> "$a$b" } }
         val sb = StringBuilder("https://example.com/x?")
-        for (n in names) {
-            val piece = (if (sb.last() == '?') "" else "&") + n
-            if (sb.length + piece.length > 8192) break
-            sb.append(piece)
+        var n = 0
+        for (name in names) {
+            val piece = (if (n == 0) "" else "&") + name
+            if (sb.length + piece.length > maxLength || n >= count) break
+            sb.append(piece); n++
         }
-        sb.toString()
+        return sb.toString()
     }
+
+    val capUri: String = denseUri(8192)
+    private val defaultWorstUri: String = denseUri(2048)
+    private val cap64Uri: String = denseUri(8192, count = 64)
 
     private val simpleUri = "https://example.com/product/123?id=123&ref=home"
 
@@ -144,7 +155,9 @@ internal object Scenarios {
         Scenario("large_bundle", "64 extras: 60 Strings of 256 chars, 4 String arrays of 64 x 32 chars (Allow)", bundleTemplate, guard("bundle")),
         Scenario("early_block_unregistered", "entry point not in the policy: Block before reading the intent", { view(simpleUri) }, guard("notRegistered")),
         Scenario("early_block_scheme", "http instead of https on the deep-link entry point (Block; all violations still collected)", { view("http://example.com/product/123?id=123&ref=home") }, guard("link")),
-        Scenario("h8_cap_worst", "step 16 H8: 8 192-char URI, most distinct params that fit (Allow)", { view(capUri) }, guard("cap")),
+        Scenario("h8_cap_worst", "step 16 H8: 8 192-char URI, most distinct value-less params that fit (2 745)", { view(capUri) }, guard("cap")),
+        Scenario("h8_default_worst", "step 16 H8: 2 048-char URI, most distinct value-less params that fit (697), default limits", { view(defaultWorstUri) }, guard("dflt")),
+        Scenario("h8_cap64", "step 16 H8: 64 distinct value-less params (the default parameter cap)", { view(cap64Uri) }, guard("cap")),
         // Baselines: no ShezGuard.
         Scenario("baseline_app_reads_link", "no guard: the app reads id and ref from the delivered simple link", { view(simpleUri) }) {
             it.data?.getQueryParameter("id"); it.data?.getQueryParameter("ref")

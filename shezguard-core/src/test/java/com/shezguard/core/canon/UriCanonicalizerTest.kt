@@ -296,6 +296,16 @@ class UriCanonicalizerTest {
         assertRejected("$base/%2e/a", URI_PATH_DOT_SEGMENT)
     }
 
+    /** Step 16, H8: attack category "parameter flood". More than `maxParameters` pieces is HARD, counted on the raw query. */
+    @Test
+    fun blocksQueryParameterFlood() {
+        val names = (0 until 65).map { "p$it" }
+        ok("$base/x?" + names.take(64).joinToString("&"))
+        assertRejected("$base/x?" + names.joinToString("&"), ViolationCode.PARAM_TOO_MANY)
+        assertRejected("$base/x?a&b&c", ViolationCode.PARAM_TOO_MANY, limits = Limits(maxParameters = 2))
+        ok("$base/x?a&b", Limits(maxParameters = 2))
+    }
+
     /** Step 16, H3 (`docs/HARDENING.md`): servlet-style sinks strip `;params`, then resolve `..`. */
     @Test
     fun blocksMatrixParamDotDotSegment() {

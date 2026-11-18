@@ -83,8 +83,8 @@ class ResourceExhaustionHardeningTest {
         var n = 1
         while (distinctParams(n + 1).length <= 2048) n++
         val uri = distinctParams(n)
-        assertEquals(Outcome.ALLOW, ShezGuard.evaluate(view(uri), p, "any").outcome)
-        measure("default limit: ${uri.length}-char URI, $n distinct params (Allow)", reps = 51) { ShezGuard.evaluate(view(uri), p, "any") }
+        val outcome = ShezGuard.evaluate(view(uri), p, "any").outcome // BLOCK since step 16 (PARAM_TOO_MANY, cap 64)
+        measure("default limit: ${uri.length}-char URI, $n distinct params ($outcome)", reps = 51) { ShezGuard.evaluate(view(uri), p, "any") }
         val pct = "https://example.com/x?q=" + "%E2%82%AC".repeat((2048 - 24) / 9)
         measure("default limit: ${pct.length}-char URI, one value of %XX runs", reps = 51) { ShezGuard.evaluate(view(pct), p, "any") }
         val huge = distinctParams(50_000)
@@ -116,8 +116,7 @@ class ResourceExhaustionHardeningTest {
         }
         val uri = sb.toString()
         val d0 = ShezGuard.evaluate(view(uri), p, "any")
-        assertEquals(d0.violations.map { it.code }.toSet().toString(), Outcome.ALLOW, d0.outcome)
-        measure("H8 after: bound 8192, ${uri.length}-char URI, $n distinct params (Allow)", reps = 21) { ShezGuard.evaluate(view(uri), p, "any") }
+        measure("H8 after cap: bound 8192, ${uri.length}-char URI, $n distinct params (${d0.outcome} ${d0.violations.map { it.code }.toSet()})", reps = 21) { ShezGuard.evaluate(view(uri), p, "any") }
     }
 
     @Test
@@ -190,32 +189,31 @@ class ResourceExhaustionHardeningTest {
         lines += found
     }
 
-    /** H8 detail: where the time goes at the bound (canonicaliser, parser-mismatch check, policy validator), JVM. */
+    /**
+     * H8 after the parameter cap (step 16): full `evaluate` for the floods measured before the cap (component breakdown
+     * before the cap: docs/LIMITATIONS.md L46), and the value-less case exactly at the default cap of 64. JVM only.
+     */
     @Test
-    fun measuresH8BreakdownAtTheBound() {
+    fun measuresH8FloodsAfterTheParameterCap() {
         val alphabet = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_.-"
         val names = (alphabet.map { "$it" } + alphabet.flatMap { a -> alphabet.map { b -> "$a$b" } }).filter { it != "q" }
-        for ((bound, valued) in listOf(8192 to false, 8192 to true, 2048 to false, 2048 to true)) {
-            val label = "limit $bound, " + if (valued) "with =1 values" else "no values"
+        fun dense(maxLength: Int, count: Int = Int.MAX_VALUE, valued: Boolean = false): Pair<String, Int> {
             val sb = StringBuilder("https://example.com/x?")
             var n = 0
             for (name in names) {
                 val piece = (if (n == 0) "" else "&") + name + (if (valued) "=1" else "")
-                if (sb.length + piece.length > bound) break
+                if (sb.length + piece.length > maxLength || n >= count) break
                 sb.append(piece); n++
             }
-            val uri = sb.toString()
-            val ep = policy(maxUri = bound)["any"]!!
-            val c = (com.shezguard.core.canon.UriCanonicalizer.canonicalize(uri, ep.limits) as com.shezguard.core.canon.CanonResult.Ok).uri
-            val view = com.shezguard.core.android.AndroidUriView(android.net.Uri.parse(uri))
-            measure("H8 breakdown ($label, $n params): canonicalize", reps = 5) { com.shezguard.core.canon.UriCanonicalizer.canonicalize(uri, ep.limits) }
-            measure("H8 breakdown ($label, $n params): ParserMismatch.check", reps = 5) { com.shezguard.core.eval.ParserMismatch.check(c, view, ep) }
-            measure("H8 breakdown ($label, $n params): getQueryParameter per name only", reps = 5) {
-                val u = android.net.Uri.parse(uri); c.query.forEach { u.getQueryParameter(it.first) }
-            }
-            measure("H8 breakdown ($label, $n params): UriPolicyValidator.validate", reps = 5) { com.shezguard.core.validate.UriPolicyValidator.validate(c, ep) }
+            return sb.toString() to n
+        }
+        for ((bound, count, valued) in listOf(Triple(8192, Int.MAX_VALUE, false), Triple(2048, Int.MAX_VALUE, false), Triple(8192, 64, false), Triple(8192, 64, true))) {
+            val (uri, n) = dense(bound, count, valued)
             val pol = policy(maxUri = bound)
-            measure("H8 breakdown ($label, $n params): full ShezGuard.evaluate", reps = 5) { ShezGuard.evaluate(view(uri), pol, "any") }
+            val d = ShezGuard.evaluate(view(uri), pol, "any")
+            measure("H8 after cap: limit $bound, $n ${if (valued) "valued" else "value-less"} params, ${uri.length} chars: ${d.outcome} ${d.violations.map { it.code }.toSet()}", reps = 21) {
+                ShezGuard.evaluate(view(uri), pol, "any")
+            }
         }
     }
 }

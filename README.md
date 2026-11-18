@@ -84,8 +84,8 @@ An `intentPolicy` is a set of named entry points; an intent for a name that is n
 - **nested intents:** `Deny` (default) or `AllowSanitized(keys, IntentSanitizer)`;
 - **caller:** `Any` (default), `allowedPackages { ... }` (advisory unless the identity source is reliable) or
   `requireVerifiedDomain()`;
-- **limits and score:** URI length (default 2048, at most 8192), parameter length (default 256), and a soft-signal
-  score with a block threshold (default 70).
+- **limits and score:** URI length (default 2048, at most 8192), parameter value length (default 256), number of
+  query parameters (default 64, at most 256), and a soft-signal score with a block threshold (default 70).
 
 Outcome rule: any HARD violation blocks; otherwise a soft score at or above the threshold blocks; otherwise any
 REMOVABLE violation gives Sanitize (it only removes, never rewrites); otherwise Allow. All violations are collected,
@@ -312,9 +312,9 @@ Each item links to its limitation; none of these is solved by ShezGuard.
   opaque URIs such as `mailto:` (L10), internationalised hosts (L7) or IPv6 hosts (L9).
 - **It does not prevent link hijacking** (threat 4); the Lint rule only advises (matrix t4; L41).
 - **The Lint rule does not prove the guard is called** on every path (L4, L41).
-- **It does not bound its own worst-case time well.** Many value-less query parameters make the parser-mismatch check
-  slow: about 5.2 s per call at the 8192-character maximum on an API 34 emulator (indicative); 16 ms on the JVM at
-  the default 2048. Keep the default limit (L46, open).
+- **Its cost still grows quickly with the number of query parameters.** The count is capped (default 64, at most
+  256) because Android's `Uri.getQueryParameter` costs about the cube of the number of value-less parameters; links
+  with more parameters are blocked (`PARAM_TOO_MANY`). Raising the cap raises the worst case (L46).
 
 ## Tested API levels
 

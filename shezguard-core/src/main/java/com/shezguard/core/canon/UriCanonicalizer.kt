@@ -13,6 +13,7 @@ import com.shezguard.core.UriComponent.WHOLE
 import com.shezguard.core.ViolationCode
 import com.shezguard.core.ViolationCode.PARAM_NAME_INVALID
 import com.shezguard.core.ViolationCode.PARAM_TOO_LONG
+import com.shezguard.core.ViolationCode.PARAM_TOO_MANY
 import com.shezguard.core.ViolationCode.URI_BACKSLASH
 import com.shezguard.core.ViolationCode.URI_CONTROL_CHAR
 import com.shezguard.core.ViolationCode.URI_DOUBLE_ENCODING
@@ -127,6 +128,11 @@ internal object UriCanonicalizer {
         val rawQuery = if (question < 0) null else beforeHash.substring(question + 1)
 
         val (segments, trailingSlash) = parsePath(rawPath, f)
+        // Step 16 (H8): count the pieces linearly first. Too many is HARD, so the result is Rejected and the
+        // parser-mismatch check (Uri.getQueryParameter per name, roughly cubic) never runs.
+        if (rawQuery != null && rawQuery.isNotEmpty() && rawQuery.count { it == '&' } + 1 > limits.maxParameters) {
+            f.add(PARAM_TOO_MANY, QUERY)
+        }
         val query = if (rawQuery == null) emptyList() else parseQuery(rawQuery, limits, f)
         val fragment = rawFragment?.let { decodeAndCheck(it, FRAGMENT, f) }
 

@@ -99,6 +99,11 @@ class PolicyModelTest {
         rejects { Limits(maxUriLength = 8193) }
         rejects { Limits(maxUriLength = 1_000_000) }
         assertEquals(8192, Limits(maxUriLength = 8192).maxUriLength)
+        // Step 16, H8: parameter-count cap, default 64, at most 256, checked when the policy is built.
+        assertEquals(64, Limits().maxParameters)
+        rejects { Limits(maxParameters = 0) }
+        rejects { Limits(maxParameters = 257) }
+        assertEquals(256, Limits(maxParameters = 256).maxParameters)
         rejects { Limits(maxParamLength = 0) }
     }
 
