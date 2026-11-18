@@ -214,6 +214,7 @@ Run with `scripts/mutation/run_mutants.py` (JVM/Robolectric only), 2026-11-18.
 | h6a | `step16_h6_policy_copies.py` | `IntentPolicy.entryPoints` is the mutable map from `associateBy` again | caught (JVM) | `PolicyImmutabilityTest.builtPolicyCollectionsRejectMutationThroughACast` |
 | h6b | same | `EntryPointPolicy.hosts` keeps the caller's set (no copy) | caught (JVM) | `PolicyImmutabilityTest.laterChangesToTheCallersCollectionsDoNotReachThePolicy` |
 | h6c | `step16_h6_dsl_copies.py` | The DSL builds `ParamType.OneOf` from a mutable set again | caught (JVM) | `PolicyImmutabilityTest.builtPolicyCollectionsRejectMutationThroughACast` |
+| h8 | `step16_h8_uri_bound.py` | Upper bound on `Limits.maxUriLength` removed | caught (JVM) | `PolicyModelTest.limitsRejectNonPositiveValues`, `PolicyDslTest.rejectsOutOfRangeNumbers` |
 
 H1 mutants are device-only: the proving tests live in `src/androidTest`, because overflow tests never run under
 Robolectric (standing rule, `docs/HARDENING.md`), and `run_mutants.py` runs JVM tests only. Procedure (2026-11-18,

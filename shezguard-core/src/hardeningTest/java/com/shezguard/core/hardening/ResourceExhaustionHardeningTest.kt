@@ -94,26 +94,20 @@ class ResourceExhaustionHardeningTest {
     }
 
     /**
-     * Raising `limits(maxUriLength)` has no upper bound. With N distinct parameters the parser-mismatch check
-     * calls `Uri.getQueryParameter` once per name, each a scan from the start of the query: O(N^2).
+     * H8. Step 15 (before, historical): with `maxUriLength = 1_000_000`, 2 000 / 4 000 / 8 000 / 16 000 distinct
+     * parameters took 19 / 75 / 299 / 1 100 ms (quadratic). Step 16 (after): `maxUriLength` is bounded at 8192 when the
+     * policy is built; this records the worst case at the bound, and that the old setting is rejected.
      */
     @Test
-    fun measuresQuadraticParserMismatchWithARaisedUriLimit() {
-        val p = policy(maxUri = 1_000_000)
-        val times = mutableListOf<Pair<Int, Double>>()
-        for (n in listOf(2_000, 4_000, 8_000, 16_000)) {
-            val uri = distinctParams(n)
-            val t0 = System.nanoTime()
-            val d = ShezGuard.evaluate(view(uri), p, "any")
-            val ms = (System.nanoTime() - t0) / 1e6
-            times += n to ms
-            val line = "raised limit: %6d distinct params, %7d-char URI: %9.1f ms (%s, single run)".format(n, uri.length, ms, d.outcome)
-            println("[resource] $line")
-            lines += line
-        }
-        // Doubling N should roughly quadruple the time if the cost is quadratic.
-        val ratio = times.last().second / times[times.size - 2].second
-        lines += "raised limit: time ratio 16k/8k = %.1f (2 = linear, 4 = quadratic)".format(ratio)
+    fun measuresParserMismatchWorstCaseAtTheUriLengthBound() {
+        val rejected = try { policy(maxUri = 1_000_000); false } catch (e: com.shezguard.core.policy.PolicyDefinitionException) { true }
+        lines += "H8 after: limits(maxUriLength = 1_000_000) rejected at build: $rejected"
+        val p = policy(maxUri = 8192)
+        var n = 1
+        while (distinctParams(n + 1).length <= 8192) n++
+        val uri = distinctParams(n)
+        assertEquals(Outcome.ALLOW, ShezGuard.evaluate(view(uri), p, "any").outcome)
+        measure("H8 after: bound 8192, ${uri.length}-char URI, $n distinct params (Allow)", reps = 21) { ShezGuard.evaluate(view(uri), p, "any") }
     }
 
     @Test

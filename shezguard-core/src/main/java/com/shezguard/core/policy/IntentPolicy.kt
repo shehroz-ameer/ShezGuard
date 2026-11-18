@@ -158,7 +158,10 @@ public data class Threshold(public val block: Int) {
 /**
  * Length limits applied during canonicalisation (SPEC section 4.2).
  *
- * @property maxUriLength the maximum raw URI length, in characters.
+ * @property maxUriLength the maximum raw URI length, in characters. At most 8192 (step 16, `docs/HARDENING.md` H8):
+ * the parser-mismatch check calls `Uri.getQueryParameter` once per distinct parameter name, and each call scans the
+ * query from its start, so its cost grows with the square of the URI length. 8192 keeps the worst case to a few
+ * milliseconds; a larger value is rejected when the policy is built.
  * @property maxParamLength the maximum decoded length of any parameter value. A [ParamRule]
  * may set a lower limit for its own value. Parameter names have a fixed limit of 64
  * characters, the same as [ParamRule.name], which this setting does not change.
@@ -169,6 +172,7 @@ public data class Limits(
 ) {
     init {
         require(maxUriLength > 0) { "maxUriLength must be positive" }
+        require(maxUriLength <= MAX_URI_LENGTH_BOUND) { "maxUriLength must be at most $MAX_URI_LENGTH_BOUND" }
         require(maxParamLength > 0) { "maxParamLength must be positive" }
     }
 
@@ -182,5 +186,8 @@ public data class Limits(
 
         /** The default limits. */
         public val DEFAULT: Limits = Limits()
+
+        /** Upper bound for [maxUriLength] (step 16, H8). Internal: documented in KDoc, not new public API. */
+        internal const val MAX_URI_LENGTH_BOUND: Int = 8192
     }
 }

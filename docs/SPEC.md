@@ -93,7 +93,9 @@ component, action, type or flags. If removing something cannot fix a violation, 
 decision is Block.
 
 ### 4.2 Default limits [DECIDED]
-- Maximum URI length: 2048 characters (overridable per entry point).
+- Maximum URI length: 2048 characters (overridable per entry point). **[DECIDED]** (step 16, `docs/HARDENING.md` H8)
+  An override may not exceed 8192, checked when the policy is built: the parser-mismatch check is quadratic in the
+  number of distinct parameters.
 - Maximum parameter value length: 256 characters (overridable per parameter).
 - Maximum parameter name length: 64 characters, fixed (step 4 decision).
 
@@ -345,7 +347,8 @@ Package: `com.shezguard.core`.
       may not exceed it;
   11. `url { }` needs a scheme and a host;
   12. a nested-intent key may not also be an allowed extra;
-  13. numbers in range (threshold `1..100`, positive limits and sizes, ports `1..65535`);
+  13. numbers in range (threshold `1..100`, positive limits and sizes, `maxUriLength` at most 8192 (step 16),
+      ports `1..65535`);
   14. (step 7) `scoreWeight(code, weight)` only for SOFT codes, with a weight in `0..100`, and
       at most once per code.
   15. (step 8) `requireVerifiedDomain()` only on an entry point that accepts an `http`/`https`
